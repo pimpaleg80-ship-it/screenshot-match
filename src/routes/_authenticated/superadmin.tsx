@@ -164,6 +164,69 @@ function SuperadminPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
+  // Superadmin Credential Challenge Gate
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("superadmin_unlocked") === "true";
+    }
+    return false;
+  });
+  const [gateEmail, setGateEmail] = useState(() => session.user?.email || "");
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateLoading, setGateLoading] = useState(false);
+  const [gateError, setGateError] = useState("");
+
+  async function handleUnlockGate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!gateEmail.trim() || !gatePassword) {
+      setGateError("Please enter both email and password.");
+      return;
+    }
+
+    try {
+      setGateLoading(true);
+      setGateError("");
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: gateEmail.trim().toLowerCase(),
+        password: gatePassword,
+      });
+
+      if (error) {
+        setGateError("Invalid credentials. Access denied.");
+        setGateLoading(false);
+        return;
+      }
+
+      const userId = data.user?.id;
+      if (!userId) {
+        setGateError("Authentication failed: No user identity found.");
+        setGateLoading(false);
+        return;
+      }
+
+      const { data: emp, error: empErr } = await supabase
+        .from("employees")
+        .select("is_superadmin" as any)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (empErr || !(emp as any)?.is_superadmin) {
+        setGateError("Access Denied: The provided credentials do not have Superadmin privileges.");
+        setGateLoading(false);
+        return;
+      }
+
+      sessionStorage.setItem("superadmin_unlocked", "true");
+      setIsUnlocked(true);
+      toast.success("Superadmin verified. Root console unlocked.");
+    } catch (err: any) {
+      setGateError(err.message || "An unexpected error occurred during verification.");
+    } finally {
+      setGateLoading(false);
+    }
+  }
+
   // Provisioning Modal State
   const [provisionModalOpen, setProvisionModalOpen] = useState(false);
   const [formName, setFormName] = useState("");
@@ -480,6 +543,94 @@ function SuperadminPage() {
     navigate({ to: "/auth" });
   }
 
+  if (!isUnlocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-neutral-950 text-neutral-100">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/95 p-8 backdrop-blur-2xl shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow mb-2">
+              <Lock className="h-8 w-8 text-amber-300" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-white">
+              Superadmin Verification
+            </h1>
+            <p className="text-xs text-neutral-400">
+              High-privilege console. Enter superadmin credentials to authenticate and open.
+            </p>
+          </div>
+
+          <form onSubmit={handleUnlockGate} className="space-y-4">
+            <div className="space-y-1.5 text-left">
+              <Label className="text-xs text-neutral-300">Superadmin Work Email</Label>
+              <Input
+                type="email"
+                placeholder="superadmin@example.com"
+                value={gateEmail}
+                onChange={(e) => {
+                  setGateEmail(e.target.value);
+                  setGateError("");
+                }}
+                className="bg-neutral-800/80 border-white/15 text-white placeholder:text-neutral-500"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5 text-left">
+              <Label className="text-xs text-neutral-300">Superadmin Password</Label>
+              <Input
+                type="password"
+                placeholder="••••••••••••"
+                value={gatePassword}
+                onChange={(e) => {
+                  setGatePassword(e.target.value);
+                  setGateError("");
+                }}
+                className="bg-neutral-800/80 border-white/15 text-white placeholder:text-neutral-500"
+                required
+              />
+            </div>
+
+            {gateError && (
+              <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5 text-xs text-rose-400 font-medium">
+                {gateError}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={gateLoading}
+              className="w-full gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold shadow-lg"
+            >
+              {gateLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying Credentials...
+                </>
+              ) : (
+                <>
+                  <Key className="h-4 w-4" />
+                  Authenticate & Open Console
+                </>
+              )}
+            </Button>
+          </form>
+
+          <div className="pt-2 border-t border-white/10 flex justify-between items-center text-xs text-neutral-400">
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/dashboard" })}
+              className="hover:text-white transition-colors flex items-center gap-1"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Return to Dashboard
+            </button>
+            <span className="text-[11px] text-neutral-500">Encrypted Root Gateway</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-4 md:p-8 space-y-8 select-none">
       {/* Top Root Command Header */}
@@ -514,6 +665,21 @@ function SuperadminPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              sessionStorage.removeItem("superadmin_unlocked");
+              setIsUnlocked(false);
+              setGatePassword("");
+              toast.info("Superadmin console locked");
+            }}
+            className="border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 gap-1.5 text-xs"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Lock Console
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
