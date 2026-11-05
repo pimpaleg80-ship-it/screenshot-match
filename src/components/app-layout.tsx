@@ -18,14 +18,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+const NAV: { to: string; label: string; icon: typeof ScanFace; roles: string[] }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "kiosk"] },
   { to: "/people", label: "People", icon: Users, roles: ["admin", "manager"] },
   { to: "/kiosk", label: "Kiosk", icon: ScanLine, roles: ["admin", "kiosk"] },
   { to: "/attendance", label: "Records", icon: ClipboardList, roles: ["admin", "manager"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "manager"] },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["admin"] },
-] as const;
+];
 
 export function AppLayout() {
   const session = useSession();
@@ -47,7 +47,7 @@ export function AppLayout() {
     router.invalidate();
   }
 
-  const items = NAV.filter((n) => (session.roles as string[]).some((r) => n.roles.includes(r)));
+  const items = NAV.filter((n) => session.roles.some((r) => n.roles.includes(r)));
   const initials = (session.fullName || session.user?.email || "?")
     .split(" ")
     .map((p) => p[0])

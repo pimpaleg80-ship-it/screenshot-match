@@ -19,8 +19,8 @@ export const STATUS_COLORS: Record<string, string> = {
 /** Local YYYY-MM-DD for a Date. */
 export function toDateKey(d: Date = new Date()): string {
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).toLocaleString("en-US", { minimumIntegerDigits: 2 });
-  const day = String(d.getDate()).toLocaleString("en-US", { minimumIntegerDigits: 2 });
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
