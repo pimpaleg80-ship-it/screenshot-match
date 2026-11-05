@@ -35,7 +35,9 @@ export function detectOptions(faceapi: FaceApiModule, inputSize = 320) {
 export function descriptorDistance(a: number[], b: number[]): number {
   let sum = 0;
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    const d = a[i] - b[i];
+    const valA = a[i] ?? 0;
+    const valB = b[i] ?? 0;
+    const d = valA - valB;
     sum += d * d;
   }
   return Math.sqrt(sum);
@@ -44,9 +46,17 @@ export function descriptorDistance(a: number[], b: number[]): number {
 /** Element-wise mean of descriptors, then L2-normalized. */
 export function averageDescriptors(list: number[][]): number[] {
   if (list.length === 0) throw new Error("No descriptors to average");
-  const len = list[0].length;
+  const first = list[0];
+  if (!first) throw new Error("No descriptors to average");
+  const len = first.length;
   const mean = new Array<number>(len).fill(0);
-  for (const d of list) for (let i = 0; i < len; i++) mean[i] += d[i] / list.length;
+  for (const d of list) {
+    for (let i = 0; i < len; i++) {
+      const cur = mean[i] ?? 0;
+      const val = d[i] ?? 0;
+      mean[i] = cur + val / list.length;
+    }
+  }
   const norm = Math.sqrt(mean.reduce((s, v) => s + v * v, 0)) || 1;
   return mean.map((v) => v / norm);
 }
@@ -64,10 +74,17 @@ export const RIGHT_EYE_IDX = [42, 43, 44, 45, 46, 47];
 
 /** Eye aspect ratio: low when the eye is closed (blink). */
 export function eyeAspectRatio(points: Point[], idx: number[]): number {
-  const p = idx.map((i) => points[i]);
-  const v1 = dist(p[1], p[5]);
-  const v2 = dist(p[2], p[4]);
-  const h = dist(p[0], p[3]);
+  const p = idx.map((i) => points[i]).filter((pt): pt is Point => pt !== undefined);
+  if (p.length < 6) return 1;
+  const p0 = p[0]!;
+  const p1 = p[1]!;
+  const p2 = p[2]!;
+  const p3 = p[3]!;
+  const p4 = p[4]!;
+  const p5 = p[5]!;
+  const v1 = dist(p1, p5);
+  const v2 = dist(p2, p4);
+  const h = dist(p0, p3);
   if (h === 0) return 1;
   return (v1 + v2) / (2 * h);
 }
@@ -85,6 +102,7 @@ export function headYawRatio(points: Point[]): number {
   const left = points[36];
   const right = points[45];
   const nose = points[30];
+  if (!left || !right || !nose) return 0;
   const eyeMid = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
   const interEye = dist(left, right) || 1;
   return (nose.x - eyeMid.x) / interEye;
