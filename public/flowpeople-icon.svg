@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="accentGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#E0F2FE" stop-opacity="0.75" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded App Icon Background -->
+  <rect width="100" height="100" rx="22" fill="url(#flowGradient)" />
+
+  <!-- Flowing Letter F -->
+  <!-- Main Vertical Stem with rounded ends -->
+  <path
+    d="M 28 26 C 28 22.5 30.5 20 34 20 C 37.5 20 40 22.5 40 26 L 40 74 C 40 77.5 37.5 80 34 80 C 30.5 80 28 77.5 28 74 Z"
+    fill="#FFFFFF"
+  />
+
+  <!-- Top Flowing Wave Arm -->
+  <path
+    d="M 34 20 C 46 20 54 22 64 26 C 68 27.6 72 30 74 34 C 75.5 37 72.5 40 69 39 C 64 37.5 58 35 48 35 L 34 35 Z"
+    fill="#FFFFFF"
+  />
+
+  <!-- Middle Dynamic Arm -->
+  <path
+    d="M 34 47 C 42 47 50 47 56 47 C 59.5 47 62 49.5 62 53 C 62 56.5 59.5 59 56 59 C 50 59 42 59 34 59 Z"
+    fill="#FFFFFF"
+  />
+
+  <!-- The "Person" Dot (Fluid Flow Companion) -->
+  <circle cx="75" cy="53" r="6.5" fill="url(#accentGlow)" />
+</svg>
+

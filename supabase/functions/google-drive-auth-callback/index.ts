@@ -138,3 +138,4 @@ serve(async (req) => {
     return Response.redirect(redirectUrl.toString(), 302);
   }
 });
+

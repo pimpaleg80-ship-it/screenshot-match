@@ -46,3 +46,4 @@ create policy "drive_backups: admin only"
 on public.drive_backups for all to authenticated
 using (public.has_role(auth.uid(), 'admin'))
 with check (public.has_role(auth.uid(), 'admin'));
+

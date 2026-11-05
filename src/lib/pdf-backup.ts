@@ -46,7 +46,7 @@ export async function generateAndBackupPdf(options: GeneratePdfOptions): Promise
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    const sub = subtitle || `Generated on ${new Date().toLocaleString()} • FaceTime Attendance`;
+    const sub = subtitle || `Generated on ${new Date().toLocaleString()} • Flowpeople by Fluxora`;
     doc.text(sub, 40, 62);
 
     // Render table

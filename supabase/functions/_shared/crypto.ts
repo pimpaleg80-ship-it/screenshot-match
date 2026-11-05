@@ -58,3 +58,4 @@ export async function decryptToken(encryptedString: string): Promise<string> {
 
   return new TextDecoder().decode(decrypted);
 }
+

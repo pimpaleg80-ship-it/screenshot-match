@@ -4,12 +4,16 @@ import { AppLayout } from "@/components/app-layout";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw redirect({ to: "/auth" });
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user) {
+      throw redirect({
+        to: "/auth",
+        search: { redirect: location.pathname },
+      });
+    }
   },
   component: () => <AppLayout />,
 });
-

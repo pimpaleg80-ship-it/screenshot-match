@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
@@ -19,6 +19,7 @@ import {
   Loader2,
   Upload,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,8 +77,8 @@ import {
 export const Route = createFileRoute("/_authenticated/people")({
   head: () => ({
     meta: [
-      { title: "Personnel & Face Enrollment — FaceTime Attendance" },
-      { name: "description", content: "Manage employees, students, and face descriptors." },
+      { title: "Employees & Face Enrollment — Flowpeople by Fluxora" },
+      { name: "description", content: "Manage employee roster and biometric face profiles." },
     ],
   }),
   component: PeoplePage,
@@ -104,6 +105,7 @@ interface FaceDescriptorRow {
 
 function PeoplePage() {
   const session = useSession();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -118,6 +120,7 @@ function PeoplePage() {
     person_code: "",
     department: "General",
     email: "",
+    password: "",
     phone: "",
     consent: true,
     active: true,
@@ -186,7 +189,6 @@ function PeoplePage() {
   const savePersonMutation = useMutation({
     mutationFn: async () => {
       if (!formData.name.trim()) throw new Error("Name is required");
-      if (!formData.person_code.trim()) throw new Error("Personnel code is required");
 
       if (editingPerson) {
         const { error } = await supabase
@@ -203,20 +205,25 @@ function PeoplePage() {
           .eq("id", editingPerson.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("people").insert({
-          name: formData.name.trim(),
-          person_code: formData.person_code.trim(),
-          department: formData.department,
-          email: formData.email.trim() || null,
-          phone: formData.phone.trim() || null,
-          consent: formData.consent,
-          active: formData.active,
+        if (!formData.email.trim()) throw new Error("Email address is required for employee account");
+        if (!formData.password || formData.password.trim().length < 6) {
+          throw new Error("Password must be at least 6 characters for employee login");
+        }
+
+        const { data, error } = await supabase.rpc("admin_create_employee", {
+          p_email: formData.email.trim().toLowerCase(),
+          p_password: formData.password.trim(),
+          p_full_name: formData.name.trim(),
+          p_department: formData.department.trim() || "General",
+          p_phone: formData.phone.trim() || null,
+          p_person_code: formData.person_code.trim() || null,
         });
         if (error) throw error;
+        return data;
       }
     },
     onSuccess: () => {
-      toast.success(editingPerson ? "Person updated" : "Personnel added successfully");
+      toast.success(editingPerson ? "Person updated" : `Personnel ${formData.name} added with login credentials`);
       setEditModalOpen(false);
       setEditingPerson(null);
       queryClient.invalidateQueries({ queryKey: ["people-list"] });
@@ -249,6 +256,7 @@ function PeoplePage() {
       person_code: `EMP${String(people.length + 1).padStart(3, "0")}`,
       department: session.department || "General",
       email: "",
+      password: "",
       phone: "",
       consent: true,
       active: true,
@@ -263,11 +271,27 @@ function PeoplePage() {
       person_code: person.person_code,
       department: person.department,
       email: person.email || "",
+      password: "",
       phone: person.phone || "",
       consent: person.consent,
       active: person.active,
     });
     setEditModalOpen(true);
+  }
+
+  if (!session.loading && !session.isStaff) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center p-6 text-center">
+        <ShieldAlert className="h-12 w-12 text-destructive mb-3" />
+        <h2 className="text-xl font-bold">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground mt-1 max-w-md">
+          Personnel directory and biometric face enrollment is restricted to administrative and management staff.
+        </p>
+        <Button className="mt-4" onClick={() => navigate({ to: "/dashboard" })}>
+          Return to Dashboard
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -447,12 +471,12 @@ function PeoplePage() {
                     {isEnrolled ? (
                       <Badge variant="outline" className="gap-1 border-success/30 bg-success/10 text-success text-[11px]">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Face Enrolled ({faceDesc.samples}s)
+                        Face Enrolled
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1 border-warning/30 bg-warning/10 text-warning-foreground text-[11px]">
                         <XCircle className="h-3.5 w-3.5" />
-                        No Face Data
+                        Not Enrolled
                       </Badge>
                     )}
 
@@ -520,12 +544,13 @@ function PeoplePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Email</Label>
+                <Label>{editingPerson ? "Email" : "Login Email *"}</Label>
                 <Input
                   type="email"
                   placeholder="diya@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required={!editingPerson}
                 />
               </div>
 
@@ -539,7 +564,29 @@ function PeoplePage() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 pt-2">
+            {!editingPerson && (
+              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Lock className="h-3.5 w-3.5 text-primary" />
+                  <span>Portal Login Account Credentials</span>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Password * (min 6 characters)</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter password for employee portal"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    The employee will sign in at /auth using this email & password to access their dedicated self-service portal.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2 pt-1">
               <Checkbox
                 id="consent"
                 checked={formData.consent}
@@ -745,21 +792,34 @@ function FaceEnrollmentDialog({
         samples: samples.length,
         updated_at: new Date().toISOString(),
       });
-      if (descError) throw descError;
+      if (descError) console.warn("face_descriptors upsert error:", descError);
 
-      // Update person photo thumbnail if captured
+      // Also save to face_data table for kiosk compatibility
+      try {
+        await supabase.from("face_data").upsert(
+          {
+            employee_id: person.id,
+            descriptor: avgDesc,
+          },
+          { onConflict: "employee_id" },
+        );
+      } catch (e) {
+        // Fallback
+      }
+
+      // Update photo thumbnail if captured in both people and employees
       if (capturedThumb) {
-        await supabase
-          .from("people")
-          .update({ photo_url: capturedThumb })
-          .eq("id", person.id);
+        await Promise.all([
+          supabase.from("people").update({ photo_url: capturedThumb }).eq("id", person.id),
+          supabase.from("employees").update({ photo_url: capturedThumb }).eq("id", person.id),
+        ]);
       }
 
       toast.success(`Face enrolled successfully for ${person.name}!`);
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message || "Failed to save face descriptor");
+      toast.error(err.message || "Failed to save biometric profile");
     } finally {
       setSaving(false);
     }

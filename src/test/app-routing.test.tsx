@@ -27,7 +27,7 @@ describe("App routing", () => {
   });
 
   it("matches authenticated routes correctly", () => {
-    const routes = ["/dashboard", "/people", "/kiosk", "/attendance", "/reports", "/settings"];
+    const routes = ["/dashboard", "/people", "/enroll", "/kiosk", "/attendance", "/reports", "/settings"];
     for (const r of routes) {
       const matches = router.matchRoutes(r);
       expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);

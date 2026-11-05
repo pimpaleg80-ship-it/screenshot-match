@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Settings,
@@ -54,8 +54,8 @@ import {
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — FaceTime Attendance" },
-      { name: "description", content: "Configure organizational shifts, facial recognition parameters, holidays, and Google Drive cloud backups." },
+      { title: "Settings — Flowpeople by Fluxora" },
+      { name: "description", content: "Configure organization profile, biometric verification parameters, holidays, and Google Drive cloud backups." },
     ],
   }),
   component: SettingsPage,
@@ -73,6 +73,7 @@ const DAYS = [
 
 function SettingsPage() {
   const session = useSession();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Settings form state
@@ -100,7 +101,7 @@ function SettingsPage() {
   // Role Assignment Modal state
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState("");
-  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<"admin" | "manager" | "kiosk">("manager");
+  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<"admin" | "manager" | "employee">("manager");
 
   // Handle OAuth redirect url query params
   useEffect(() => {
@@ -162,12 +163,12 @@ function SettingsPage() {
         if (error) {
           // Fallback to direct table check
           const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-          return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup_enabled } : { connected: false };
+          return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup } : { connected: false };
         }
         return data;
       } catch {
         const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-        return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup_enabled } : { connected: false };
+        return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup } : { connected: false };
       }
     },
   });
@@ -203,7 +204,10 @@ function SettingsPage() {
   const { data: userProfiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["user-profiles-and-roles"],
     queryFn: async () => {
-      const { data: profiles, error: pErr } = await supabase.from("profiles").select("*");
+      const { data: emps, error: pErr } = await supabase
+        .from("employees")
+        .select("id, user_id, full_name, email, department_id, departments(name)")
+        .not("user_id", "is", null);
       if (pErr) throw pErr;
 
       const { data: roles, error: rErr } = await supabase.from("user_roles").select("*");
@@ -215,9 +219,12 @@ function SettingsPage() {
         roleMap[r.user_id]!.push(r.role);
       }
 
-      return (profiles ?? []).map((p) => ({
-        ...p,
-        roles: roleMap[p.id] || [],
+      return (emps ?? []).map((e: any) => ({
+        id: e.user_id as string,
+        full_name: e.full_name,
+        email: e.email,
+        department: e.departments?.name || "General",
+        roles: roleMap[e.user_id] || [],
       }));
     },
   });
@@ -228,17 +235,13 @@ function SettingsPage() {
       const { error } = await supabase
         .from("settings")
         .update({
-          org_name: orgName.trim(),
           work_start: workStart,
           work_end: workEnd,
           late_grace_minutes: Number(lateGraceMinutes),
-          half_day_hours: Number(halfDayHours),
           weekly_off_days: weeklyOffDays,
           face_match_threshold: Number(faceThreshold),
-          duplicate_scan_minutes: Number(duplicateScanMinutes),
-          store_photos: storePhotos,
-          data_retention_days: Number(dataRetentionDays),
-          updated_at: new Date().toISOString(),
+          store_capture_photos: storePhotos,
+          retention_days: Number(dataRetentionDays),
         })
         .eq("id", 1);
 
@@ -439,6 +442,21 @@ function SettingsPage() {
   const isDriveConnected = driveStatus?.connected === true;
   const isDriveRevoked = driveStatus?.revoked === true;
 
+  if (!session.loading && !session.isAdmin) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center p-6 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+        <h2 className="text-xl font-bold">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground mt-1 max-w-md">
+          System and organizational configuration is restricted strictly to administrators.
+        </p>
+        <Button className="mt-4" onClick={() => navigate({ to: "/dashboard" })}>
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-4 md:p-8">
       {/* Header */}
@@ -488,70 +506,22 @@ function SettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Card 1: Shift & Work Schedule */}
+          {/* Card 1: Organization & Work Schedule */}
           <Card className="card-soft">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base font-semibold">Shift Timings & Punctuality</CardTitle>
+                <Building className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base font-semibold">Organization & Work Schedule</CardTitle>
               </div>
               <CardDescription>
-                Define operational shift hours and late grace tolerances.
+                Configure organization profile and active operating schedule.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Organization Name</Label>
-                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Late Grace Period (Minutes)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={60}
-                    value={lateGraceMinutes}
-                    onChange={(e) => setLateGraceMinutes(Number(e.target.value))}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Check-ins after shift start + grace will be marked "Late".
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label>Shift Start Time</Label>
-                  <Input
-                    type="time"
-                    value={workStart}
-                    onChange={(e) => setWorkStart(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Shift End Time</Label>
-                  <Input
-                    type="time"
-                    value={workEnd}
-                    onChange={(e) => setWorkEnd(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Half-Day Threshold (Hours)</Label>
-                  <Input
-                    type="number"
-                    step="0.5"
-                    min={1}
-                    max={12}
-                    value={halfDayHours}
-                    onChange={(e) => setHalfDayHours(Number(e.target.value))}
-                  />
-                </div>
+              <div className="max-w-md space-y-1.5">
+                <Label>Organization Name</Label>
+                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} />
               </div>
 
               <div className="space-y-2 border-t pt-4">
@@ -564,11 +534,10 @@ function SettingsPage() {
                         key={d.id}
                         type="button"
                         onClick={() => toggleDay(d.id)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          isChecked
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
                             ? "border-primary bg-primary text-primary-foreground shadow-sm"
                             : "border-border bg-card text-muted-foreground hover:bg-accent"
-                        }`}
+                          }`}
                       >
                         {d.label}
                       </button>
@@ -612,7 +581,7 @@ function SettingsPage() {
                     className="cursor-pointer"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Euclidean distance limit for matching. Standard recommendation: 0.50.
+                    Verification precision threshold. Standard recommendation: 0.50.
                   </p>
                 </div>
 
@@ -739,7 +708,7 @@ function SettingsPage() {
                       <div className="space-y-0.5">
                         <Label className="text-xs">Daily automated attendance backup (11:30 PM)</Label>
                         <p className="text-[11px] text-muted-foreground">
-                          Scheduled daily cron snapshot of the entire day's attendance ledger.
+                          Automated daily end-of-day backup of the entire day's attendance ledger.
                         </p>
                       </div>
                       <Switch
@@ -756,8 +725,8 @@ function SettingsPage() {
                 <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p>
                   <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal personnel data.
-                  The application uses the strict <code className="text-[10px] bg-muted px-1 rounded">drive.file</code> scope
-                  (can only see files it creates). Please ensure your Google Drive folder remains private and is not shared publicly.
+                  The application uses restricted secure cloud permissions (can only access files it creates).
+                  Please ensure your Google Drive folder remains private and is not shared publicly.
                 </p>
               </div>
 
@@ -768,7 +737,7 @@ function SettingsPage() {
                     Google Drive Backup History
                   </h4>
                   <span className="text-[11px] text-muted-foreground font-mono">
-                    Folder: FaceAttendance Backups / YYYY / MM
+                    Folder: Flowpeople Cloud Backups / YYYY / MM
                   </span>
                 </div>
 
@@ -1074,7 +1043,7 @@ function SettingsPage() {
                 <SelectContent>
                   <SelectItem value="admin">Admin (Full Control)</SelectItem>
                   <SelectItem value="manager">Manager (Department Records)</SelectItem>
-                  <SelectItem value="kiosk">Kiosk (Terminal Mode Only)</SelectItem>
+                  <SelectItem value="employee">Employee (Personal Portal)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

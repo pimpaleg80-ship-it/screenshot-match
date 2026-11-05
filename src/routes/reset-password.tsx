@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Reset password — FaceTime Attendance" },
-      { name: "description", content: "Set a new password for your FaceTime Attendance account." },
+      { title: "Reset password — Flowpeople by Fluxora" },
+      { name: "description", content: "Set a new password for your Flowpeople account." },
     ],
   }),
   component: ResetPasswordPage,

@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Calendar,
@@ -12,6 +12,8 @@ import {
   UserX,
   Building2,
   PieChart,
+  Radio,
+  RefreshCw,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -48,43 +50,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
     meta: [
-      { title: "Reports & Analytics — FaceTime Attendance" },
-      { name: "description", content: "Attendance trends, punctuality metrics, and department breakdowns." },
+      { title: "Reports & Analytics — Flowpeople by Fluxora" },
+      { name: "description", content: "Real-time attendance trends, punctuality metrics, and department breakdowns." },
     ],
   }),
   component: ReportsPage,
 });
 
+interface EmployeeRecord {
+  id: string;
+  full_name: string;
+  employee_code: string;
+  photo_url: string | null;
+  department_id: string | null;
+  departments?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+interface AttendanceJoinedRecord {
+  id: string;
+  employee_id: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  status: string;
+  method: string;
+  confidence: number | null;
+  note: string | null;
+  created_at: string;
+  employees: EmployeeRecord | null;
+}
+
 function ReportsPage() {
   const session = useSession();
+  const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
 
   const [rangePreset, setRangePreset] = useState("30"); // 7, 14, 30, 90
   const [selectedDept, setSelectedDept] = useState("all");
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
+  const [lastLiveUpdate, setLastLiveUpdate] = useState<string>("Active");
 
-  // Query People
-  const { data: people = [], isLoading: peopleLoading } = useQuery({
-    queryKey: ["reports-people", session.department],
+  // Query Active Employees
+  const { data: employees = [], isLoading: employeesLoading } = useQuery({
+    queryKey: ["reports-employees", session.departmentId],
     queryFn: async () => {
-      let q = supabase.from("people").select("*").eq("active", true).order("name");
-      if (session.isManager && session.department) {
-        q = q.eq("department", session.department);
+      let q = supabase
+        .from("employees")
+        .select("id, full_name, employee_code, photo_url, department_id, departments(id, name)")
+        .eq("status", "active")
+        .neq("is_superadmin", true)
+        .order("full_name");
+
+      if (!session.isAdmin && !session.isManager && session.employeeId) {
+        q = q.eq("id", session.employeeId);
+      } else if (session.isManager && session.departmentId) {
+        q = q.eq("department_id", session.departmentId);
       }
-      const { data } = await q;
-      return data ?? [];
+
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as EmployeeRecord[];
     },
   });
 
-  const departments = Array.from(new Set(people.map((p) => p.department || "General"))).sort();
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    for (const emp of employees) {
+      if (emp.departments?.name) {
+        set.add(emp.departments.name);
+      }
+    }
+    return Array.from(set).sort();
+  }, [employees]);
 
-  // Query Attendance for Date Range
-  const { data: records = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ["reports-records", rangePreset, session.department],
+  // Query Attendance for Date Range with joined employees
+  const {
+    data: records = [],
+    isLoading: recordsLoading,
+    refetch: refetchRecords,
+  } = useQuery({
+    queryKey: ["reports-records", rangePreset, session.departmentId, session.employeeId],
     queryFn: async () => {
       const days = parseInt(rangePreset, 10);
       const d = new Date();
@@ -93,31 +145,98 @@ function ReportsPage() {
 
       let q = supabase
         .from("attendance")
-        .select("*, people!inner(*)")
+        .select(`
+          id,
+          employee_id,
+          date,
+          check_in,
+          check_out,
+          status,
+          method,
+          confidence,
+          note,
+          created_at,
+          employees!inner(
+            id,
+            full_name,
+            employee_code,
+            photo_url,
+            department_id,
+            departments(id, name)
+          )
+        `)
         .gte("date", startKey)
         .lte("date", todayKey)
+        .neq("employees.is_superadmin", true)
         .order("date", { ascending: true });
 
-      if (session.isManager && session.department) {
-        q = q.eq("people.department", session.department);
+      if (session.isManager && session.departmentId) {
+        q = q.eq("employees.department_id", session.departmentId);
+      } else if (!session.isAdmin && !session.isManager && session.employeeId) {
+        q = q.eq("employee_id", session.employeeId);
       }
 
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as AttendanceJoinedRecord[];
     },
   });
 
-  // Filter by selected department
+  // REALTIME SUBSCRIPTION: Live updates whenever attendance or employee changes occur
+  useEffect(() => {
+    const channel = supabase
+      .channel("reports-realtime-feed")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "attendance",
+        },
+        (payload) => {
+          queryClient.invalidateQueries({ queryKey: ["reports-records"] });
+          queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
+          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          setLastLiveUpdate(`Synced at ${time}`);
+          if (payload.eventType === "INSERT") {
+            toast.success("Live attendance recorded! Reports updated.");
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "employees",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["reports-records"] });
+          queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
+          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          setLastLiveUpdate(`Synced at ${time}`);
+        }
+      )
+      .subscribe((status) => {
+        setIsRealtimeConnected(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Filter records by selected department
   const filteredRecords = useMemo(() => {
     if (selectedDept === "all") return records;
-    return records.filter((r) => r.people?.department === selectedDept);
+    return records.filter((r) => r.employees?.departments?.name === selectedDept);
   }, [records, selectedDept]);
 
-  const filteredPeople = useMemo(() => {
-    if (selectedDept === "all") return people;
-    return people.filter((p) => p.department === selectedDept);
-  }, [people, selectedDept]);
+  // Filter employees by selected department
+  const filteredEmployees = useMemo(() => {
+    if (selectedDept === "all") return employees;
+    return employees.filter((e) => e.departments?.name === selectedDept);
+  }, [employees, selectedDept]);
 
   // Aggregate KPI metrics
   const kpis = useMemo(() => {
@@ -188,7 +307,7 @@ function ReportsPage() {
     }
 
     for (const r of records) {
-      const dept = r.people?.department || "General";
+      const dept = r.employees?.departments?.name || "General";
       if (!deptMap[dept]) deptMap[dept] = { department: dept, present: 0, late: 0 };
       if (r.status === "present") deptMap[dept]!.present++;
       else if (r.status === "late") deptMap[dept]!.late++;
@@ -215,13 +334,13 @@ function ReportsPage() {
       }
     > = {};
 
-    for (const p of filteredPeople) {
-      summaries[p.id] = {
-        id: p.id,
-        name: p.name,
-        person_code: p.person_code,
-        department: p.department || "General",
-        photo_url: p.photo_url,
+    for (const e of filteredEmployees) {
+      summaries[e.id] = {
+        id: e.id,
+        name: e.full_name,
+        person_code: e.employee_code,
+        department: e.departments?.name || "General",
+        photo_url: e.photo_url,
         present: 0,
         late: 0,
         half_day: 0,
@@ -231,7 +350,7 @@ function ReportsPage() {
     }
 
     for (const r of filteredRecords) {
-      const s = summaries[r.person_id];
+      const s = summaries[r.employee_id];
       if (s) {
         if (r.status === "present") s.present++;
         else if (r.status === "late") s.late++;
@@ -244,13 +363,13 @@ function ReportsPage() {
     }
 
     return Object.values(summaries).sort((a, b) => b.present - a.present);
-  }, [filteredPeople, filteredRecords]);
+  }, [filteredEmployees, filteredRecords]);
 
   // Export handlers
   function handleExportCsv() {
     const headers = [
       "Name",
-      "Personnel Code",
+      "Employee Code",
       "Department",
       "Present Days",
       "Late Days",
@@ -323,7 +442,7 @@ function ReportsPage() {
 
     toast.info("Generating Monthly PDF Report & syncing to Google Drive...");
     await generateAndBackupPdf({
-      title: "FaceTime Attendance - Monthly Summary Report",
+      title: "Flowpeople - Monthly Summary Report",
       subtitle: `Aggregated Performance Summary (${rangePreset} Days) • Period: ${ym}`,
       fileName,
       fileType: "report",
@@ -339,13 +458,40 @@ function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Analytics & Reports</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Analytics & Reports</h1>
+            {isRealtimeConnected ? (
+              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                </span>
+                Live Realtime
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <Radio className="h-3 w-3 animate-pulse" />
+                Connecting...
+              </Badge>
+            )}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Aggregate attendance trends, punctuality scores, and department comparisons.
+            Real-time attendance trends, punctuality scores, and department comparisons. {lastLiveUpdate && <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetchRecords()}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            title="Refresh now"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Sync
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handleExportPdf} className="gap-2 text-primary border-primary/30 hover:bg-primary/5">
             <Download className="h-4 w-4" />
             Export Monthly PDF & Backup
@@ -514,7 +660,7 @@ function ReportsPage() {
           <CardHeader>
             <CardTitle className="text-base font-semibold">Attendance Trend Over Time</CardTitle>
             <CardDescription>
-              Volume of on-time present vs late check-ins per day
+              Volume of on-time present vs late check-ins per day (auto-updates in real time)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -613,11 +759,11 @@ function ReportsPage() {
         <CardHeader>
           <CardTitle className="text-base font-semibold">Personnel Attendance Summary</CardTitle>
           <CardDescription>
-            Performance breakdown per enrolled person over the selected {rangePreset}-day window.
+            Performance breakdown per employee over the selected {rangePreset}-day window.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {peopleLoading || recordsLoading ? (
+          {employeesLoading || recordsLoading ? (
             <div className="p-6 space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full rounded-xl" />
@@ -698,4 +844,3 @@ function ReportsPage() {
     </div>
   );
 }
-
