@@ -94,6 +94,87 @@ export type Database = {
         }
         Relationships: []
       }
+      drive_backups: {
+        Row: {
+          created_at: string
+          drive_file_id: string | null
+          drive_link: string | null
+          error_message: string | null
+          file_name: string
+          file_type: "report" | "attendance"
+          id: string
+          period_end: string | null
+          period_start: string | null
+          retry_count: number
+          status: "pending" | "success" | "failed"
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_link?: string | null
+          error_message?: string | null
+          file_name: string
+          file_type: "report" | "attendance"
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          retry_count?: number
+          status?: "pending" | "success" | "failed"
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_link?: string | null
+          error_message?: string | null
+          file_name?: string
+          file_type?: "report" | "attendance"
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          retry_count?: number
+          status?: "pending" | "success" | "failed"
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drive_connection: {
+        Row: {
+          auto_backup_on_pdf: boolean
+          connected_at: string
+          connected_by: string | null
+          daily_backup_enabled: boolean
+          google_email: string
+          id: string
+          refresh_token_encrypted: string
+          root_folder_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_backup_on_pdf?: boolean
+          connected_at?: string
+          connected_by?: string | null
+          daily_backup_enabled?: boolean
+          google_email: string
+          id?: string
+          refresh_token_encrypted: string
+          root_folder_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_backup_on_pdf?: boolean
+          connected_at?: string
+          connected_by?: string | null
+          daily_backup_enabled?: boolean
+          google_email?: string
+          id?: string
+          refresh_token_encrypted?: string
+          root_folder_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       face_descriptors: {
         Row: {
           descriptor: Json

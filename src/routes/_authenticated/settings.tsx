@@ -14,6 +14,15 @@ import {
   AlertCircle,
   CheckCircle2,
   Users,
+  HardDrive,
+  CloudUpload,
+  ExternalLink,
+  RotateCcw,
+  AlertTriangle,
+  FileText,
+  Lock,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +34,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -47,7 +55,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
       { title: "Settings — FaceTime Attendance" },
-      { name: "description", content: "Configure organizational shifts, facial recognition parameters, and holidays." },
+      { name: "description", content: "Configure organizational shifts, facial recognition parameters, holidays, and Google Drive cloud backups." },
     ],
   }),
   component: SettingsPage,
@@ -79,6 +87,11 @@ function SettingsPage() {
   const [storePhotos, setStorePhotos] = useState(false);
   const [dataRetentionDays, setDataRetentionDays] = useState(365);
 
+  // Drive state
+  const [driveConnecting, setDriveConnecting] = useState(false);
+  const [driveBackingUp, setDriveBackingUp] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
   // Holiday Modal state
   const [holidayOpen, setHolidayOpen] = useState(false);
   const [newHolidayDate, setNewHolidayDate] = useState("");
@@ -88,6 +101,31 @@ function SettingsPage() {
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState("");
   const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<"admin" | "manager" | "kiosk">("manager");
+
+  // Handle OAuth redirect url query params
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const driveConnected = url.searchParams.get("drive_connected");
+    const driveEmail = url.searchParams.get("drive_email");
+    const driveError = url.searchParams.get("drive_error");
+
+    if (driveConnected === "true") {
+      toast.success("Google Drive connected successfully!", {
+        description: driveEmail ? `Linked to ${driveEmail}` : "Backups will sync automatically.",
+      });
+      url.searchParams.delete("drive_connected");
+      url.searchParams.delete("drive_email");
+      window.history.replaceState({}, document.title, url.pathname);
+      queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+    } else if (driveError) {
+      toast.error("Google Drive connection failed", {
+        description: decodeURIComponent(driveError),
+      });
+      url.searchParams.delete("drive_error");
+      window.history.replaceState({}, document.title, url.pathname);
+    }
+  }, [queryClient]);
 
   // Fetch Settings
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -114,6 +152,39 @@ function SettingsPage() {
       setDataRetentionDays(settingsData.data_retention_days);
     }
   }, [settingsData]);
+
+  // Fetch Google Drive Status
+  const { data: driveStatus, isLoading: driveStatusLoading } = useQuery({
+    queryKey: ["google-drive-status"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("google-drive-status");
+        if (error) {
+          // Fallback to direct table check
+          const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
+          return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup_enabled } : { connected: false };
+        }
+        return data;
+      } catch {
+        const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
+        return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup_enabled } : { connected: false };
+      }
+    },
+  });
+
+  // Fetch Backup History
+  const { data: backupHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["google-drive-backups-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("drive_backups")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Fetch Holidays
   const { data: holidays = [], isLoading: holidaysLoading } = useQuery({
@@ -173,7 +244,6 @@ function SettingsPage() {
 
       if (error) throw error;
 
-      // Log audit
       await supabase.from("audit_logs").insert({
         user_id: session.user?.id ?? null,
         action: "update_settings",
@@ -188,6 +258,97 @@ function SettingsPage() {
       toast.error(err.message || "Failed to save settings");
     },
   });
+
+  // Drive Connect Action
+  async function handleConnectDrive() {
+    try {
+      setDriveConnecting(true);
+      const { data, error } = await supabase.functions.invoke("google-drive-auth-start", {
+        headers: { Accept: "application/json" },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No authorization URL returned");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initiate Google Drive authentication");
+      setDriveConnecting(false);
+    }
+  }
+
+  // Drive Disconnect Action
+  async function handleDisconnectDrive() {
+    if (!confirm("Are you sure you want to disconnect Google Drive backup? Automatic cloud sync will be paused.")) {
+      return;
+    }
+    try {
+      const { error } = await supabase.functions.invoke("google-drive-status", {
+        body: { action: "disconnect" },
+      });
+      if (error) throw error;
+      toast.success("Google Drive disconnected");
+      queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to disconnect Google Drive");
+    }
+  }
+
+  // Trigger Manual Backup Now
+  async function handleBackupNow() {
+    try {
+      setDriveBackingUp(true);
+      toast.info("Starting instant daily attendance backup...");
+      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(`Backup completed: ${data.file_name}`, {
+          description: "Saved in FaceAttendance Backups on Google Drive",
+        });
+      } else {
+        toast.error(data?.error || "Backup failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
+      queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to trigger instant backup");
+    } finally {
+      setDriveBackingUp(false);
+    }
+  }
+
+  // Retry Failed Backup
+  async function handleRetryBackup(backupId: string) {
+    try {
+      setRetryingId(backupId);
+      toast.info("Retrying backup to Google Drive...");
+      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
+      if (error) throw error;
+
+      toast.success("Retry completed successfully");
+      queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
+    } catch (err: any) {
+      toast.error(err.message || "Retry failed");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  // Toggle Drive Setting
+  async function handleToggleDriveSetting(key: "auto_backup_on_pdf" | "daily_backup_enabled", value: boolean) {
+    try {
+      await supabase.functions.invoke("google-drive-status", {
+        body: { action: "update_settings", [key]: value },
+      });
+      queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+      toast.success("Drive preference updated");
+    } catch {
+      toast.error("Failed to update setting");
+    }
+  }
 
   // Add Holiday Mutation
   const addHolidayMutation = useMutation({
@@ -275,6 +436,9 @@ function SettingsPage() {
     }
   }
 
+  const isDriveConnected = driveStatus?.connected === true;
+  const isDriveRevoked = driveStatus?.revoked === true;
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-4 md:p-8">
       {/* Header */}
@@ -282,7 +446,7 @@ function SettingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">System Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure working hours, face-matching precision, holidays, and administrative access.
+            Configure working hours, face-matching precision, Google Drive backups, and holidays.
           </p>
         </div>
 
@@ -297,6 +461,25 @@ function SettingsPage() {
           </Button>
         )}
       </div>
+
+      {/* Revoked Token Warning Banner */}
+      {isDriveRevoked && (
+        <div className="flex items-center justify-between rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-bold">Google Drive Connection Revoked</p>
+              <p className="text-muted-foreground">
+                Your authorization was revoked or expired in Google Security settings. Reconnect to resume backups.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" onClick={handleConnectDrive} className="gap-1.5 shrink-0">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reconnect Drive
+          </Button>
+        </div>
+      )}
 
       {settingsLoading ? (
         <div className="space-y-6">
@@ -460,7 +643,219 @@ function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 3: Holidays Calendar */}
+          {/* Card 3: Google Drive Cloud Backup (NEW) */}
+          <Card className="card-soft border-primary/20">
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base font-semibold">Google Drive Cloud Backup</CardTitle>
+                  {isDriveConnected ? (
+                    <Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px] gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-muted text-muted-foreground text-[10px]">
+                      Not Connected
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="mt-1">
+                  Automatic cloud archive for all generated PDF attendance records and reports.
+                </CardDescription>
+              </div>
+
+              {session.isAdmin && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {isDriveConnected ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleBackupNow}
+                        disabled={driveBackingUp}
+                        className="gap-1.5 text-xs"
+                      >
+                        {driveBackingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
+                        Back up now
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleDisconnectDrive}
+                        className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={handleConnectDrive}
+                      disabled={driveConnecting}
+                      className="gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs"
+                    >
+                      {driveConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HardDrive className="h-3.5 w-3.5" />}
+                      Connect Google Drive
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardHeader>
+
+            <CardContent className="space-y-5">
+              {/* Connection Status Details */}
+              {isDriveConnected && (
+                <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Connected Google Account</p>
+                      <p className="font-semibold text-foreground mt-0.5">{driveStatus?.email || "Connected"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Last Cloud Backup</p>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {driveStatus?.last_backup_at ? new Date(driveStatus.last_backup_at).toLocaleString() : "No backups performed yet"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggles */}
+                  <div className="space-y-3 border-t pt-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">Auto backup on PDF generation</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Automatically upload attendance or report PDFs to Drive right when exported.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={driveStatus?.auto_backup_on_pdf ?? true}
+                        onCheckedChange={(val) => handleToggleDriveSetting("auto_backup_on_pdf", val)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">Daily automated attendance backup (11:30 PM)</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Scheduled daily cron snapshot of the entire day's attendance ledger.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={driveStatus?.daily_backup_enabled ?? true}
+                        onCheckedChange={(val) => handleToggleDriveSetting("daily_backup_enabled", val)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Security Privacy Notice */}
+              <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <p>
+                  <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal personnel data.
+                  The application uses the strict <code className="text-[10px] bg-muted px-1 rounded">drive.file</code> scope
+                  (can only see files it creates). Please ensure your Google Drive folder remains private and is not shared publicly.
+                </p>
+              </div>
+
+              {/* Backup History Table */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Google Drive Backup History
+                  </h4>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Folder: FaceAttendance Backups / YYYY / MM
+                  </span>
+                </div>
+
+                {historyLoading ? (
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                ) : backupHistory.length === 0 ? (
+                  <div className="rounded-xl border border-dashed py-8 text-center text-xs text-muted-foreground">
+                    <CloudUpload className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
+                    No backups uploaded yet. Connect Drive or click "Back up now".
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-muted/40 font-semibold text-muted-foreground border-b">
+                        <tr>
+                          <th className="px-4 py-2.5">File Name</th>
+                          <th className="px-3 py-2.5">Type</th>
+                          <th className="px-3 py-2.5">Date</th>
+                          <th className="px-3 py-2.5">Status</th>
+                          <th className="px-3 py-2.5 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {backupHistory.map((item) => (
+                          <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 font-medium flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <span className="truncate max-w-[200px]">{item.file_name}</span>
+                            </td>
+                            <td className="px-3 py-2.5 capitalize text-muted-foreground">
+                              {item.file_type}
+                            </td>
+                            <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                              {new Date(item.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {item.status === "success" && (
+                                <Badge variant="outline" className="text-[10px] border-success/30 bg-success/10 text-success">
+                                  Success
+                                </Badge>
+                              )}
+                              {item.status === "pending" && (
+                                <Badge variant="outline" className="text-[10px] border-warning/30 bg-warning/10 text-warning-foreground">
+                                  Pending
+                                </Badge>
+                              )}
+                              {item.status === "failed" && (
+                                <Badge variant="outline" className="text-[10px] border-destructive/30 bg-destructive/10 text-destructive" title={item.error_message || "Upload failed"}>
+                                  Failed
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                              {item.drive_link && item.status === "success" && (
+                                <a
+                                  href={item.drive_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                                >
+                                  Open in Drive <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                              {item.status === "failed" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-[10px] gap-1 text-primary"
+                                  onClick={() => handleRetryBackup(item.id)}
+                                  disabled={retryingId === item.id}
+                                >
+                                  {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                                  Retry
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 4: Holidays Calendar */}
           <Card className="card-soft">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
@@ -518,7 +913,7 @@ function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 4: User Roles & Permissions */}
+          {/* Card 5: User Roles & Permissions */}
           {session.isAdmin && (
             <Card className="card-soft">
               <CardHeader className="flex flex-row items-center justify-between pb-3">

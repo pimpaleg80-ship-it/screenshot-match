@@ -36,6 +36,7 @@ import {
   exportCsv,
   printTable,
 } from "@/lib/attendance";
+import { generateAndBackupPdf } from "@/lib/pdf-backup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -295,6 +296,44 @@ function ReportsPage() {
     printTable(`Attendance Summary Report (${rangePreset} Days)`, headers, rows);
   }
 
+  async function handleExportPdf() {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const fileName = `report_monthly_${ym}.pdf`;
+
+    const headers = [
+      "Name",
+      "Code",
+      "Department",
+      "Present",
+      "Late",
+      "Half Day",
+      "Total Hours",
+    ];
+
+    const rows = employeeSummaries.map((s) => [
+      s.name,
+      s.person_code,
+      s.department,
+      s.present,
+      s.late,
+      s.half_day,
+      `${Math.round(s.totalHours * 10) / 10}h`,
+    ]);
+
+    toast.info("Generating Monthly PDF Report & syncing to Google Drive...");
+    await generateAndBackupPdf({
+      title: "FaceTime Attendance - Monthly Summary Report",
+      subtitle: `Aggregated Performance Summary (${rangePreset} Days) • Period: ${ym}`,
+      fileName,
+      fileType: "report",
+      periodStart: `${ym}-01`,
+      periodEnd: toDateKey(),
+      headers,
+      rows,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
       {/* Header */}
@@ -307,14 +346,19 @@ function ReportsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPdf} className="gap-2 text-primary border-primary/30 hover:bg-primary/5">
+            <Download className="h-4 w-4" />
+            Export Monthly PDF & Backup
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-2">
             <Download className="h-4 w-4" />
-            Export CSV
+            CSV
           </Button>
 
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
             <Printer className="h-4 w-4" />
-            Print Report
+            Print
           </Button>
         </div>
       </div>
@@ -654,3 +698,4 @@ function ReportsPage() {
     </div>
   );
 }
+

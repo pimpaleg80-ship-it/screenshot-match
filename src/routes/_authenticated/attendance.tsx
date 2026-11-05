@@ -31,6 +31,7 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/attendance";
+import { generateAndBackupPdf } from "@/lib/pdf-backup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -348,6 +349,47 @@ function AttendancePage() {
     printTable("FaceTime Attendance Records", headers, rows);
   }
 
+  async function handleExportPdf() {
+    const dateKey = dateFilter === "today" ? todayKey : customDate || todayKey;
+    const fileName = `attendance_${dateKey}.pdf`;
+
+    const headers = [
+      "Date",
+      "Name",
+      "Code",
+      "Department",
+      "Check In",
+      "Check Out",
+      "Hours",
+      "Status",
+      "Method",
+    ];
+
+    const rows = filteredRecords.map((r) => [
+      r.date,
+      r.people?.name || "",
+      r.people?.person_code || "",
+      r.people?.department || "",
+      formatTime(r.check_in),
+      formatTime(r.check_out),
+      formatHours(totalHours(r.check_in, r.check_out)),
+      STATUS_LABELS[r.status] || r.status,
+      r.method,
+    ]);
+
+    toast.info("Generating PDF and backing up to Google Drive...");
+    await generateAndBackupPdf({
+      title: "FaceTime Attendance - Daily Attendance Log",
+      subtitle: `Date: ${dateKey} • Total Entries: ${rows.length}`,
+      fileName,
+      fileType: "attendance",
+      periodStart: dateKey,
+      periodEnd: dateKey,
+      headers,
+      rows,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
       {/* Header */}
@@ -360,14 +402,19 @@ function AttendancePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPdf} className="gap-2 text-primary border-primary/30 hover:bg-primary/5">
             <Download className="h-4 w-4" />
-            Export CSV
+            Export PDF & Backup
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            CSV
           </Button>
 
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
             <Printer className="h-4 w-4" />
-            Print / PDF
+            Print
           </Button>
 
           {session.isStaff && (
@@ -817,3 +864,4 @@ function AttendancePage() {
     </div>
   );
 }
+
