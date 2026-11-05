@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   beforeLoad: async () => {
     const {
       data: { session },

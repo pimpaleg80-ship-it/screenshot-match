@@ -10,6 +10,9 @@ type FaceApiModule = typeof import("@vladmandic/face-api");
 let loadPromise: Promise<FaceApiModule> | null = null;
 
 export async function loadFaceApi(): Promise<FaceApiModule> {
+  if (typeof window === "undefined") {
+    throw new Error("face-api is only supported in browser environments.");
+  }
   if (!loadPromise) {
     loadPromise = (async () => {
       const faceapi = await import("@vladmandic/face-api");

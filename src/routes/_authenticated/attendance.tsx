@@ -55,6 +55,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Attendance Records — Flowpeople by Fluxora" },
