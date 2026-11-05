@@ -75,6 +75,7 @@ import {
 } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/_authenticated/people")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Employees & Face Enrollment — Flowpeople by Fluxora" },

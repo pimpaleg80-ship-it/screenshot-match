@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/kiosk")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Smart Kiosk — Flowpeople by Fluxora" },
@@ -85,6 +86,7 @@ interface ScanNotification {
 // Play pleasant web audio chimes tailored for check-in vs check-out vs notice
 function playKioskChime(type: "in" | "out" | "cooldown" | "error") {
   try {
+    if (typeof window === "undefined") return;
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();

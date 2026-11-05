@@ -57,6 +57,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/leaves")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Leave Management — Flowpeople by Fluxora" },

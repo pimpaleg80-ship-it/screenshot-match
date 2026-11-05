@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/enroll")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Face Enrollment — Flowpeople by Fluxora" },

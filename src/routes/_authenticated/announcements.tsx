@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Announcements — Flowpeople by Fluxora" },

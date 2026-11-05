@@ -35,6 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/documents")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Company Documents — Flowpeople by Fluxora" },

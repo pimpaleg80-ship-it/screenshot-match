@@ -78,6 +78,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/superadmin")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "System Administration — Console" },

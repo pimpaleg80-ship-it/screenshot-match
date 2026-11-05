@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/reports")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Reports & Analytics — Flowpeople by Fluxora" },

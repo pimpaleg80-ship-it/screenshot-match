@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/app-layout";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
+    if (typeof window === "undefined") return;
     const {
       data: { session },
     } = await supabase.auth.getSession();
