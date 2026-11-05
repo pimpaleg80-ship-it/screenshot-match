@@ -286,15 +286,15 @@ function FaceEnrollPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <ScanFace className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Face Enrollment Studio</h1>
+            <ScanFace className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Face Enrollment Studio</h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Capture biometric face samples to enable instant recognition at the smart kiosk terminal.
           </p>
         </div>
@@ -302,7 +302,7 @@ function FaceEnrollPage() {
         <Button
           variant="outline"
           onClick={() => navigate({ to: "/kiosk" })}
-          className="gap-2 text-xs"
+          className="gap-2 text-xs w-full sm:w-auto h-9"
         >
           Open Smart Kiosk <ArrowRight className="h-3.5 w-3.5" />
         </Button>
@@ -351,18 +351,18 @@ function FaceEnrollPage() {
                 )}
 
                 {/* Target Alignment Overlay Guide */}
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="h-56 w-56 rounded-full border-2 border-dashed border-white/40 shadow-glow" />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+                  <div className="h-48 w-48 sm:h-56 sm:w-56 max-w-[70vw] max-h-[70vw] rounded-full border-2 border-dashed border-white/40 shadow-glow" />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+                <div className="text-xs text-muted-foreground text-center sm:text-left">
                   Samples Captured: <strong className="text-foreground">{samples.length}</strong> / 3 recommended
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   {samples.length > 0 && (
                     <Button
                       variant="ghost"
@@ -371,7 +371,7 @@ function FaceEnrollPage() {
                         setSamples([]);
                         setCapturedThumb(null);
                       }}
-                      className="text-xs text-destructive hover:bg-destructive/10"
+                      className="flex-1 sm:flex-none text-xs text-destructive hover:bg-destructive/10 h-9"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
                     </Button>
@@ -380,7 +380,7 @@ function FaceEnrollPage() {
                   <Button
                     onClick={handleCapture}
                     disabled={detecting || modelLoading || !cameraActive || !selectedEmpId}
-                    className="gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs"
+                    className="flex-1 sm:flex-none gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9"
                   >
                     {detecting ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -228,11 +228,11 @@ function ProfilePage() {
     .toUpperCase();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">My Profile</h1>
+        <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
           View your employment details, update your contact info, and inspect leave allocations.
         </p>
       </div>

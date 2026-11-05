@@ -14,26 +14,26 @@ export function BrandLogo({
   size = "md",
   showSubtitle = true,
 }: BrandLogoProps) {
-  // Dimensions
+  // Dimensions - scaled up by ~25-30% for improved prominence and clarity
   const iconSizes = {
-    sm: "h-7 w-7 rounded-lg",
-    md: "h-9 w-9 rounded-xl",
-    lg: "h-11 w-11 rounded-2xl",
-    xl: "h-14 w-14 rounded-2xl",
+    sm: "h-9 w-9 rounded-xl",
+    md: "h-11 w-11 rounded-xl",
+    lg: "h-14 w-14 rounded-2xl",
+    xl: "h-16 w-16 sm:h-18 sm:w-18 rounded-2xl",
   };
 
   const textSizes = {
-    sm: "text-base tracking-tight",
-    md: "text-lg tracking-tight",
-    lg: "text-xl tracking-tight",
-    xl: "text-2xl tracking-tight",
+    sm: "text-[17px] sm:text-lg tracking-tight",
+    md: "text-xl sm:text-[22px] tracking-tight",
+    lg: "text-2xl sm:text-[26px] tracking-tight",
+    xl: "text-3xl sm:text-4xl tracking-tight",
   };
 
   const subtitleSizes = {
-    sm: "text-[9px] tracking-[0.22em]",
-    md: "text-[10px] tracking-[0.24em]",
-    lg: "text-[11px] tracking-[0.26em]",
-    xl: "text-[12px] tracking-[0.28em]",
+    sm: "text-[9.5px] sm:text-[10px] tracking-[0.24em]",
+    md: "text-[11px] sm:text-[11.5px] tracking-[0.25em]",
+    lg: "text-[12px] sm:text-[13px] tracking-[0.27em]",
+    xl: "text-[13px] sm:text-[14px] tracking-[0.28em]",
   };
 
   const IconSymbol = (

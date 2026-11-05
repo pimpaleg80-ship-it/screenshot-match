@@ -546,8 +546,8 @@ function SuperadminPage() {
 
   if (!isUnlocked) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-neutral-950 text-neutral-100">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/95 p-8 backdrop-blur-2xl shadow-2xl space-y-6">
+      <div className="flex min-h-screen flex-col items-center justify-center p-3 sm:p-4 bg-neutral-950 text-neutral-100">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/95 p-5 sm:p-8 backdrop-blur-2xl shadow-2xl space-y-6">
           <div className="text-center space-y-2">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow mb-2">
               <Lock className="h-8 w-8 text-amber-300" />
@@ -633,21 +633,21 @@ function SuperadminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 p-4 md:p-8 space-y-8 select-none">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 md:p-8 space-y-6 sm:space-y-8 select-none">
       {/* Top Root Command Header */}
-      <header className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/60 p-6 backdrop-blur-xl shadow-2xl sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow">
-            <Crown className="h-7 w-7 text-amber-300" />
-            <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-black" />
+      <header className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/60 p-4 sm:p-6 backdrop-blur-xl shadow-2xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow">
+            <Crown className="h-6 w-6 sm:h-7 sm:w-7 text-amber-300" />
+            <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-black" />
           </div>
 
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white truncate">
                 SUPERADMIN CONSOLE
               </h1>
-              <Badge className="bg-gradient-to-r from-rose-500 to-amber-500 text-white text-[10px] font-black tracking-wider uppercase px-2 py-0.5 border-0">
+              <Badge className="bg-gradient-to-r from-rose-500 to-amber-500 text-white text-[10px] font-black tracking-wider uppercase px-2 py-0.5 border-0 shrink-0">
                 ROOT SYSTEM
               </Badge>
             </div>
@@ -656,16 +656,16 @@ function SuperadminPage() {
                 <Radio className="h-3 w-3 animate-pulse" /> CONNECTED
               </span>
               <span>•</span>
-              <span className="text-white/80 font-mono">
+              <span className="text-white/80 font-mono truncate max-w-[200px] sm:max-w-none">
                 Operator: <strong className="text-white">{session.fullName || session.user?.email}</strong>
               </span>
-              <span>•</span>
-              <span className="text-white/50">High-Availability Cloud Cluster</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline text-white/50">High-Availability Cloud Cluster</span>
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
@@ -675,7 +675,7 @@ function SuperadminPage() {
               setGatePassword("");
               toast.info("Superadmin console locked");
             }}
-            className="border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 gap-1.5 text-xs"
+            className="flex-1 sm:flex-none border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 gap-1.5 text-xs h-9"
           >
             <Lock className="h-3.5 w-3.5" />
             Lock Console
@@ -689,7 +689,7 @@ function SuperadminPage() {
               refetchSettings();
               toast.info("System data synchronized");
             }}
-            className="border-white/20 bg-white/5 text-white hover:bg-white/15 gap-1.5 text-xs"
+            className="flex-1 sm:flex-none border-white/20 bg-white/5 text-white hover:bg-white/15 gap-1.5 text-xs h-9"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Sync System
@@ -697,7 +697,7 @@ function SuperadminPage() {
 
           <Button
             onClick={() => setProvisionModalOpen(true)}
-            className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-xs shadow-glow"
+            className="w-full sm:w-auto gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-xs shadow-glow h-9"
           >
             <UserPlus className="h-4 w-4" />
             Add User / Admin / Manager
@@ -707,17 +707,17 @@ function SuperadminPage() {
             variant="outline"
             size="sm"
             onClick={() => navigate({ to: "/dashboard" })}
-            className="border-white/20 bg-white/5 text-white hover:bg-white/15 text-xs gap-1.5"
+            className="flex-1 sm:flex-none border-white/20 bg-white/5 text-white hover:bg-white/15 text-xs gap-1.5 h-9"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Workspace Dashboard
+            Dashboard
           </Button>
 
           <Button
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
-            className="text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs gap-1.5"
+            className="text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs gap-1.5 h-9"
             title="Sign out of Superadmin session"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -727,7 +727,7 @@ function SuperadminPage() {
       </header>
 
       {/* KPI Telemetry Matrix */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Users & Admins */}
         <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -801,24 +801,24 @@ function SuperadminPage() {
 
       {/* Main Tabs Workspace */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-neutral-900 border border-white/10 p-1 text-xs">
+        <TabsList className="bg-neutral-900 border border-white/10 p-1 text-xs w-full justify-start overflow-x-auto h-auto flex flex-nowrap sm:flex-wrap gap-1">
           <TabsTrigger
             value="provisioning"
-            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
           >
             <Users className="h-3.5 w-3.5" />
             Personnel & Roles Studio
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
           >
             <Sliders className="h-3.5 w-3.5" />
             Global System Config
           </TabsTrigger>
           <TabsTrigger
             value="audit"
-            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
           >
             <Terminal className="h-3.5 w-3.5" />
             Security Audit Logs
@@ -832,7 +832,7 @@ function SuperadminPage() {
           <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4">
               <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <UserCheck className="h-5 w-5 text-emerald-400" />
                   Personnel Roster & Role Matrix
                 </CardTitle>
@@ -841,11 +841,11 @@ function SuperadminPage() {
                 </CardDescription>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
                 <Button
                   size="sm"
                   onClick={() => setProvisionModalOpen(true)}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs gap-1.5 shadow-glow"
+                  className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs gap-1.5 shadow-glow h-9"
                 >
                   <UserPlus className="h-4 w-4" />
                   Add Person / Admin
@@ -862,13 +862,13 @@ function SuperadminPage() {
                     placeholder="Search by name, employee code, department, email..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 bg-neutral-800 border-white/10 text-white placeholder:text-white/40 text-xs"
+                    className="pl-9 bg-neutral-800 border-white/10 text-white placeholder:text-white/40 text-xs h-9"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[150px] bg-neutral-800 border-white/10 text-white text-xs">
+                    <SelectTrigger className="w-full sm:w-[150px] bg-neutral-800 border-white/10 text-white text-xs h-9">
                       <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent className="bg-neutral-900 border-white/10 text-white text-xs">
@@ -884,7 +884,7 @@ function SuperadminPage() {
 
               {/* Roster Table */}
               <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/40">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="border-b border-white/10 bg-neutral-900/80 text-[11px] font-semibold text-white/60 uppercase tracking-wider">
                     <tr>
                       <th className="py-3 px-4">Personnel</th>
@@ -1348,9 +1348,9 @@ function SuperadminPage() {
           PROVISION USER MODAL (EMPLOYEE / MANAGER / ADMIN / SUPERADMIN)
       ========================================================================= */}
       <Dialog open={provisionModalOpen} onOpenChange={setProvisionModalOpen}>
-        <DialogContent className="sm:max-w-md bg-neutral-900 text-white border-white/10">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold">
               <UserPlus className="h-5 w-5 text-emerald-400" />
               Provision New User Account
             </DialogTitle>
@@ -1363,7 +1363,7 @@ function SuperadminPage() {
             {/* Role Selection Cards */}
             <div className="space-y-1.5">
               <Label className="text-xs text-white/80">Account Clearance Role</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setFormRole("employee")}
@@ -1374,8 +1374,8 @@ function SuperadminPage() {
                   }`}
                 >
                   <UserCheck className="h-4 w-4 mb-1 text-blue-400" />
-                  <span className="font-bold text-[10px]">Employee</span>
-                  <span className="text-[8px] text-white/40 mt-0.5">Staff</span>
+                  <span className="font-bold text-[11px] sm:text-[10px]">Employee</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Staff</span>
                 </button>
 
                 <button
@@ -1388,8 +1388,8 @@ function SuperadminPage() {
                   }`}
                 >
                   <Briefcase className="h-4 w-4 mb-1 text-amber-400" />
-                  <span className="font-bold text-[10px]">Manager</span>
-                  <span className="text-[8px] text-white/40 mt-0.5">Team Lead</span>
+                  <span className="font-bold text-[11px] sm:text-[10px]">Manager</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Team Lead</span>
                 </button>
 
                 <button
@@ -1402,8 +1402,8 @@ function SuperadminPage() {
                   }`}
                 >
                   <Shield className="h-4 w-4 mb-1 text-rose-400" />
-                  <span className="font-bold text-[10px]">Admin</span>
-                  <span className="text-[8px] text-white/40 mt-0.5">Operations</span>
+                  <span className="font-bold text-[11px] sm:text-[10px]">Admin</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Operations</span>
                 </button>
 
                 <button
@@ -1416,8 +1416,8 @@ function SuperadminPage() {
                   }`}
                 >
                   <Crown className="h-4 w-4 mb-1 text-amber-300" />
-                  <span className="font-bold text-[10px]">Superadmin</span>
-                  <span className="text-[8px] text-white/40 mt-0.5">Root Console</span>
+                  <span className="font-bold text-[11px] sm:text-[10px]">Superadmin</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Root Console</span>
                 </button>
               </div>
             </div>
@@ -1467,7 +1467,7 @@ function SuperadminPage() {
             </div>
 
             {/* Department & Designation */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs text-white/80">Department</Label>
                 <Select value={formDept} onValueChange={setFormDept}>
@@ -1532,7 +1532,7 @@ function SuperadminPage() {
           PASSWORD RESET MODAL
       ========================================================================= */}
       <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
-        <DialogContent className="sm:max-w-sm bg-neutral-900 text-white border-white/10">
+        <DialogContent className="w-[95vw] sm:max-w-sm max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Key className="h-4 w-4 text-amber-400" />

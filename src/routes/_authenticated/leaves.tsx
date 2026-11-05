@@ -345,12 +345,12 @@ function LeavesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leave Management</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Leave Management</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             {session.isAdmin
               ? "Organization-wide leave ledger, approvals, and balance controls"
               : session.isManager
@@ -358,11 +358,11 @@ function LeavesPage() {
               : "Track your leave balances, apply for leaves, and view past requests"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {session.isAdmin && (
             <Button
               variant="outline"
-              className="gap-2"
+              className="flex-1 sm:flex-none gap-2 text-xs h-9"
               onClick={() => {
                 setTargetEmployeeId("");
                 setReason("");
@@ -374,7 +374,7 @@ function LeavesPage() {
             </Button>
           )}
           <Button
-            className="gap-2 shadow-soft"
+            className="flex-1 sm:flex-none gap-2 shadow-soft text-xs h-9"
             onClick={() => {
               setLeaveTypeId(leaveTypes[0]?.id || "");
               setReason("");
@@ -388,7 +388,7 @@ function LeavesPage() {
       </div>
 
       {/* Leave Balances Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {balancesLoading ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)
         ) : myBalances.length > 0 ? (
@@ -465,7 +465,7 @@ function LeavesPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full min-w-[700px] text-left text-sm">
                     <thead>
                       <tr className="border-b text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-3 font-semibold">Type</th>
@@ -547,7 +547,7 @@ function LeavesPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full min-w-[700px] text-left text-sm">
                       <thead>
                         <tr className="border-b text-xs uppercase tracking-wider text-muted-foreground">
                           <th className="pb-3 font-semibold">Employee</th>
@@ -701,7 +701,7 @@ function LeavesPage() {
 
       {/* Modal: Apply Leave */}
       <Dialog open={applyModalOpen} onOpenChange={setApplyModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Apply for Leave</DialogTitle>
             <DialogDescription>
@@ -730,7 +730,7 @@ function LeavesPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               <div className="space-y-2">
                 <Label htmlFor="from-date">From Date</Label>
                 <Input
@@ -827,7 +827,7 @@ function LeavesPage() {
 
       {/* Modal: Manager / Admin Approval Decision */}
       <Dialog open={decisionModalOpen} onOpenChange={setDecisionModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {decisionType === "approved" ? "Approve Leave Request" : "Reject Leave Request"}
@@ -857,7 +857,7 @@ function LeavesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => setDecisionModalOpen(false)}>
               Cancel
             </Button>
@@ -879,7 +879,7 @@ function LeavesPage() {
       {/* Modal: Admin Direct Grant Leave */}
       {session.isAdmin && (
         <Dialog open={adminAddModalOpen} onOpenChange={setAdminAddModalOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Direct Grant Leave</DialogTitle>
               <DialogDescription>
@@ -920,7 +920,7 @@ function LeavesPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="admin-from-date">From Date</Label>
                   <Input

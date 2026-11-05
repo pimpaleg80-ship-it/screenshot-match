@@ -270,29 +270,29 @@ function AdminDashboardView() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Executive Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Dashboard</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Real-time biometric attendance metrics, leave queue, and corporate trends.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5">
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary">
-            <ScanLine className="h-4 w-4" />
+          <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary text-xs h-9">
+            <ScanLine className="h-3.5 w-3.5" />
             Launch Kiosk
           </Button>
         </div>
       </div>
 
       {/* Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total Staff</CardTitle>
@@ -346,22 +346,22 @@ function AdminDashboardView() {
 
       {/* Quick Action Bar */}
       <Card className="bg-muted/30">
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <span className="text-sm font-semibold">Quick Actions</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs">
+        <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4">
+          <span className="text-xs sm:text-sm font-semibold">Quick Actions</span>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-9 justify-center">
               <UserPlus className="h-3.5 w-3.5" />
               Add Employee
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs h-9 justify-center">
               <CalendarRange className="h-3.5 w-3.5" />
               Review Leaves
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/reports" })} className="gap-1.5 text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/reports" })} className="gap-1.5 text-xs h-9 justify-center">
               <BarChart3 className="h-3.5 w-3.5" />
               Export Report
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs h-9 justify-center">
               <Sparkles className="h-3.5 w-3.5" />
               Drive Backup
             </Button>
@@ -501,24 +501,24 @@ function AdminDashboardView() {
           ) : (
             <div className="divide-y">
               {filteredFeed.map((rec) => (
-                <div key={rec.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "EM"}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{rec.employees?.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
                         {rec.employees?.employee_code} • {rec.employees?.departments?.name || "General"}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="text-right space-y-0.5">
-                      <div className="flex items-center justify-end gap-3 text-xs">
-                        <span className="text-muted-foreground">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
-                        <span className="text-muted-foreground">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
+                    <div className="text-left sm:text-right space-y-0.5">
+                      <div className="flex items-center gap-2 sm:gap-3 text-xs">
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
                       </div>
                       {rec.check_in && rec.check_out ? (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -526,13 +526,13 @@ function AdminDashboardView() {
                         </p>
                       ) : (
                         <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                          Active attendance (Currently on site)
+                          Active attendance (On site)
                         </p>
                       )}
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] shrink-0 ${
                         rec.check_out
                           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
@@ -741,28 +741,28 @@ function ManagerDashboardView() {
   const absentCount = Math.max(0, team.length - presentCount - onLeaveCount);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Team Overview</h1>
-            <Badge variant="outline" className="border-amber-200 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Team Overview</h1>
+            <Badge variant="outline" className="border-amber-200 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
               {session.departmentName || "Engineering"} Dept
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Manage your direct team presence, approve leaves, and track department schedules.
           </p>
         </div>
-        <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 self-start sm:self-auto">
-          <UserPlus className="h-4 w-4" />
+        <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 self-start sm:self-auto text-xs h-9">
+          <UserPlus className="h-3.5 w-3.5" />
           Add Team Member
         </Button>
       </div>
 
       {/* Team Presence Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Total Team</CardTitle>
@@ -939,22 +939,22 @@ function ManagerDashboardView() {
           ) : (
             <div className="divide-y">
               {teamRecords.map((rec: any) => (
-                <div key={rec.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "TM"}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{rec.employees?.full_name}</p>
-                      <p className="text-xs text-muted-foreground">{rec.employees?.employee_code}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{rec.employees?.employee_code}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="text-right space-y-0.5">
-                      <div className="flex items-center justify-end gap-3 text-xs">
-                        <span className="text-muted-foreground">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
-                        <span className="text-muted-foreground">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
+                    <div className="text-left sm:text-right space-y-0.5">
+                      <div className="flex items-center gap-2 sm:gap-3 text-xs">
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
                       </div>
                       {rec.check_in && rec.check_out ? (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -968,7 +968,7 @@ function ManagerDashboardView() {
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] shrink-0 ${
                         rec.check_out
                           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
@@ -1136,18 +1136,18 @@ function EmployeeDashboardView() {
   const isCheckedOut = !!todayRecord?.check_out;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Welcome back, {session.fullName.split(" ")[0]}!
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             {session.designation || "Staff Member"} • {session.departmentName || "Engineering"}
           </p>
         </div>
-        <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 self-start sm:self-auto">
+        <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 self-start sm:self-auto text-xs h-9">
           <Palmtree className="h-4 w-4" />
           Apply for Leave
         </Button>
@@ -1155,28 +1155,28 @@ function EmployeeDashboardView() {
 
       {/* Today's Status Banner */}
       <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
               }`}>
-              {isCheckedIn ? <CheckCircle2 className="h-7 w-7" /> : <Clock className="h-7 w-7" />}
+              {isCheckedIn ? <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" /> : <Clock className="h-6 w-6 sm:h-7 sm:w-7" />}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <Badge
                   variant={isCheckedIn ? "default" : "outline"}
-                  className={isCheckedOut ? "bg-emerald-600 text-white" : isCheckedIn ? "bg-blue-600 text-white" : ""}
+                  className={`text-[10px] sm:text-xs ${isCheckedOut ? "bg-emerald-600 text-white" : isCheckedIn ? "bg-blue-600 text-white" : ""}`}
                 >
                   {isCheckedOut ? "Work Day Completed" : isCheckedIn ? "Checked In (Active)" : "Not Checked In Yet"}
                 </Badge>
               </div>
               <div className="mt-2 space-y-1">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm font-medium">
                   <span>
                     Check-in: <strong className="text-foreground font-mono">{isCheckedIn ? formatTime(todayRecord.check_in!) : "--:--"}</strong>
                   </span>
                   <span>
-                    Check-out: <strong className="text-foreground font-mono">{isCheckedOut ? formatTime(todayRecord.check_out!) : isCheckedIn ? "On Site (Pending Check-out)" : "--:--"}</strong>
+                    Check-out: <strong className="text-foreground font-mono">{isCheckedOut ? formatTime(todayRecord.check_out!) : isCheckedIn ? "On Site" : "--:--"}</strong>
                   </span>
                 </div>
                 {isCheckedIn && isCheckedOut && (
@@ -1188,7 +1188,7 @@ function EmployeeDashboardView() {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })}>
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="w-full sm:w-auto text-xs h-9">
             View My Report
           </Button>
         </CardContent>
@@ -1197,26 +1197,26 @@ function EmployeeDashboardView() {
       {/* Leave Balances Grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">My Leave Balances</h3>
+          <h3 className="text-sm sm:text-base font-semibold">My Leave Balances</h3>
           <Link to="/leaves" className="text-xs font-semibold text-primary hover:underline">
             Manage Leaves
           </Link>
         </div>
 
         {balLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {balances.map((b) => {
               const remaining = Number(b.remaining ?? (b.total - b.used));
               const used = Number(b.used ?? 0);
               const total = Number(b.total ?? 0);
               return (
-                <Card key={b.leave_type_id} className="p-4 space-y-2">
+                <Card key={b.leave_type_id} className="p-3.5 sm:p-4 space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold">{b.leave_types?.name}</span>
                     <Badge variant="secondary" className="text-[10px]">

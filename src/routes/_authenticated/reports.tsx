@@ -455,55 +455,55 @@ function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Analytics & Reports</h1>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
             {isRealtimeConnected ? (
-              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                 </span>
-                Live Realtime
+                Live
               </Badge>
             ) : (
-              <Badge variant="outline" className="gap-1 text-muted-foreground">
+              <Badge variant="outline" className="gap-1 text-muted-foreground text-xs">
                 <Radio className="h-3 w-3 animate-pulse" />
                 Connecting...
               </Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Real-time attendance trends, punctuality scores, and department comparisons. {lastLiveUpdate && <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => refetchRecords()}
-            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="flex-1 sm:flex-none gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9"
             title="Refresh now"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Sync
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportPdf} className="gap-2 text-primary border-primary/30 hover:bg-primary/5">
+          <Button variant="outline" size="sm" onClick={handleExportPdf} className="flex-1 sm:flex-none gap-2 text-primary border-primary/30 hover:bg-primary/5 text-xs h-9">
             <Download className="h-4 w-4" />
-            Export Monthly PDF & Backup
+            Export PDF
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
             <Download className="h-4 w-4" />
             CSV
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
             <Printer className="h-4 w-4" />
             Print
           </Button>
@@ -511,14 +511,14 @@ function ReportsPage() {
       </div>
 
       {/* Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4 card-soft">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border bg-card p-3 sm:p-4 card-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground mr-1">Time Horizon:</span>
-          <div className="flex rounded-lg bg-secondary p-1">
+          <div className="flex rounded-lg bg-secondary p-1 w-full sm:w-auto justify-between sm:justify-start">
             <Button
               size="sm"
               variant={rangePreset === "7" ? "default" : "ghost"}
-              className="h-7 text-xs px-2.5"
+              className="flex-1 sm:flex-none h-7 text-xs px-2.5"
               onClick={() => setRangePreset("7")}
             >
               7 Days
@@ -526,7 +526,7 @@ function ReportsPage() {
             <Button
               size="sm"
               variant={rangePreset === "14" ? "default" : "ghost"}
-              className="h-7 text-xs px-2.5"
+              className="flex-1 sm:flex-none h-7 text-xs px-2.5"
               onClick={() => setRangePreset("14")}
             >
               14 Days
@@ -534,7 +534,7 @@ function ReportsPage() {
             <Button
               size="sm"
               variant={rangePreset === "30" ? "default" : "ghost"}
-              className="h-7 text-xs px-2.5"
+              className="flex-1 sm:flex-none h-7 text-xs px-2.5"
               onClick={() => setRangePreset("30")}
             >
               30 Days
@@ -542,7 +542,7 @@ function ReportsPage() {
             <Button
               size="sm"
               variant={rangePreset === "90" ? "default" : "ghost"}
-              className="h-7 text-xs px-2.5"
+              className="flex-1 sm:flex-none h-7 text-xs px-2.5"
               onClick={() => setRangePreset("90")}
             >
               90 Days
@@ -550,9 +550,9 @@ function ReportsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Select value={selectedDept} onValueChange={setSelectedDept}>
-            <SelectTrigger className="w-[180px] text-xs">
+            <SelectTrigger className="w-full sm:w-[180px] text-xs h-9">
               <SelectValue placeholder="All Departments" />
             </SelectTrigger>
             <SelectContent>
@@ -568,7 +568,7 @@ function ReportsPage() {
       </div>
 
       {/* Metric Cards Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="card-soft">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
@@ -774,7 +774,7 @@ function ReportsPage() {
             <p className="py-12 text-center text-xs text-muted-foreground">No personnel records found.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[650px] text-left text-xs">
                 <thead className="border-b bg-muted/40 font-semibold text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3">Personnel</th>

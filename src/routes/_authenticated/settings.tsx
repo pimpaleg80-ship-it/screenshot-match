@@ -459,12 +459,12 @@ function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 p-4 md:p-8">
+    <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">System Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">System Settings</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Configure working hours, face-matching precision, Google Drive backups, and holidays.
           </p>
         </div>
@@ -473,7 +473,7 @@ function SettingsPage() {
           <Button
             onClick={() => saveSettingsMutation.mutate()}
             disabled={saveSettingsMutation.isPending}
-            className="gap-2 bg-primary shadow-glow hover:bg-primary/90"
+            className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9"
           >
             <Save className="h-4 w-4" />
             {saveSettingsMutation.isPending ? "Saving..." : "Save Changes"}
@@ -483,7 +483,7 @@ function SettingsPage() {
 
       {/* Revoked Token Warning Banner */}
       {isDriveRevoked && (
-        <div className="flex items-center justify-between rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-3.5 sm:p-4 text-xs text-destructive">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <div>
@@ -493,7 +493,7 @@ function SettingsPage() {
               </p>
             </div>
           </div>
-          <Button size="sm" onClick={handleConnectDrive} className="gap-1.5 shrink-0">
+          <Button size="sm" onClick={handleConnectDrive} className="gap-1.5 w-full sm:w-auto shrink-0 text-xs h-8">
             <RotateCcw className="h-3.5 w-3.5" />
             Reconnect Drive
           </Button>
@@ -536,8 +536,8 @@ function SettingsPage() {
                         type="button"
                         onClick={() => toggleDay(d.id)}
                         className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border bg-card text-muted-foreground hover:bg-accent"
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-card text-muted-foreground hover:bg-accent"
                           }`}
                       >
                         {d.label}
@@ -751,7 +751,7 @@ function SettingsPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full min-w-[500px] text-left text-xs">
                       <thead className="bg-muted/40 font-semibold text-muted-foreground border-b">
                         <tr>
                           <th className="px-4 py-2.5">File Name</th>
@@ -967,7 +967,7 @@ function SettingsPage() {
 
       {/* Add Holiday Dialog */}
       <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="w-[95vw] sm:max-w-xs max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Public Holiday</DialogTitle>
             <DialogDescription>Schedule non-working organization holidays.</DialogDescription>
@@ -992,7 +992,7 @@ function SettingsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button variant="outline" size="sm" onClick={() => setHolidayOpen(false)}>
               Cancel
             </Button>
@@ -1009,7 +1009,7 @@ function SettingsPage() {
 
       {/* Assign Role Dialog */}
       <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="w-[95vw] sm:max-w-xs max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Assign Role</DialogTitle>
             <DialogDescription>Grant administrative or kiosk privileges.</DialogDescription>

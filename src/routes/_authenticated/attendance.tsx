@@ -381,30 +381,30 @@ function AttendancePage() {
   const absent = filteredRecords.filter((r) => r.status === "absent").length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Attendance Logs</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Attendance Logs</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Audit, verify, and export biometric and manual attendance check-ins.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {session.isAdmin && (
-            <Button onClick={() => setAddOpen(true)} className="gap-2 bg-primary">
+            <Button onClick={() => setAddOpen(true)} className="flex-1 sm:flex-none gap-2 bg-primary text-xs h-9">
               <Plus className="h-4 w-4" />
               Manual Entry
             </Button>
           )}
 
-          <Button variant="outline" onClick={handleExportCsv} className="gap-2">
+          <Button variant="outline" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
 
-          <Button variant="outline" onClick={handlePrint} className="gap-2">
+          <Button variant="outline" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
             <Printer className="h-4 w-4" />
             Print
           </Button>
@@ -412,47 +412,47 @@ function AttendancePage() {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">Total Records</p>
-          <p className="mt-1 text-2xl font-bold">{total}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        <Card className="p-3 sm:p-4">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Total Records</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold">{total}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">Present</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{present}</p>
+        <Card className="p-3 sm:p-4">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Present</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{present}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">Late Arrivals</p>
-          <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">{late}</p>
+        <Card className="p-3 sm:p-4">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Late Arrivals</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{late}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">On Leave</p>
-          <p className="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">{onLeave}</p>
+        <Card className="p-3 sm:p-4">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">On Leave</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{onLeave}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">Absent</p>
-          <p className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">{absent}</p>
+        <Card className="p-3 sm:p-4 col-span-2 sm:col-span-1">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Absent</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400">{absent}</p>
         </Card>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-soft">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-3 sm:p-4 shadow-soft">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by employee name, code, department..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-9 h-9 text-xs"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             {/* Date Quick Filter */}
             <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-[140px]">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+              <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs">
+                <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <SelectValue placeholder="Period" />
               </SelectTrigger>
               <SelectContent>
@@ -469,14 +469,14 @@ function AttendancePage() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                className="w-[160px]"
+                className="w-full sm:w-[150px] h-9 text-xs"
               />
             )}
 
             {/* Department Filter (Admin only) */}
             {session.isAdmin && (
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs">
                   <SelectValue placeholder="Department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -492,7 +492,7 @@ function AttendancePage() {
 
             {/* Status Filter */}
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[120px] h-9 text-xs">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -506,12 +506,12 @@ function AttendancePage() {
 
             {/* Method Filter */}
             <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[120px] h-9 text-xs">
                 <SelectValue placeholder="Method" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Methods</SelectItem>
-                <SelectItem value="face">Face Recognition</SelectItem>
+                <SelectItem value="face">Face Scan</SelectItem>
                 <SelectItem value="manual">Manual Entry</SelectItem>
                 <SelectItem value="leave">Leave Sync</SelectItem>
               </SelectContent>
@@ -539,7 +539,7 @@ function AttendancePage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b bg-muted/40 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3.5">Employee</th>
@@ -630,7 +630,7 @@ function AttendancePage() {
 
       {/* Manual Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Log Manual Attendance</DialogTitle>
             <DialogDescription>
@@ -664,7 +664,7 @@ function AttendancePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Check In Time</Label>
                 <Input
@@ -708,7 +708,7 @@ function AttendancePage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
@@ -721,7 +721,7 @@ function AttendancePage() {
 
       {/* Edit Record Dialog */}
       <Dialog open={!!editingRecord} onOpenChange={(open) => !open && setEditingRecord(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Attendance Entry</DialogTitle>
             <DialogDescription>
@@ -730,7 +730,7 @@ function AttendancePage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Check In Time</Label>
                 <Input
