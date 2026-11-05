@@ -157,17 +157,17 @@ function HolidaysPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Company Holidays</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Holidays</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official non-working days and optional observances for 2026.
           </p>
         </div>
         {session.isAdmin && (
-          <Button onClick={() => setAddModalOpen(true)} className="gap-2 self-start sm:self-auto">
+          <Button onClick={() => setAddModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
             <Plus className="h-4 w-4" />
             Add Holiday
           </Button>
@@ -177,27 +177,27 @@ function HolidaysPage() {
       {/* Next Upcoming Highlight */}
       {nextHoliday && (
         <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-primary/40 text-primary">
+                  <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
                     Next Holiday
                   </Badge>
                   <span className="text-xs font-medium text-muted-foreground">
                     {getDaysUntil(nextHoliday.date)}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold">{nextHoliday.name}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-base sm:text-lg font-bold">{nextHoliday.name}</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {formatHolidayDate(nextHoliday.date)}
                 </p>
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               Official paid holiday for all employees
             </div>
           </CardContent>
@@ -345,7 +345,7 @@ function HolidaysPage() {
 
       {/* Add Holiday Dialog */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Holiday</DialogTitle>
             <DialogDescription>

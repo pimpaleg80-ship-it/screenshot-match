@@ -190,17 +190,17 @@ function AnnouncementsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Announcements</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official company news, policy updates, and team circulars.
           </p>
         </div>
         {canPost && (
-          <Button onClick={() => setPostModalOpen(true)} className="gap-2 self-start sm:self-auto">
+          <Button onClick={() => setPostModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
             <Plus className="h-4 w-4" />
             New Announcement
           </Button>
@@ -209,21 +209,21 @@ function AnnouncementsPage() {
 
       {/* Filter and Search */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search announcements..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
+                className="pl-9 h-9 text-xs"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
               <select
-                className="h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-9 w-full sm:w-auto rounded-md border bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedTarget}
                 onChange={(e) => setSelectedTarget(e.target.value)}
               >
@@ -371,7 +371,7 @@ function AnnouncementsPage() {
 
       {/* Post Modal */}
       <Dialog open={postModalOpen} onOpenChange={setPostModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Publish Announcement</DialogTitle>
             <DialogDescription>
@@ -402,7 +402,7 @@ function AnnouncementsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label>Target Audience</Label>
                 <select

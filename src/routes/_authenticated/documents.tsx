@@ -201,17 +201,17 @@ function DocumentsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Company Documents</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Documents</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official repository for corporate policies, leave forms, handbooks, and guidelines.
           </p>
         </div>
         {canUpload && (
-          <Button onClick={() => setUploadModalOpen(true)} className="gap-2 self-start sm:self-auto">
+          <Button onClick={() => setUploadModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
             <Upload className="h-4 w-4" />
             Upload Document
           </Button>
@@ -219,7 +219,7 @@ function DocumentsPage() {
       </div>
 
       {/* Categories Tabs & Search */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
           {CATEGORIES.map((cat) => (
             <Button
@@ -227,7 +227,7 @@ function DocumentsPage() {
               variant={selectedCat === cat ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedCat(cat)}
-              className="rounded-full text-xs"
+              className="rounded-full text-xs h-8"
             >
               {cat}
             </Button>
@@ -240,14 +240,14 @@ function DocumentsPage() {
             placeholder="Search documents..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9 text-xs"
           />
         </div>
       </div>
 
       {/* Documents Grid */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-44 w-full rounded-2xl" />
           ))}
@@ -263,7 +263,7 @@ function DocumentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredDocs.map((doc) => {
             const hasDrive = !!doc.drive_link || !!doc.drive_file_id;
             return (
@@ -350,7 +350,7 @@ function DocumentsPage() {
 
       {/* Upload Modal */}
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
             <DialogDescription>

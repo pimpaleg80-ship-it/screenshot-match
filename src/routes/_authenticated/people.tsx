@@ -310,18 +310,18 @@ function PeoplePage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Personnel & Faces</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Personnel & Faces</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Manage employee rosters, facial biometric profiles, and consent.
           </p>
         </div>
 
         {session.isStaff && (
-          <Button onClick={openCreateModal} className="gap-2 bg-primary shadow-glow hover:bg-primary/90">
+          <Button onClick={openCreateModal} className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9">
             <UserPlus className="h-4 w-4" />
             Add Person
           </Button>
@@ -329,20 +329,20 @@ function PeoplePage() {
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, ID code, department, email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9 text-xs"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={selectedDept} onValueChange={setSelectedDept}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs">
               <SelectValue placeholder="Department" />
             </SelectTrigger>
             <SelectContent>
@@ -356,7 +356,7 @@ function PeoplePage() {
           </Select>
 
           <Select value={selectedFaceStatus} onValueChange={setSelectedFaceStatus}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs">
               <SelectValue placeholder="Face Status" />
             </SelectTrigger>
             <SelectContent>
@@ -370,7 +370,7 @@ function PeoplePage() {
 
       {/* Personnel Grid */}
       {peopleLoading || descLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-44 rounded-2xl" />
           ))}
@@ -392,7 +392,7 @@ function PeoplePage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredPeople.map((person) => {
             const faceDesc = descriptorMap.get(person.id);
             const isEnrolled = !!faceDesc;
@@ -519,7 +519,7 @@ function PeoplePage() {
 
       {/* Add / Edit Person Dialog */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="sm:max-w-[460px]">
+        <DialogContent className="w-[95vw] sm:max-w-[460px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{editingPerson ? "Edit Personnel" : "Add Personnel"}</DialogTitle>
             <DialogDescription>
@@ -537,7 +537,7 @@ function PeoplePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               <div className="space-y-1.5">
                 <Label>Personnel Code / ID {editingPerson ? "*" : "(Optional)"}</Label>
                 <Input
@@ -557,7 +557,7 @@ function PeoplePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               <div className="space-y-1.5">
                 <Label>{editingPerson ? "Email" : "Login Email *"}</Label>
                 <Input
@@ -842,13 +842,13 @@ function FaceEnrollmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px]">
+      <DialogContent className="w-[95vw] sm:max-w-[540px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <ScanFace className="h-5 w-5 text-primary" />
             Biometric Face Enrollment — {person.name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             Look directly into the camera. Capture 1 to 3 face samples to build an accurate profile.
           </DialogDescription>
         </DialogHeader>
@@ -983,9 +983,9 @@ function PersonHistorySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md overflow-y-auto">
+      <SheetContent className="w-[95vw] sm:max-w-md overflow-y-auto p-4 sm:p-6">
         <SheetHeader>
-          <SheetTitle className="text-lg font-bold">{person.name}</SheetTitle>
+          <SheetTitle className="text-base sm:text-lg font-bold">{person.name}</SheetTitle>
           <SheetDescription className="font-mono text-xs">
             {person.person_code} • {person.department}
           </SheetDescription>

@@ -745,16 +745,16 @@ function KioskPage() {
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-neutral-950 text-white select-none">
       {/* Top Header Bar */}
-      <header className="z-20 flex items-center justify-between border-b border-white/10 bg-black/60 px-5 py-3 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <header className="z-20 flex items-center justify-between border-b border-white/10 bg-black/60 px-3 sm:px-5 py-2 sm:py-3 backdrop-blur-md">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate({ to: "/dashboard" })}
-            className="text-white/80 hover:bg-white/10 hover:text-white gap-2"
+            className="text-white/80 hover:bg-white/10 hover:text-white gap-1.5 text-xs h-8 sm:h-9 px-2 sm:px-3"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Exit Kiosk
+            <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">Exit</span>
           </Button>
 
           <div className="hidden sm:flex items-center gap-3 border-l border-white/10 pl-3">
@@ -767,10 +767,10 @@ function KioskPage() {
 
         {/* Center Clock */}
         <div className="text-center">
-          <div className="font-mono text-xl font-bold tracking-tight sm:text-2xl">
+          <div className="font-mono text-base sm:text-xl md:text-2xl font-bold tracking-tight">
             {currentTime.toLocaleTimeString()}
           </div>
-          <div className="text-[11px] text-white/60 uppercase tracking-widest font-medium">
+          <div className="text-[10px] sm:text-[11px] text-white/60 uppercase tracking-widest font-medium">
             {currentTime.toLocaleDateString(undefined, {
               weekday: "short",
               month: "short",
@@ -780,13 +780,13 @@ function KioskPage() {
         </div>
 
         {/* Mode Selector, Threshold, & Sound */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Smart In/Out Mode Toggle */}
-          <div className="flex rounded-lg bg-white/10 p-1 border border-white/5">
+          <div className="flex rounded-lg bg-white/10 p-0.5 sm:p-1 border border-white/5">
             <Button
               size="sm"
               variant={mode === "auto" ? "secondary" : "ghost"}
-              className={`h-7 px-2.5 text-xs transition-all ${
+              className={`h-7 px-2 sm:px-2.5 text-[11px] sm:text-xs transition-all ${
                 mode === "auto"
                   ? "bg-emerald-500 text-white font-semibold shadow-sm hover:bg-emerald-600"
                   : "text-white/80 hover:bg-white/10"
@@ -794,34 +794,34 @@ function KioskPage() {
               onClick={() => setMode("auto")}
               title="Smart mode: automatically checks in on first scan, and checks out after 2-3 minutes"
             >
-              <Sparkles className="h-3 w-3 mr-1" />
+              <Sparkles className="h-3 w-3 mr-0.5 sm:mr-1" />
               Auto
             </Button>
             <Button
               size="sm"
               variant={mode === "in" ? "secondary" : "ghost"}
-              className={`h-7 px-2.5 text-xs transition-all ${
+              className={`h-7 px-2 sm:px-2.5 text-[11px] sm:text-xs transition-all ${
                 mode === "in"
                   ? "bg-blue-600 text-white font-semibold shadow-sm hover:bg-blue-700"
                   : "text-white/80 hover:bg-white/10"
               }`}
               onClick={() => setMode("in")}
             >
-              <LogIn className="h-3 w-3 mr-1" />
-              Check In
+              <LogIn className="h-3 w-3 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">Check </span>In
             </Button>
             <Button
               size="sm"
               variant={mode === "out" ? "secondary" : "ghost"}
-              className={`h-7 px-2.5 text-xs transition-all ${
+              className={`h-7 px-2 sm:px-2.5 text-[11px] sm:text-xs transition-all ${
                 mode === "out"
                   ? "bg-indigo-600 text-white font-semibold shadow-sm hover:bg-indigo-700"
                   : "text-white/80 hover:bg-white/10"
               }`}
               onClick={() => setMode("out")}
             >
-              <LogOut className="h-3 w-3 mr-1" />
-              Check Out
+              <LogOut className="h-3 w-3 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">Check </span>Out
             </Button>
           </div>
 
@@ -872,10 +872,10 @@ function KioskPage() {
             variant="outline"
             size="sm"
             onClick={() => setManualCodeOpen(true)}
-            className="hidden md:flex border-white/20 bg-white/5 text-white hover:bg-white/15 gap-1.5 text-xs"
+            className="hidden sm:flex border-white/20 bg-white/5 text-white hover:bg-white/15 gap-1.5 text-xs h-8"
           >
             <Keyboard className="h-3.5 w-3.5" />
-            Enter ID
+            ID
           </Button>
         </div>
       </header>
@@ -908,23 +908,23 @@ function KioskPage() {
         )}
 
         {/* Center Target Reticle & Visual Guidance */}
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10">
-          <div className="relative h-72 w-72 sm:h-84 sm:w-84 rounded-3xl border border-white/20 shadow-glow transition-all">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
+          <div className="relative h-60 w-60 max-w-[72vw] max-h-[72vw] sm:h-80 sm:w-80 rounded-3xl border border-white/20 shadow-glow transition-all">
             {/* Corner highlights */}
-            <div className="absolute -top-1.5 -left-1.5 h-7 w-7 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl" />
-            <div className="absolute -top-1.5 -right-1.5 h-7 w-7 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl" />
-            <div className="absolute -bottom-1.5 -left-1.5 h-7 w-7 border-b-3 border-l-3 border-emerald-400 rounded-bl-xl" />
-            <div className="absolute -bottom-1.5 -right-1.5 h-7 w-7 border-b-3 border-r-3 border-emerald-400 rounded-br-xl" />
+            <div className="absolute -top-1.5 -left-1.5 h-6 w-6 sm:h-7 sm:w-7 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl" />
+            <div className="absolute -top-1.5 -right-1.5 h-6 w-6 sm:h-7 sm:w-7 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl" />
+            <div className="absolute -bottom-1.5 -left-1.5 h-6 w-6 sm:h-7 sm:w-7 border-b-3 border-l-3 border-emerald-400 rounded-bl-xl" />
+            <div className="absolute -bottom-1.5 -right-1.5 h-6 w-6 sm:h-7 sm:w-7 border-b-3 border-r-3 border-emerald-400 rounded-br-xl" />
 
             {/* Scanning line animation */}
             <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-75 animate-bounce" />
           </div>
 
-          <div className="mt-6 rounded-full bg-black/70 px-5 py-2 backdrop-blur-md border border-white/10 text-center shadow-lg">
-            <p className="text-xs font-semibold tracking-wide text-white/90">
+          <div className="mt-4 sm:mt-6 rounded-full bg-black/70 px-4 sm:px-5 py-1.5 sm:py-2 backdrop-blur-md border border-white/10 text-center shadow-lg max-w-xs sm:max-w-none">
+            <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-white/90">
               Align your face inside the frame
             </p>
-            <p className="text-[11px] text-white/60 mt-0.5">
+            <p className="text-[10px] sm:text-[11px] text-white/60 mt-0.5">
               {enrolledPeople.length} verified employee faces enrolled
             </p>
           </div>
@@ -932,9 +932,9 @@ function KioskPage() {
 
         {/* Big Interactive Notification Pop-up */}
         {activeNotification && (
-          <div className="absolute top-6 z-30 flex animate-in fade-in slide-in-from-top-6 duration-300">
+          <div className="absolute top-3 sm:top-6 left-3 right-3 sm:left-auto sm:right-auto z-30 flex justify-center animate-in fade-in slide-in-from-top-6 duration-300">
             <div
-              className={`flex items-center gap-4 rounded-2xl border px-6 py-4 backdrop-blur-2xl shadow-2xl ${
+              className={`flex items-center gap-3 sm:gap-4 rounded-2xl border px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-2xl shadow-2xl max-w-sm sm:max-w-md w-full ${
                 activeNotification.type === "in"
                   ? "border-emerald-500/50 bg-black/85"
                   : activeNotification.type === "out"
@@ -1059,7 +1059,7 @@ function KioskPage() {
 
       {/* Manual ID Entry Dialog */}
       <Dialog open={manualCodeOpen} onOpenChange={setManualCodeOpen}>
-        <DialogContent className="sm:max-w-xs bg-neutral-900 text-white border-white/10">
+        <DialogContent className="w-[95vw] sm:max-w-xs max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Enter Employee ID Code</DialogTitle>
             <DialogDescription className="text-white/60">

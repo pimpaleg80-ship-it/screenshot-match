@@ -45,15 +45,15 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 sm:px-4 py-8 sm:py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[880px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl"
       />
       <div className="relative w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+        <div className="mb-6 flex flex-col items-center gap-2.5 text-center px-2">
           <BrandLogo variant="stacked" size="xl" />
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xs sm:max-w-none">
             Biometric workforce & attendance suite for modern enterprises
           </p>
         </div>
