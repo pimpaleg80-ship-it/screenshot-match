@@ -96,10 +96,10 @@ function SignInCard() {
     if (userId) {
       const [{ data: roles }, { data: emp }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase.from("employees").select("is_superadmin").eq("user_id", userId).maybeSingle(),
+        supabase.from("employees").select("is_superadmin" as any).eq("user_id", userId).maybeSingle(),
       ]);
       isAdmin = roles?.some((r) => r.role === "admin") ?? false;
-      isSuper = !!emp?.is_superadmin;
+      isSuper = !!(emp as any)?.is_superadmin;
     }
 
     toast.success("Signed in successfully");
