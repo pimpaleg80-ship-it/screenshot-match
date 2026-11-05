@@ -39,10 +39,15 @@ BEGIN
     RAISE EXCEPTION 'Full name is required.';
   END IF;
 
-  -- Check if user already exists
-  SELECT id INTO v_existing_id FROM auth.users WHERE email = lower(trim(p_email));
+  -- Check if user already exists in auth.users
+  SELECT id INTO v_existing_id FROM auth.users WHERE lower(email) = lower(trim(p_email));
   IF v_existing_id IS NOT NULL THEN
     RAISE EXCEPTION 'An account with email % already exists.', lower(trim(p_email));
+  END IF;
+
+  -- Check if employee already exists in public.employees
+  IF EXISTS (SELECT 1 FROM public.employees WHERE lower(email) = lower(trim(p_email))) THEN
+    RAISE EXCEPTION 'An employee with email % already exists.', lower(trim(p_email));
   END IF;
 
   -- Department resolution
@@ -51,6 +56,17 @@ BEGIN
     IF v_dept_id IS NULL THEN
       INSERT INTO public.departments (name) VALUES (trim(p_department)) RETURNING id INTO v_dept_id;
     END IF;
+  END IF;
+
+  -- Determine unique employee code
+  v_code := NULLIF(trim(p_person_code), '');
+
+  -- If code is not provided OR if provided code is already taken, generate guaranteed unique code
+  IF v_code IS NULL OR EXISTS (SELECT 1 FROM public.employees WHERE lower(employee_code) = lower(v_code)) THEN
+    v_code := 'EMP' || LPAD(nextval('public.employee_code_seq')::text, 3, '0');
+    WHILE EXISTS (SELECT 1 FROM public.employees WHERE lower(employee_code) = lower(v_code)) LOOP
+      v_code := 'EMP' || LPAD(nextval('public.employee_code_seq')::text, 3, '0');
+    END LOOP;
   END IF;
 
   -- Create Auth User
@@ -121,12 +137,12 @@ BEGIN
   DELETE FROM public.user_roles WHERE user_id = v_user_id;
   INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'employee');
 
-  -- Update the employee record created by handle_new_user trigger
+  -- Update employee if created by any trigger
   UPDATE public.employees
   SET full_name = trim(p_full_name),
       department_id = v_dept_id,
       phone = NULLIF(trim(p_phone), ''),
-      employee_code = COALESCE(NULLIF(trim(p_person_code), ''), employee_code),
+      employee_code = v_code,
       designation = 'Employee',
       is_superadmin = false,
       status = 'active'
@@ -147,7 +163,7 @@ BEGIN
       status
     ) VALUES (
       v_user_id,
-      COALESCE(NULLIF(trim(p_person_code), ''), 'EMP' || LPAD(nextval('public.employee_code_seq')::text, 3, '0')),
+      v_code,
       trim(p_full_name),
       lower(trim(p_email)),
       NULLIF(trim(p_phone), ''),
