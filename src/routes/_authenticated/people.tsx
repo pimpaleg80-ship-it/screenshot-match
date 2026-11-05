@@ -249,11 +249,25 @@ function PeoplePage() {
     },
   });
 
+  function getNextPersonCode(peopleList: PersonRow[]): string {
+    let maxNumber = 0;
+    for (const p of peopleList) {
+      const match = p.person_code?.match(/\d+/);
+      if (match) {
+        const val = parseInt(match[0], 10);
+        if (!isNaN(val) && val > maxNumber) {
+          maxNumber = val;
+        }
+      }
+    }
+    return `EMP${String(maxNumber + 1).padStart(3, "0")}`;
+  }
+
   function openCreateModal() {
     setEditingPerson(null);
     setFormData({
       name: "",
-      person_code: `EMP${String(people.length + 1).padStart(3, "0")}`,
+      person_code: "",
       department: session.department || "General",
       email: "",
       password: "",
@@ -524,9 +538,9 @@ function PeoplePage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Personnel Code / ID *</Label>
+                <Label>Personnel Code / ID {editingPerson ? "*" : "(Optional)"}</Label>
                 <Input
-                  placeholder="e.g. EMP002"
+                  placeholder={editingPerson ? "e.g. EMP002" : `Auto (e.g. ${getNextPersonCode(people)})`}
                   value={formData.person_code}
                   onChange={(e) => setFormData({ ...formData, person_code: e.target.value })}
                 />
