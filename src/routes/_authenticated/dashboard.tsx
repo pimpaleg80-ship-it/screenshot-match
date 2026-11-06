@@ -27,7 +27,12 @@ import {
   UserCheck,
   Building2,
   Loader2,
+  MapPin,
+  ScanFace,
+  Radio,
+  Smartphone,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
   BarChart,
@@ -130,7 +135,7 @@ function AdminDashboardView() {
     },
   });
 
-  // Query Today's Attendance
+  // Query Today's Attendance (Biometric + GPS Geofence)
   const {
     data: todayRecords = [],
     isLoading: todayLoading,
@@ -141,13 +146,14 @@ function AdminDashboardView() {
       const { data, error } = await supabase
         .from("attendance")
         .select(
-          "id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code, departments(name))",
+          "id, date, check_in, check_out, status, method, location_source, total_hours, work_location_id, work_locations(name, address), employee_id, employees(full_name, employee_code, departments(name))",
         )
         .eq("date", todayKey)
         .order("check_in", { ascending: false });
       if (error) throw error;
       return (data ?? []) as any[];
     },
+    refetchInterval: 15000,
   });
 
   // Realtime updates for Admin Dashboard
@@ -287,12 +293,40 @@ function AdminDashboardView() {
   const pendingCount = pendingLeaves.length;
   const attendanceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
+  const [methodFilter, setMethodFilter] = useState<"all" | "biometric" | "gps">("all");
+
+  const isBiometric = (r: any) => {
+    const m = (r.method || "").toLowerCase();
+    return m.includes("face") || m.includes("bio") || m.includes("kiosk");
+  };
+
+  const isGps = (r: any) => {
+    const m = (r.method || "").toLowerCase();
+    const s = (r.location_source || "").toLowerCase();
+    return (
+      m.includes("geofence") ||
+      m.includes("gps") ||
+      s.includes("gps") ||
+      s.includes("network") ||
+      s.includes("native")
+    );
+  };
+
+  const biometricCount = todayRecords.filter(isBiometric).length;
+  const gpsCount = todayRecords.filter(isGps).length;
+
   const filteredFeed = todayRecords.filter((r) => {
-    if (!feedSearch) return true;
-    const name = r.employees?.full_name?.toLowerCase() || "";
-    const code = r.employees?.employee_code?.toLowerCase() || "";
-    const q = feedSearch.toLowerCase();
-    return name.includes(q) || code.includes(q);
+    if (feedSearch) {
+      const name = r.employees?.full_name?.toLowerCase() || "";
+      const code = r.employees?.employee_code?.toLowerCase() || "";
+      const loc = r.work_locations?.name?.toLowerCase() || "";
+      const q = feedSearch.toLowerCase();
+      if (!name.includes(q) && !code.includes(q) && !loc.includes(q)) return false;
+    }
+
+    if (methodFilter === "biometric") return isBiometric(r);
+    if (methodFilter === "gps") return isGps(r);
+    return true;
   });
 
   return (
@@ -350,9 +384,13 @@ function AdminDashboardView() {
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
               {todayLoading ? "..." : `${attendanceRate}%`}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {presentCount} of {totalEmployees} checked in
-            </p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
+              <span>{presentCount}/{totalEmployees} active</span>
+              <span>•</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">📸 {biometricCount} Bio</span>
+              <span>•</span>
+              <span className="text-sky-600 dark:text-sky-400 font-medium">📍 {gpsCount} GPS</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -537,23 +575,85 @@ function AdminDashboardView() {
         </Card>
       </div>
 
-      {/* Recent Check-Ins Live Feed */}
+      {/* Live Check-Ins & Check-Outs Feed (Biometric + GPS Geofence) */}
       <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="text-base">Today's Biometric Feed</CardTitle>
-            <CardDescription>
-              Live attendance records logged at kiosks or authorized portals.
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-semibold">Today's Live Attendance Feed</CardTitle>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Realtime
+              </div>
+            </div>
+            <CardDescription className="text-xs">
+              Live attendance punches logged via Biometric Kiosks and GPS office geofence perimeters.
             </CardDescription>
           </div>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search feed..."
-              value={feedSearch}
-              onChange={(e) => setFeedSearch(e.target.value)}
-              className="pl-9 h-9 text-xs"
-            />
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {/* Method filter pill tabs */}
+            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setMethodFilter("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                  methodFilter === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                All ({todayRecords.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethodFilter("biometric")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1",
+                  methodFilter === "biometric"
+                    ? "bg-background text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <ScanFace className="h-3 w-3" />
+                Biometric ({biometricCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethodFilter("gps")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1",
+                  methodFilter === "gps"
+                    ? "bg-background text-sky-600 dark:text-sky-400 shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <MapPin className="h-3 w-3" />
+                GPS ({gpsCount})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search name, code, office..."
+                value={feedSearch}
+                onChange={(e) => setFeedSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchToday()}
+              disabled={todayLoading}
+              title="Refresh attendance feed"
+              className="h-8 px-2 text-xs shrink-0"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", todayLoading && "animate-spin")} />
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -565,7 +665,9 @@ function AdminDashboardView() {
             </div>
           ) : filteredFeed.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              No check-in entries logged yet today.
+              {methodFilter !== "all" || feedSearch
+                ? "No matching attendance entries found for the selected filter."
+                : "No check-in entries logged yet today."}
             </div>
           ) : (
             <div className="divide-y">
@@ -579,10 +681,36 @@ function AdminDashboardView() {
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "EM"}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {rec.employees?.employee_code} •{" "}
-                        {rec.employees?.departments?.name || "General"}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold truncate text-foreground">{rec.employees?.full_name}</p>
+                        {isBiometric(rec) ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          >
+                            <ScanFace className="h-2.5 w-2.5" /> Biometric Kiosk
+                          </Badge>
+                        ) : isGps(rec) ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                          >
+                            <MapPin className="h-2.5 w-2.5" /> GPS Geofence
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 gap-1 bg-neutral-500/10 text-neutral-400 border-white/10"
+                          >
+                            <Radio className="h-2.5 w-2.5" /> Web Punch
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {rec.employees?.employee_code} • {rec.employees?.departments?.name || "General"}
+                        {rec.work_locations?.name ? (
+                          <span className="text-sky-600 dark:text-sky-400 font-medium"> • 📍 {rec.work_locations.name}</span>
+                        ) : null}
                       </p>
                     </div>
                   </div>
@@ -605,17 +733,18 @@ function AdminDashboardView() {
                       </div>
                       {rec.check_in && rec.check_out ? (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          Duration: {formatHours(totalHours(rec.check_in, rec.check_out))}
+                          Duration: {rec.total_hours ? `${rec.total_hours} hrs` : formatHours(totalHours(rec.check_in, rec.check_out))}
                         </p>
                       ) : (
-                        <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 sm:justify-end">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
                           Active attendance (On site)
                         </p>
                       )}
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] shrink-0 ${
+                      className={`text-[10px] shrink-0 font-medium ${
                         rec.check_out
                           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
@@ -729,12 +858,14 @@ function ManagerDashboardView() {
       const { data, error } = await supabase
         .from("attendance")
         .select(
-          "id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code)",
+          "id, date, check_in, check_out, status, method, location_source, total_hours, work_location_id, work_locations(name), employee_id, employees(full_name, employee_code, departments(name))",
         )
-        .eq("date", todayKey);
+        .eq("date", todayKey)
+        .order("check_in", { ascending: false });
       if (error) throw error;
       return (data ?? []) as any[];
     },
+    refetchInterval: 15000,
   });
 
   // Realtime updates for Manager Dashboard
@@ -1041,9 +1172,15 @@ function ManagerDashboardView() {
       {/* Team Check-In & Check-Out Today */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Team Attendance Log (Today)</CardTitle>
-          <CardDescription>
-            Real-time check-in and check-out entries for your department.
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base font-semibold">Team Attendance Log (Today)</CardTitle>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Feed
+            </div>
+          </div>
+          <CardDescription className="text-xs">
+            Real-time check-in and check-out entries for your department via Biometric Kiosk or GPS Geofence.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1059,62 +1196,85 @@ function ManagerDashboardView() {
             </p>
           ) : (
             <div className="divide-y">
-              {teamRecords.map((rec: any) => (
-                <div
-                  key={rec.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
-                      {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "TM"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {rec.employees?.employee_code}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
-                    <div className="text-left sm:text-right space-y-0.5">
-                      <div className="flex items-center gap-2 sm:gap-3 text-xs">
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">
-                          In:{" "}
-                          <strong className="text-foreground font-mono">
-                            {rec.check_in ? formatTime(rec.check_in) : "--:--"}
-                          </strong>
-                        </span>
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">
-                          Out:{" "}
-                          <strong className="text-foreground font-mono">
-                            {rec.check_out ? formatTime(rec.check_out) : "On Site"}
-                          </strong>
-                        </span>
+              {teamRecords.map((rec: any) => {
+                const isBio = (rec.method || "").toLowerCase().includes("face") || (rec.method || "").toLowerCase().includes("bio");
+                const isGpsPunch = (rec.method || "").toLowerCase().includes("geofence") || (rec.method || "").toLowerCase().includes("gps") || (rec.location_source || "").toLowerCase().includes("gps");
+                return (
+                  <div
+                    key={rec.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                        {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "TM"}
                       </div>
-                      {rec.check_in && rec.check_out ? (
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          Duration: {formatHours(totalHours(rec.check_in, rec.check_out))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold truncate text-foreground">{rec.employees?.full_name}</p>
+                          {isBio ? (
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                              <ScanFace className="h-2.5 w-2.5" /> Biometric
+                            </Badge>
+                          ) : isGpsPunch ? (
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                              <MapPin className="h-2.5 w-2.5" /> GPS Geofence
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 bg-neutral-500/10 text-neutral-400 border-white/10">
+                              <Radio className="h-2.5 w-2.5" /> Web Punch
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {rec.employees?.employee_code}
+                          {rec.work_locations?.name ? (
+                            <span className="text-sky-600 dark:text-sky-400 font-medium"> • 📍 {rec.work_locations.name}</span>
+                          ) : null}
                         </p>
-                      ) : (
-                        <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                          Currently on site
-                        </p>
-                      )}
+                      </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] shrink-0 ${
-                        rec.check_out
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                      }`}
-                    >
-                      {rec.check_out ? "Checked Out" : "Checked In"}
-                    </Badge>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
+                      <div className="text-left sm:text-right space-y-0.5">
+                        <div className="flex items-center gap-2 sm:gap-3 text-xs">
+                          <span className="text-muted-foreground text-[11px] sm:text-xs">
+                            In:{" "}
+                            <strong className="text-foreground font-mono">
+                              {rec.check_in ? formatTime(rec.check_in) : "--:--"}
+                            </strong>
+                          </span>
+                          <span className="text-muted-foreground text-[11px] sm:text-xs">
+                            Out:{" "}
+                            <strong className="text-foreground font-mono">
+                              {rec.check_out ? formatTime(rec.check_out) : "On Site"}
+                            </strong>
+                          </span>
+                        </div>
+                        {rec.check_in && rec.check_out ? (
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            Duration: {rec.total_hours ? `${rec.total_hours} hrs` : formatHours(totalHours(rec.check_in, rec.check_out))}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 sm:justify-end">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                            Currently on site
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] shrink-0 font-medium ${
+                          rec.check_out
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                        }`}
+                      >
+                        {rec.check_out ? "Checked Out" : "Checked In"}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
