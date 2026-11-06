@@ -160,7 +160,7 @@ export function AppLayout() {
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 pathname.startsWith(item.to) &&
-                  "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
+                "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -265,7 +265,7 @@ export function AppLayout() {
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground min-h-[44px]",
                       pathname.startsWith(item.to) &&
-                        "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
+                      "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
                     )}
                   >
                     <item.icon className="h-4.5 w-4.5 shrink-0" />

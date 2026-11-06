@@ -179,11 +179,11 @@ function SettingsPage() {
           const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
           return conn
             ? {
-                connected: true,
-                email: conn.google_email,
-                auto_backup_on_pdf: conn.auto_backup_on_pdf,
-                daily_backup_enabled: conn.daily_backup,
-              }
+              connected: true,
+              email: conn.google_email,
+              auto_backup_on_pdf: conn.auto_backup_on_pdf,
+              daily_backup_enabled: conn.daily_backup,
+            }
             : { connected: false };
         }
         return data;
@@ -191,11 +191,11 @@ function SettingsPage() {
         const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
         return conn
           ? {
-              connected: true,
-              email: conn.google_email,
-              auto_backup_on_pdf: conn.auto_backup_on_pdf,
-              daily_backup_enabled: conn.daily_backup,
-            }
+            connected: true,
+            email: conn.google_email,
+            auto_backup_on_pdf: conn.auto_backup_on_pdf,
+            daily_backup_enabled: conn.daily_backup,
+          }
           : { connected: false };
       }
     },
@@ -578,11 +578,10 @@ function SettingsPage() {
                         key={d.id}
                         type="button"
                         onClick={() => toggleDay(d.id)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          isChecked
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
                             ? "border-primary bg-primary text-primary-foreground shadow-sm"
                             : "border-border bg-card text-muted-foreground hover:bg-accent"
-                        }`}
+                          }`}
                       >
                         {d.label}
                       </button>

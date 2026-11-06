@@ -569,11 +569,10 @@ export function AdminLocationStudio() {
                   <div
                     key={loc.id}
                     onClick={() => handleSelectLocation(loc)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer text-left space-y-1.5 ${
-                      isSelected
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer text-left space-y-1.5 ${isSelected
                         ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/20"
                         : "border-border hover:border-border/80 bg-card hover:bg-muted/30"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 truncate">
@@ -583,11 +582,10 @@ export function AdminLocationStudio() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Badge
                           variant={loc.is_active ? "secondary" : "outline"}
-                          className={`text-[10px] font-medium ${
-                            loc.is_active
+                          className={`text-[10px] font-medium ${loc.is_active
                               ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                               : "text-muted-foreground"
-                          }`}
+                            }`}
                         >
                           {loc.is_active ? "Active" : "Inactive"}
                         </Badge>
@@ -837,9 +835,8 @@ export function AdminLocationStudio() {
                           setRadius(preset.value);
                           setIsDirty(true);
                         }}
-                        className={`h-8 text-xs font-medium ${
-                          isSelected ? "shadow-xs" : "hover:bg-muted"
-                        }`}
+                        className={`h-8 text-xs font-medium ${isSelected ? "shadow-xs" : "hover:bg-muted"
+                          }`}
                       >
                         {preset.value}m
                       </Button>
@@ -1017,11 +1014,10 @@ export function AdminLocationStudio() {
                         setSelectedStaffIds([...selectedStaffIds, emp.id]);
                       }
                     }}
-                    className={`p-2.5 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                      isChecked
+                    className={`p-2.5 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${isChecked
                         ? "border-primary bg-primary/5"
                         : "border-border hover:bg-muted/50"
-                    }`}
+                      }`}
                   >
                     <div className="space-y-0.5 truncate">
                       <p className="font-semibold text-foreground truncate">{emp.full_name}</p>
@@ -1034,7 +1030,7 @@ export function AdminLocationStudio() {
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => {}} // Controlled by row click
+                        onChange={() => { }} // Controlled by row click
                         className="rounded border-border text-primary focus:ring-primary h-4 w-4"
                       />
                     </div>
