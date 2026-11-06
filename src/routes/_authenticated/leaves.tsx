@@ -165,10 +165,13 @@ function LeavesPage() {
       const { data, error } = await supabase
         .from("leave_requests")
         .select(
-          "*, employees(id, full_name, employee_code, department_id, departments(name)), leave_types(*)",
+          "*, employees:employees!leave_requests_employee_id_fkey(id, full_name, employee_code, department_id, departments(name)), leave_types(*)",
         )
         .order("applied_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("Failed to fetch leave requests:", error);
+        throw error;
+      }
       return (data as unknown as LeaveRequest[]) ?? [];
     },
   });
@@ -239,6 +242,7 @@ function LeavesPage() {
         attachment_url: attachmentUrl,
         status: "pending",
         manager_id: managerId,
+        organization_id: session.organizationId,
       });
 
       if (error) throw error;
@@ -250,6 +254,10 @@ function LeavesPage() {
       setAttachmentFile(null);
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["my-leave-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-balances"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to submit leave request");
@@ -311,6 +319,11 @@ function LeavesPage() {
       setDecisionComment("");
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["my-leave-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to process leave decision");
@@ -336,6 +349,7 @@ function LeavesPage() {
         admin_id: session.employeeId,
         admin_comment: "Granted directly by Administrator",
         decided_at: new Date().toISOString(),
+        organization_id: session.organizationId,
       });
 
       if (error) throw error;
@@ -345,6 +359,11 @@ function LeavesPage() {
       setAdminAddModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["my-leave-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to grant leave");

@@ -48,4 +48,18 @@ describe("Geofence & Location Distance Calculations", () => {
     const distOutside = calculateHaversineDistance(hqLat, hqLon, 18.524, 73.8567);
     expect(distOutside > radiusMeters).toBe(true);
   });
+
+  it("handles multi-tier coordinates with source attribution", () => {
+    const coords = {
+      latitude: 18.5204,
+      longitude: 73.8567,
+      accuracy: 75,
+      timestamp: Date.now(),
+      source: "edge_cloudflare" as const,
+      city: "Pune",
+    };
+    expect(coords.source).toBe("edge_cloudflare");
+    expect(coords.accuracy).toBe(75);
+    expect(coords.city).toBe("Pune");
+  });
 });

@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   MapPin,
-  Map as MapIcon,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -14,7 +13,10 @@ import {
   FileQuestion,
   Building,
   Radio,
-  ExternalLink,
+  Compass,
+  Calendar,
+  Sparkles,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,15 +33,15 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapLibreGeofenceMap } from "@/components/map/maplibre-geofence-map";
 import {
   fetchEmployeeGeofenceContext,
   getCurrentDevicePosition,
   calculateHaversineDistance,
   formatDistance,
+  formatCoordinates,
+  getAccuracyCategory,
   submitGeofenceAttendance,
   type Coordinates,
-  type GeofenceContext,
 } from "@/lib/geofence";
 import { formatTime, formatHours } from "@/lib/attendance";
 
@@ -56,10 +58,16 @@ export function GeofenceAttendanceCard({
   const [coords, setCoords] = useState<Coordinates | null>(null);
   const [locating, setLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState<boolean>(true);
   const [regularizeOpen, setRegularizeOpen] = useState<boolean>(false);
   const [regularizeReason, setRegularizeReason] = useState<string>("");
   const [submittingRegularize, setSubmittingRegularize] = useState<boolean>(false);
+
+  // Live Digital Clock state
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fetch geofence context (assigned location, shift, today's attendance)
   const {
@@ -93,38 +101,54 @@ export function GeofenceAttendanceCard({
     refreshLocation();
   }, [refreshLocation]);
 
-  // Distance & Geofence evaluation
+  // Assigned office & today's attendance
   const assignedLocation = context?.location;
   const todayAttendance = context?.today_attendance;
 
-  const distanceMeters =
-    coords && assignedLocation
-      ? calculateHaversineDistance(
-          coords.latitude,
-          coords.longitude,
-          assignedLocation.latitude,
-          assignedLocation.longitude,
-        )
-      : null;
+  // Real-time server-aligned Haversine distance calculation
+  const distanceMeters = useMemo(() => {
+    if (!coords || !assignedLocation) return null;
+    return calculateHaversineDistance(
+      coords.latitude,
+      coords.longitude,
+      assignedLocation.latitude,
+      assignedLocation.longitude,
+    );
+  }, [coords, assignedLocation]);
 
-  const isInside =
-    distanceMeters !== null && assignedLocation
-      ? distanceMeters <= assignedLocation.radius_meters
-      : false;
+  // Geofence perimeter check
+  const isInside = useMemo(() => {
+    if (distanceMeters === null || !assignedLocation) return false;
+    return distanceMeters <= assignedLocation.radius_meters;
+  }, [distanceMeters, assignedLocation]);
 
   const isCheckedIn = !!todayAttendance?.check_in;
   const isCheckedOut = !!todayAttendance?.check_out;
+
+  // Accuracy evaluation
+  const accuracyInfo = useMemo(() => {
+    if (!coords) return null;
+    return getAccuracyCategory(coords.accuracy);
+  }, [coords]);
 
   const isPermissionDenied = Boolean(
     locationError && locationError.toLowerCase().includes("permission"),
   );
   const isGpsUnavailable = Boolean(
     locationError &&
-    (locationError.toLowerCase().includes("unavailable") ||
-      locationError.toLowerCase().includes("timed out") ||
-      locationError.toLowerCase().includes("not supported")),
+      (locationError.toLowerCase().includes("unavailable") ||
+        locationError.toLowerCase().includes("timed out") ||
+        locationError.toLowerCase().includes("not supported")),
   );
-  const isPoorAccuracy = Boolean(coords && coords.accuracy > 150);
+
+  // Compute live elapsed time if checked in
+  const elapsedLiveHours = useMemo(() => {
+    if (!isCheckedIn || isCheckedOut || !todayAttendance?.check_in) return null;
+    const checkInTime = new Date(todayAttendance.check_in).getTime();
+    const now = currentTime.getTime();
+    const diffHours = Math.max(0, (now - checkInTime) / (1000 * 60 * 60));
+    return diffHours;
+  }, [isCheckedIn, isCheckedOut, todayAttendance?.check_in, currentTime]);
 
   // Attendance Check-in / Check-out Mutations
   const attendanceMutation = useMutation({
@@ -185,72 +209,88 @@ export function GeofenceAttendanceCard({
       <Card className="border-border">
         <CardContent className="flex items-center justify-center p-8 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-          <span className="text-sm font-medium">Loading geofence radar & attendance status...</span>
+          <span className="text-sm font-medium">Acquiring GPS telemetry & attendance state...</span>
         </CardContent>
       </Card>
     );
   }
 
+  // Location status headline text
+  const locationStatusTitle = isPermissionDenied
+    ? "Location permission required"
+    : isGpsUnavailable
+      ? "Unable to detect location"
+      : locating
+        ? "Getting your location..."
+        : accuracyInfo?.level === "rejected"
+          ? "Location accuracy is too low"
+          : isInside
+            ? "You are inside your office zone"
+            : coords
+              ? "You are outside your office zone"
+              : "Getting your location...";
+
   return (
     <>
       <Card className="overflow-hidden border border-border shadow-sm">
-        {/* Header with Assigned Location & Live Status */}
-        <CardHeader className="bg-muted/30 pb-3 pt-4 px-4 sm:px-6 border-b">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
+        {/* Header with Live Clock & Assigned Office */}
+        <CardHeader className="bg-muted/30 pb-3.5 pt-4 px-4 sm:px-6 border-b">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary shrink-0" />
-                  <span>Geofence Attendance Center</span>
+                  <Navigation className="h-5 w-5 text-primary shrink-0" />
+                  <span>GPS Geofence Attendance</span>
                 </CardTitle>
                 {assignedLocation && (
                   <Badge
                     variant="outline"
-                    className="text-[11px] font-normal border-primary/30 text-primary"
+                    className="text-[11px] font-medium border-primary/30 text-primary bg-primary/5"
                   >
+                    <Building className="h-3 w-3 mr-1" />
                     {assignedLocation.name}
                   </Badge>
                 )}
+                {isCheckedOut ? (
+                  <Badge className="bg-slate-700 text-white text-[10px]">SHIFT COMPLETED</Badge>
+                ) : isCheckedIn ? (
+                  <Badge className="bg-emerald-600 text-white text-[10px] animate-pulse">ON-DUTY</Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px]">NOT CHECKED IN</Badge>
+                )}
               </div>
               <CardDescription className="text-xs">
-                Manual check-in and check-out is gated by your physical presence inside the assigned
-                office geofence.
+                Backend-verified GPS geofencing. Attendance actions require physical presence inside your assigned office perimeter.
               </CardDescription>
             </div>
 
-            {/* GPS Refresh & Map Toggle Buttons */}
-            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-              {assignedLocation && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMap(!showMap)}
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <MapIcon className="h-3.5 w-3.5 text-primary" />
-                  <span>{showMap ? "Hide Map" : "Show Radar Map"}</span>
-                </Button>
-              )}
+            {/* Live Clock & Location Refresh */}
+            <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border shadow-xs text-xs">
+                <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="font-mono font-bold text-foreground">
+                  {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </span>
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={refreshLocation}
                 disabled={locating}
-                className="h-8 gap-1.5 text-xs"
+                className="h-8 gap-1.5 text-xs bg-background hover:bg-muted"
               >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${locating ? "animate-spin text-primary" : ""}`}
-                />
-                <span>{locating ? "Acquiring GPS..." : "Refresh Location"}</span>
+                <RefreshCw className={`h-3.5 w-3.5 ${locating ? "animate-spin text-primary" : ""}`} />
+                <span>{locating ? "Locating..." : "Refresh GPS"}</span>
               </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 space-y-5">
-          {/* Geofence Radar / Eligibility Status Banner (5 States) */}
+          {/* Main Geofence Status Banner */}
           <div
-            className={`rounded-xl p-3.5 sm:p-4 border transition-all ${
+            className={`rounded-xl p-4 border transition-all ${
               isPermissionDenied
                 ? "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-100"
                 : isGpsUnavailable
@@ -265,15 +305,15 @@ export function GeofenceAttendanceCard({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start sm:items-center gap-3">
                 <div
-                  className={`p-2.5 rounded-full shrink-0 ${
+                  className={`p-2.5 rounded-full shrink-0 shadow-xs ${
                     isPermissionDenied
-                      ? "bg-rose-600 text-white shadow-sm"
+                      ? "bg-rose-600 text-white"
                       : isGpsUnavailable
-                        ? "bg-amber-600 text-white shadow-sm"
+                        ? "bg-amber-600 text-white"
                         : isInside
-                          ? "bg-emerald-500 text-white shadow-sm"
+                          ? "bg-emerald-600 text-white"
                           : coords
-                            ? "bg-amber-500 text-white shadow-sm"
+                            ? "bg-amber-600 text-white"
                             : "bg-muted text-muted-foreground"
                   }`}
                 >
@@ -286,31 +326,21 @@ export function GeofenceAttendanceCard({
                   ) : coords ? (
                     <ShieldAlert className="h-5 w-5" />
                   ) : (
-                    <Navigation className="h-5 w-5" />
+                    <Navigation className="h-5 w-5 animate-spin" />
                   )}
                 </div>
 
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">
-                      {isPermissionDenied
-                        ? "GPS Permission Denied"
-                        : isGpsUnavailable
-                          ? "GPS Signal Unavailable"
-                          : isInside
-                            ? "Inside Assigned Office Geofence"
-                            : coords
-                              ? "Outside Office Geofence"
-                              : "Acquiring GPS Signal..."}
-                    </span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{locationStatusTitle}</span>
                     <Badge
                       className={`text-[10px] font-bold ${
                         isPermissionDenied || isGpsUnavailable
-                          ? "bg-rose-600 text-white hover:bg-rose-600"
+                          ? "bg-rose-600 text-white"
                           : isInside
-                            ? "bg-emerald-600 text-white hover:bg-emerald-600"
+                            ? "bg-emerald-600 text-white"
                             : coords
-                              ? "bg-amber-600 text-white hover:bg-amber-600"
+                              ? "bg-amber-600 text-white"
                               : "bg-muted-foreground/30 text-muted-foreground"
                       }`}
                     >
@@ -321,138 +351,201 @@ export function GeofenceAttendanceCard({
                           : isInside
                             ? "ELIGIBLE TO MARK"
                             : coords
-                              ? "LOCKED OUTSIDE"
-                              : "DETECTING"}
+                              ? "OUTSIDE ZONE"
+                              : "ACQUIRING"}
                     </Badge>
+
+                    {coords?.source && (
+                      <Badge variant="outline" className="text-[10px] bg-background/70 font-normal">
+                        {coords.source === "native_gps" || coords.source === "browser_gps"
+                          ? "🛰️ GPS Sensor"
+                          : coords.source === "browser_network"
+                            ? "📡 Network Positioning"
+                            : "🌐 Edge Network"}
+                      </Badge>
+                    )}
+
+                    {accuracyInfo && (
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] font-medium ${
+                          accuracyInfo.level === "good"
+                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                            : accuracyInfo.level === "warning"
+                              ? "text-amber-700 dark:text-amber-300 bg-amber-500/10"
+                              : "text-rose-700 dark:text-rose-300 bg-rose-500/10"
+                        }`}
+                      >
+                        Accuracy: {Math.round(coords!.accuracy)}m
+                      </Badge>
+                    )}
                   </div>
 
-                  <p className="text-xs opacity-90">
+                  <p className="text-xs opacity-90 leading-relaxed">
                     {isPermissionDenied ? (
-                      "Location permissions are disabled in your browser or phone OS. Please enable location permissions in site/app settings to mark attendance."
+                      "Location permission is blocked in your browser or operating system. Click the lock/tune icon 🔒 in your address bar and set Location to 'Allow', then tap Retry."
                     ) : isGpsUnavailable ? (
-                      "Could not lock onto device GPS satellites. Please turn on device location services and retry in an open space."
+                      "GPS satellites and network positioning timed out. Please verify system location services are switched on, then tap Retry."
                     ) : assignedLocation ? (
                       distanceMeters !== null ? (
                         <>
-                          You are <strong>{formatDistance(distanceMeters)}</strong> from{" "}
-                          <strong>{assignedLocation.name}</strong> (Allowed perimeter:{" "}
+                          You are <strong>{formatDistance(distanceMeters)}</strong> away from{" "}
+                          <strong>{assignedLocation.name}</strong> (Allowed geofence radius:{" "}
                           {assignedLocation.radius_meters}m
-                          {coords?.accuracy ? ` • Accuracy ±${Math.round(coords.accuracy)}m` : ""})
+                          {coords?.accuracy ? ` • Accuracy: ±${Math.round(coords.accuracy)}m` : ""})
                         </>
                       ) : (
                         "Calculating distance to office perimeter..."
                       )
                     ) : (
-                      "No assigned office geofence configured. Please contact HR administrator."
+                      "No assigned office geofence configured. Please contact your HR administrator."
                     )}
                   </p>
                 </div>
               </div>
 
-              {/* Status details / retry action */}
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                {isPermissionDenied || isGpsUnavailable ? (
+              {/* Retry button */}
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                {(isPermissionDenied || isGpsUnavailable) && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={refreshLocation}
                     disabled={locating}
-                    className="h-7 text-xs bg-background/80 hover:bg-background"
+                    className="h-8 text-xs bg-background hover:bg-muted"
                   >
-                    <RefreshCw className={`h-3 w-3 mr-1 ${locating ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${locating ? "animate-spin" : ""}`} />
                     Retry Location
                   </Button>
-                ) : assignedLocation?.address ? (
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 sm:text-right">
-                    <Building className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                    <span className="truncate max-w-[240px]">{assignedLocation.address}</span>
-                  </div>
-                ) : null}
+                )}
               </div>
             </div>
 
-            {/* Warning: Outside geofence */}
+            {/* Warning: Outside geofence action link */}
             {!isInside && coords && !isPermissionDenied && !isGpsUnavailable && (
-              <div className="mt-2.5 pt-2.5 border-t border-amber-500/20 text-xs flex items-center justify-between gap-2 flex-wrap">
-                <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <div className="mt-3 pt-3 border-t border-amber-500/20 text-xs flex items-center justify-between gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                   Check-in and Check-out are disabled outside the office geofence perimeter.
                 </span>
                 <Button
                   variant="link"
                   size="sm"
                   onClick={() => setRegularizeOpen(true)}
-                  className="h-auto p-0 text-xs font-semibold text-amber-900 dark:text-amber-100 hover:underline"
+                  className="h-auto p-0 text-xs font-semibold text-amber-950 dark:text-amber-50 underline hover:text-amber-700"
                 >
                   Request Manager Regularization →
                 </Button>
               </div>
             )}
-
-            {/* Poor Accuracy Notice */}
-            {isPoorAccuracy && !isPermissionDenied && (
-              <div className="mt-2.5 pt-2 border-t border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                <span>
-                  GPS accuracy is currently low (±{Math.round(coords!.accuracy)}m). Server
-                  validation requires ≤150m accuracy. Move away from indoor walls or step outdoors
-                  for stronger satellite signal.
-                </span>
-              </div>
-            )}
           </div>
 
-          {/* Interactive Geofence Radar Map View */}
-          {showMap && assignedLocation && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs px-1">
-                <span className="font-semibold text-foreground flex items-center gap-1.5">
-                  <MapIcon className="h-3.5 w-3.5 text-primary" />
-                  Office Perimeter Radar
+          {/* GPS Telemetry Grid (Map-Free Modern Visual Cards) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {/* Card 1: GPS Coordinates & Accuracy */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Compass className="h-3.5 w-3.5 text-primary" />
+                  Device Coordinates
                 </span>
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Radio className="h-3 w-3 text-emerald-500 animate-pulse" />
-                  OpenFreeMap • MapLibre GL
+                {coords && (
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {new Date(coords.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-mono font-bold text-foreground">
+                {coords ? formatCoordinates(coords.latitude, coords.longitude) : "Awaiting GPS Signal..."}
+              </p>
+              <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
+                <span>Signal Accuracy:</span>
+                <span className="font-medium text-foreground">
+                  {coords ? `±${Math.round(coords.accuracy)}m (${accuracyInfo?.label || "Standard"})` : "--"}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Assigned Office & Perimeter */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Building className="h-3.5 w-3.5 text-primary" />
+                  Office Perimeter
+                </span>
+                {assignedLocation && (
+                  <Badge variant="outline" className="text-[10px] py-0">
+                    Radius: {assignedLocation.radius_meters}m
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-foreground truncate">
+                {assignedLocation ? assignedLocation.name : "Unassigned"}
+              </p>
+              <div className="text-[11px] text-muted-foreground truncate pt-1 border-t border-border/50">
+                {assignedLocation?.address ? assignedLocation.address : "No physical address specified"}
+              </div>
+            </div>
+
+            {/* Card 3: Distance & Geofence Boundary Check */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  Distance to Office
+                </span>
+                <span className={`text-[10px] font-bold ${isInside ? "text-emerald-600" : "text-amber-600"}`}>
+                  {isInside ? "✓ WITHIN BOUNDARY" : "✗ OUTSIDE PERIMETER"}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold font-mono text-foreground">
+                  {distanceMeters !== null ? formatDistance(distanceMeters) : "--"}
+                </span>
+                {assignedLocation && (
+                  <span className="text-[11px] text-muted-foreground">
+                    (Limit: {assignedLocation.radius_meters}m)
+                  </span>
+                )}
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${isInside ? "bg-emerald-500" : "bg-amber-500"}`}
+                  style={{
+                    width: `${
+                      distanceMeters !== null && assignedLocation
+                        ? Math.min(100, Math.max(5, (assignedLocation.radius_meters / Math.max(distanceMeters, 1)) * 100))
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Work Summary & Big Action Buttons */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-1">
+            {/* Left: Today's Ledger */}
+            <div className="p-4 rounded-xl bg-muted/40 border border-border/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  Today's Attendance Ledger
+                </span>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {currentTime.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
                 </span>
               </div>
 
-              <MapLibreGeofenceMap
-                center={[assignedLocation.longitude, assignedLocation.latitude]}
-                zoom={16}
-                radiusMeters={assignedLocation.radius_meters}
-                interactive={true}
-                markerDraggable={false}
-                isInsideGeofence={isInside}
-                userLocation={
-                  coords
-                    ? {
-                        lat: coords.latitude,
-                        lng: coords.longitude,
-                        accuracy: coords.accuracy,
-                      }
-                    : null
-                }
-                height="260px"
-              />
-            </div>
-          )}
-
-          {/* Today's Metrics & Manual Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            {/* Left: Today's Summary */}
-            <div className="p-4 rounded-xl bg-muted/40 border border-border/70 space-y-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Today's Work Ledger
-              </span>
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Check-in</span>
+                  <span className="text-xs text-muted-foreground">First Check-in</span>
                   <p className="text-base font-mono font-bold text-foreground">
                     {isCheckedIn ? formatTime(todayAttendance.check_in!) : "--:--"}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Check-out</span>
+                  <span className="text-xs text-muted-foreground">Last Check-out</span>
                   <p className="text-base font-mono font-bold text-foreground">
                     {isCheckedOut
                       ? formatTime(todayAttendance.check_out!)
@@ -463,29 +556,32 @@ export function GeofenceAttendanceCard({
                 </div>
               </div>
 
-              {isCheckedIn && isCheckedOut && (
-                <div className="pt-2 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
-                  <span>Total Hours Logged:</span>
-                  <strong className="font-mono text-foreground font-semibold">
-                    {todayAttendance.total_hours
+              {/* Working Duration Display */}
+              <div className="pt-2 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+                <span>Working Duration:</span>
+                <strong className="font-mono text-foreground font-semibold">
+                  {isCheckedOut
+                    ? todayAttendance.total_hours
                       ? `${todayAttendance.total_hours} hrs`
-                      : formatHours(todayAttendance.total_hours ?? 0)}
-                  </strong>
-                </div>
-              )}
+                      : formatHours(todayAttendance.total_hours ?? 0)
+                    : elapsedLiveHours !== null
+                      ? `${formatHours(elapsedLiveHours)} (Live)`
+                      : "0 hrs"}
+                </strong>
+              </div>
             </div>
 
-            {/* Right: Manual Attendance Action Buttons */}
+            {/* Right: Touch-Friendly Manual Punch Buttons */}
             <div className="flex flex-col gap-2.5">
               {!isCheckedIn ? (
                 <Button
                   size="lg"
                   disabled={!isInside || attendanceMutation.isPending || locating}
                   onClick={() => attendanceMutation.mutate("check_in")}
-                  className={`w-full h-13 text-sm sm:text-base font-bold shadow-md transition-all gap-2 ${
+                  className={`w-full h-14 text-sm sm:text-base font-bold shadow-md transition-all gap-2 rounded-xl ${
                     isInside
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-98"
+                      : "bg-muted text-muted-foreground cursor-not-allowed opacity-80"
                   }`}
                 >
                   {attendanceMutation.isPending ? (
@@ -494,7 +590,11 @@ export function GeofenceAttendanceCard({
                     <CheckCircle2 className="h-5 w-5" />
                   )}
                   <span>
-                    {isInside ? "Check In (Manual Press)" : "Check In (Disabled Outside Geofence)"}
+                    {isInside
+                      ? "Check In (Manual Press)"
+                      : locating
+                        ? "Detecting Location..."
+                        : "Check In (Disabled Outside Geofence)"}
                   </span>
                 </Button>
               ) : !isCheckedOut ? (
@@ -502,10 +602,10 @@ export function GeofenceAttendanceCard({
                   size="lg"
                   disabled={!isInside || attendanceMutation.isPending || locating}
                   onClick={() => attendanceMutation.mutate("check_out")}
-                  className={`w-full h-13 text-sm sm:text-base font-bold shadow-md transition-all gap-2 ${
+                  className={`w-full h-14 text-sm sm:text-base font-bold shadow-md transition-all gap-2 rounded-xl ${
                     isInside
-                      ? "bg-rose-600 hover:bg-rose-700 text-white"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                      ? "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer active:scale-98"
+                      : "bg-muted text-muted-foreground cursor-not-allowed opacity-80"
                   }`}
                 >
                   {attendanceMutation.isPending ? (
@@ -516,20 +616,22 @@ export function GeofenceAttendanceCard({
                   <span>
                     {isInside
                       ? "Check Out (Manual Press)"
-                      : "Check Out (Disabled Outside Geofence)"}
+                      : locating
+                        ? "Detecting Location..."
+                        : "Check Out (Disabled Outside Geofence)"}
                   </span>
                 </Button>
               ) : (
-                <div className="flex items-center justify-center p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-sm font-semibold gap-2">
+                <div className="flex items-center justify-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-sm font-semibold gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                   Work day completed! All logs recorded.
                 </div>
               )}
 
-              {/* Outside Geofence Assist note */}
+              {/* Advisory note */}
               {isCheckedIn && !isCheckedOut && !isInside && (
                 <p className="text-[11px] text-muted-foreground text-center">
-                  Notice: Check-out requires you to be physically inside the office geofence.
+                  Notice: Check-out is gated by physical presence inside the office geofence.
                 </p>
               )}
             </div>
