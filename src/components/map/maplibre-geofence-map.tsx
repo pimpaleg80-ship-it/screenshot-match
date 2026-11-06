@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { OPENFREEMAP_LIBERTY_STYLE, createGeoJSONCircle, isWebGLSupported } from "@/lib/map-utils";
+import {
+  OPENFREEMAP_LIBERTY_STYLE,
+  OSM_RASTER_FALLBACK_STYLE,
+  createGeoJSONCircle,
+  isWebGLSupported,
+} from "@/lib/map-utils";
 import { AlertTriangle, MapPin, Loader2 } from "lucide-react";
 
 export interface MapCoordinates {
@@ -270,15 +275,66 @@ export function MapLibreGeofenceMap({
         });
       }
 
+      let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+      let hasAppliedLayer = false;
+
+      const safeMarkLoaded = () => {
+        setMapLoaded(true);
+        if (!hasAppliedLayer && map.isStyleLoaded()) {
+          hasAppliedLayer = true;
+          try {
+            updateGeofenceLayer(center, radiusMeters);
+          } catch (e) {
+            console.warn("Geofence layer initialization warning:", e);
+          }
+        }
+      };
+
       // Map loaded event
       map.on("load", () => {
-        setMapLoaded(true);
-        updateGeofenceLayer(center, radiusMeters);
+        if (fallbackTimeout) clearTimeout(fallbackTimeout);
+        safeMarkLoaded();
       });
 
+      // Style loaded event
+      map.on("styledata", () => {
+        if (map.isStyleLoaded()) {
+          safeMarkLoaded();
+        }
+      });
+
+      // Graceful error recovery: fallback to OSM raster if vector tiles or fonts fail
       map.on("error", (e) => {
         console.warn("MapLibre tile or render warning:", e);
+        const errMsg = e.error?.message || "";
+        if (
+          errMsg.includes("style") ||
+          errMsg.includes("Failed to fetch") ||
+          errMsg.includes("403") ||
+          errMsg.includes("404")
+        ) {
+          try {
+            console.info("Switching to universal OSM raster style fallback...");
+            map.setStyle(OSM_RASTER_FALLBACK_STYLE as any);
+          } catch {
+            setMapError("Online vector tiles unavailable. Manual coordinate entry remains active.");
+          }
+          safeMarkLoaded();
+        }
       });
+
+      // 4-second safety fallback timeout: if vector style stalls or is blocked by network
+      fallbackTimeout = setTimeout(() => {
+        if (!map.isStyleLoaded()) {
+          console.warn("Map tile load timeout: activating universal OSM raster fallback...");
+          try {
+            map.setStyle(OSM_RASTER_FALLBACK_STYLE as any);
+          } catch (err) {
+            console.warn("Raster fallback assignment warning:", err);
+          }
+        }
+        safeMarkLoaded();
+      }, 4000);
 
       mapRef.current = map;
     } catch (err: unknown) {
@@ -293,6 +349,10 @@ export function MapLibreGeofenceMap({
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
+
+    // Force dimension updates after paint
+    setTimeout(() => mapRef.current?.resize(), 100);
+    setTimeout(() => mapRef.current?.resize(), 500);
 
     return () => {
       resizeObserver.disconnect();

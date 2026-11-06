@@ -8,4 +8,10 @@
     "VITE_SUPABASE_URL": "https://mnnecoyqofhrivxufhqm.supabase.co",
     "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OzsJRyDmkBm8slrFgcnYeA_KilEWyGD",
   },
+  "previews": {
+    "vars": {
+      "VITE_SUPABASE_URL": "https://mnnecoyqofhrivxufhqm.supabase.co",
+      "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OzsJRyDmkBm8slrFgcnYeA_KilEWyGD",
+    },
+  },
 }

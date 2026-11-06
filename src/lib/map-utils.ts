@@ -5,8 +5,35 @@
  */
 
 export const OPENFREEMAP_LIBERTY_STYLE =
+  (typeof import.meta !== "undefined" && import.meta.env?.["VITE_MAP_STYLE_URL"]) ||
   (typeof process !== "undefined" && process.env?.["VITE_MAP_STYLE_URL"]) ||
   "https://tiles.openfreemap.org/styles/liberty";
+
+/**
+ * Universal OpenStreetMap raster tile style specification.
+ * Used as a fast, zero-dependency fallback when remote vector tile servers
+ * or glyphs/fonts are slow, blocked, or unreachable.
+ */
+export const OSM_RASTER_FALLBACK_STYLE = {
+  version: 8 as const,
+  sources: {
+    "osm-raster-tiles": {
+      type: "raster" as const,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-raster-layer",
+      type: "raster" as const,
+      source: "osm-raster-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 
 /**
  * Checks whether the current device/browser environment supports WebGL
