@@ -89,3 +89,4 @@ CREATE POLICY "employees_manage_admin_policy" ON public.employees
       WHERE user_id = auth.uid() AND role IN ('super_admin', 'org_admin', 'hr_manager')
     )
   );
+

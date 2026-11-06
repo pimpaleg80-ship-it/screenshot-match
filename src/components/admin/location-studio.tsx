@@ -395,19 +395,17 @@ export function AdminLocationStudio() {
                   key={loc.id}
                   type="button"
                   onClick={() => handleSelectLocation(loc)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
-                    isSelected
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${isSelected
                       ? "bg-primary text-primary-foreground border-primary shadow-xs"
                       : "bg-card text-muted-foreground hover:bg-accent border-border"
-                  }`}
+                    }`}
                 >
                   <Building className="h-3.5 w-3.5 shrink-0" />
                   <span>{loc.name}</span>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] px-1 py-0 h-4 border-none ${
-                      isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                    }`}
+                    className={`text-[10px] px-1 py-0 h-4 border-none ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                      }`}
                   >
                     {loc.assigned_employee_count ?? 0} staff
                   </Badge>
@@ -421,9 +419,8 @@ export function AdminLocationStudio() {
             variant="outline"
             size="sm"
             onClick={handleStartCreateNew}
-            className={`h-8 gap-1.5 text-xs rounded-xl shrink-0 ${
-              isCreatingNew ? "border-primary bg-primary/10 text-primary font-bold" : ""
-            }`}
+            className={`h-8 gap-1.5 text-xs rounded-xl shrink-0 ${isCreatingNew ? "border-primary bg-primary/10 text-primary font-bold" : ""
+              }`}
           >
             <Plus className="h-3.5 w-3.5" />
             <span>New Office</span>
@@ -523,11 +520,10 @@ export function AdminLocationStudio() {
             {selectedLocation && !isCreatingNew && (
               <Badge
                 variant="outline"
-                className={`text-[10px] ${
-                  isActive
+                className={`text-[10px] ${isActive
                     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
                     : "bg-rose-500/10 text-rose-600 border-rose-500/30"
-                }`}
+                  }`}
               >
                 {isActive ? "Active" : "Inactive"}
               </Badge>
@@ -630,11 +626,10 @@ export function AdminLocationStudio() {
                       setRadius(r);
                       setIsDirty(true);
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
-                      radius === r
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${radius === r
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-muted text-muted-foreground hover:bg-accent border-border"
-                    }`}
+                      }`}
                   >
                     {r}m
                   </button>
@@ -806,11 +801,10 @@ export function AdminLocationStudio() {
                     </div>
 
                     <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        isAssigned
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isAssigned
                           ? "bg-primary border-primary text-primary-foreground"
                           : "border-border bg-background"
-                      }`}
+                        }`}
                     >
                       {isAssigned && <Check className="h-3.5 w-3.5 stroke-[3]" />}
                     </div>
