@@ -97,6 +97,7 @@ export type Database = {
           radius_meters: number;
           is_active: boolean;
           created_at: string;
+          updated_at?: string;
         };
         Insert: {
           id?: string;
@@ -108,6 +109,7 @@ export type Database = {
           radius_meters?: number;
           is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -119,6 +121,7 @@ export type Database = {
           radius_meters?: number;
           is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1050,6 +1053,13 @@ export type Database = {
       };
     };
     Functions: {
+      assign_employees_to_work_location: {
+        Args: {
+          p_location_id: string;
+          p_employee_ids: string[];
+        };
+        Returns: Json;
+      };
       current_org_id: {
         Args: Record<PropertyKey, never>;
         Returns: string;
