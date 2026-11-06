@@ -19,6 +19,7 @@ import {
   Briefcase,
   UserCheck,
   Menu,
+  Crown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -66,7 +67,22 @@ export function AppLayout() {
   // Build role-specific navigation items
   let navItems: NavItem[] = [];
 
-  if (session.isAdmin) {
+  if (session.isSuperadmin) {
+    navItems = [
+      { to: "/superadmin", label: "Superadmin Console", icon: Crown },
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/people", label: "Employees", icon: Users },
+      { to: "/enroll", label: "Face Enrollment", icon: ScanFace },
+      { to: "/attendance", label: "Records", icon: ClipboardList },
+      { to: "/leaves", label: "Leave Requests", icon: CalendarRange },
+      { to: "/holidays", label: "Holidays", icon: CalendarDays },
+      { to: "/announcements", label: "Announcements", icon: Megaphone },
+      { to: "/documents", label: "Documents", icon: FileText },
+      { to: "/reports", label: "Reports", icon: BarChart3 },
+      { to: "/kiosk", label: "Face Kiosk", icon: ScanLine },
+      { to: "/settings", label: "Settings & Geofencing", icon: Settings },
+    ];
+  } else if (session.isAdmin) {
     navItems = [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/people", label: "Employees", icon: Users },
@@ -106,14 +122,29 @@ export function AppLayout() {
     ];
   }
 
-  const roleLabel = session.isAdmin ? "Admin" : session.isManager ? "Manager" : "Employee";
-  const roleColor = session.isAdmin
-    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
-    : session.isManager
-      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
-      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+  const roleLabel = session.isSuperadmin
+    ? "Superadmin"
+    : session.isAdmin
+      ? "Admin"
+      : session.isManager
+        ? "Manager"
+        : "Employee";
 
-  const RoleIcon = session.isAdmin ? Shield : session.isManager ? Briefcase : UserCheck;
+  const roleColor = session.isSuperadmin
+    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+    : session.isAdmin
+      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
+      : session.isManager
+        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+
+  const RoleIcon = session.isSuperadmin
+    ? Crown
+    : session.isAdmin
+      ? Shield
+      : session.isManager
+        ? Briefcase
+        : UserCheck;
 
   const initials = (session.fullName || session.user?.email || "?")
     .split(" ")

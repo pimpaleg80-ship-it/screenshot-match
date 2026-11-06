@@ -197,11 +197,10 @@ export function useSession(): AppSession {
 
   const roles = profile?.roles ?? [];
   const orgRole = profile?.orgRole ?? null;
-  const isAdmin = roles.includes("admin") || orgRole === "org_admin" || orgRole === "super_admin";
   const isSuperadmin = !!profile?.isSuperadmin || orgRole === "super_admin";
-  const isManager = roles.includes("manager") || orgRole === "hr_manager";
-  const isEmployee =
-    roles.includes("employee") || orgRole === "employee" || (!isAdmin && !isManager);
+  const isAdmin = isSuperadmin || roles.includes("admin") || orgRole === "org_admin";
+  const isManager = !isAdmin && (roles.includes("manager") || orgRole === "hr_manager");
+  const isEmployee = !isAdmin && !isManager;
   const isStaff = isAdmin || isManager;
   const isKiosk = roles.includes("kiosk");
   const hasAccess = !!session?.user && (roles.length > 0 || isEmployee || !!orgRole);
