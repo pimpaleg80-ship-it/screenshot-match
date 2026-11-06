@@ -6,6 +6,14 @@ export interface Coordinates {
   accuracy: number;
   timestamp: number;
   isMock?: boolean;
+  source?:
+    | "native_gps"
+    | "browser_gps"
+    | "browser_network"
+    | "edge_cloudflare"
+    | "edge_supabase"
+    | "ip_fallback";
+  city?: string;
 }
 
 export interface GeofenceLocation {
@@ -78,10 +86,105 @@ export function formatDistance(meters: number): string {
 }
 
 /**
- * Get device horizontal position using standard Geolocation API or Capacitor Geolocation.
+ * Promisified browser geolocation helper with configurable parameters
+ */
+function getBrowserPosition(options: PositionOptions): Promise<Coordinates> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return reject(new Error("Geolocation is not supported by your browser or operating system."));
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          timestamp: pos.timestamp,
+          source: options.enableHighAccuracy ? "browser_gps" : "browser_network",
+        });
+      },
+      (err) => {
+        reject(err);
+      },
+      options,
+    );
+  });
+}
+
+/**
+ * Fallback to Cloudflare Pages edge route or Supabase Edge Function when GPS is unavailable.
+ */
+async function getEdgeNetworkPosition(): Promise<Coordinates> {
+  // 1. Try local Cloudflare Pages /api/location endpoint
+  try {
+    const res = await fetch("/api/location", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.latitude === "number" && typeof data.longitude === "number") {
+        return {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          accuracy: data.accuracy || 75,
+          timestamp: data.timestamp || Date.now(),
+          source: "edge_cloudflare",
+          city: data.city,
+        };
+      }
+    }
+  } catch {
+    // Continue to Supabase edge function
+  }
+
+  // 2. Try Supabase Edge Function
+  try {
+    const { data, error } = await supabase.functions.invoke("get-client-location");
+    if (!error && data && typeof data.latitude === "number" && typeof data.longitude === "number") {
+      return {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        accuracy: data.accuracy || 75,
+        timestamp: data.timestamp || Date.now(),
+        source: "edge_supabase",
+        city: data.city,
+      };
+    }
+  } catch {
+    // Continue to direct IP API
+  }
+
+  // 3. Try direct public IP lookup
+  try {
+    const res = await fetch("https://freeipapi.com/api/json");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.latitude && data.longitude) {
+        return {
+          latitude: parseFloat(data.latitude),
+          longitude: parseFloat(data.longitude),
+          accuracy: 80,
+          timestamp: Date.now(),
+          source: "ip_fallback",
+          city: data.cityName,
+        };
+      }
+    }
+  } catch {
+    // End of fallbacks
+  }
+
+  throw new Error("Unable to determine location from GPS or network. Please check your network and location settings.");
+}
+
+/**
+ * Get device horizontal position using resilient multi-tier acquisition:
+ * Tier 1: Native Capacitor Geolocation (mobile apps)
+ * Tier 2: Browser High-Accuracy GPS (satellites/device sensor)
+ * Tier 3: Browser Standard-Accuracy Network Positioning (Wi-Fi/cell tower)
+ * Tier 4: Edge / Network IP Geolocation Fallback (Cloudflare Pages / Supabase Edge Function)
  */
 export async function getCurrentDevicePosition(): Promise<Coordinates> {
-  // Check if Capacitor Geolocation is available in native runtime
+  // Tier 1: Check if Capacitor Geolocation is available in native runtime
   if (
     typeof window !== "undefined" &&
     (
@@ -92,53 +195,60 @@ export async function getCurrentDevicePosition(): Promise<Coordinates> {
       const { Geolocation } = await import("@capacitor/geolocation");
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000,
+        timeout: 8000,
+        maximumAge: 10000,
       });
       return {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
         timestamp: pos.timestamp,
+        source: "native_gps",
       };
     } catch {
       // Fallback to browser geolocation
     }
   }
 
-  if (typeof navigator === "undefined" || !navigator.geolocation) {
-    throw new Error("Geolocation is not supported by your browser or operating system.");
+  // Tier 2: Try Browser High-Accuracy GPS first (7s timeout, 15s cache)
+  try {
+    return await getBrowserPosition({
+      enableHighAccuracy: true,
+      timeout: 7000,
+      maximumAge: 15000,
+    });
+  } catch (err: unknown) {
+    const geoErr = err as { code?: number };
+    // If user explicitly denied permission, do not silently fallback without prompt
+    if (geoErr?.code === 1) { // PERMISSION_DENIED
+      throw new Error("Location permission denied. Please click the lock or site settings icon in your browser address bar to allow location access.");
+    }
+    // If code 2 (POSITION_UNAVAILABLE) or code 3 (TIMEOUT), proceed to Tier 3
   }
 
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
-        });
-      },
-      (err) => {
-        let msg = "Could not retrieve GPS coordinates.";
-        if (err.code === err.PERMISSION_DENIED) {
-          msg =
-            "Location permission denied. Please allow GPS access in your browser or device settings.";
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          msg = "GPS signal unavailable. Please ensure location services are enabled.";
-        } else if (err.code === err.TIMEOUT) {
-          msg = "Location request timed out. Please check signal and retry.";
-        }
-        reject(new Error(msg));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0,
-      },
+  // Tier 3: Try Standard-Accuracy Network Positioning (Wi-Fi / Cell tower)
+  try {
+    return await getBrowserPosition({
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 60000,
+    });
+  } catch (err: unknown) {
+    const geoErr = err as { code?: number };
+    if (geoErr?.code === 1) {
+      throw new Error("Location permission denied. Please allow location access in your browser.");
+    }
+    // If code 2 or 3, proceed to Tier 4
+  }
+
+  // Tier 4: Edge / Cloudflare / Supabase IP Geolocation Fallback
+  try {
+    return await getEdgeNetworkPosition();
+  } catch (fallbackErr: unknown) {
+    throw new Error(
+      "GPS signal and network location are unavailable. Please ensure location services are enabled in your device settings and refresh.",
     );
-  });
+  }
 }
 
 /**

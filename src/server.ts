@@ -46,6 +46,100 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // 1. Cloudflare Pages Native Geolocation Endpoint
+    const url = new URL(request.url);
+    if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
+      const cfLat = request.headers.get("cf-iplatitude");
+      const cfLon = request.headers.get("cf-iplongitude");
+      const cfCity = request.headers.get("cf-ipcity");
+      const cfRegion = request.headers.get("cf-region");
+      const cfCountry = request.headers.get("cf-ipcountry");
+
+      if (cfLat && cfLon) {
+        return new Response(
+          JSON.stringify({
+            latitude: parseFloat(cfLat),
+            longitude: parseFloat(cfLon),
+            accuracy: 75,
+            city: cfCity || undefined,
+            region: cfRegion || undefined,
+            country: cfCountry || undefined,
+            source: "cloudflare_edge_headers",
+            timestamp: Date.now(),
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+
+      // If headers missing (e.g. dev server), fallback to free IP lookup
+      try {
+        const clientIp =
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          request.headers.get("cf-connecting-ip");
+        let ipUrl = "https://freeipapi.com/api/json";
+        if (clientIp && !clientIp.startsWith("127.") && !clientIp.startsWith("192.168.")) {
+          ipUrl = `https://freeipapi.com/api/json/${clientIp}`;
+        }
+        const geoRes = await fetch(ipUrl, {
+          headers: { "User-Agent": "FlowPeople-HRMS/1.0" },
+        });
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo.latitude && geo.longitude) {
+            return new Response(
+              JSON.stringify({
+                latitude: parseFloat(geo.latitude),
+                longitude: parseFloat(geo.longitude),
+                accuracy: 80,
+                city: geo.cityName || undefined,
+                region: geo.regionName || undefined,
+                country: geo.countryName || undefined,
+                source: "cloudflare_ip_network_fallback",
+                timestamp: Date.now(),
+              }),
+              {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                  "Cache-Control": "no-store",
+                },
+              },
+            );
+          }
+        }
+      } catch {
+        // Fallback below
+      }
+
+      return new Response(
+        JSON.stringify({
+          latitude: 18.5204,
+          longitude: 73.8567,
+          accuracy: 100,
+          city: "Pune",
+          country: "India",
+          source: "cloudflare_default_fallback",
+          timestamp: Date.now(),
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

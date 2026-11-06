@@ -324,13 +324,22 @@ export function GeofenceAttendanceCard({
                               ? "LOCKED OUTSIDE"
                               : "DETECTING"}
                     </Badge>
+                    {coords?.source && (
+                      <Badge variant="outline" className="text-[10px] bg-background/60">
+                        {coords.source === "native_gps" || coords.source === "browser_gps"
+                          ? "🛰️ GPS Sensor"
+                          : coords.source === "browser_network"
+                            ? "📡 Network Positioning"
+                            : "🌐 Edge Network"}
+                      </Badge>
+                    )}
                   </div>
 
                   <p className="text-xs opacity-90">
                     {isPermissionDenied ? (
-                      "Location permissions are disabled in your browser or phone OS. Please enable location permissions in site/app settings to mark attendance."
+                      "Location permission is blocked in your browser. Click the lock/tune icon 🔒 in your address bar and set Location to 'Allow', then tap Retry."
                     ) : isGpsUnavailable ? (
-                      "Could not lock onto device GPS satellites. Please turn on device location services and retry in an open space."
+                      "GPS satellites and network positioning timed out. Please verify system location is turned on, or tap Retry."
                     ) : assignedLocation ? (
                       distanceMeters !== null ? (
                         <>
