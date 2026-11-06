@@ -21,6 +21,10 @@ export interface AppSession {
   isStaff: boolean;
   isKiosk: boolean;
   hasAccess: boolean;
+  organizationId: string | null;
+  organizationName: string | null;
+  orgRole: string | null;
+  workLocationId: string | null;
 }
 
 interface UserProfile {
@@ -33,6 +37,10 @@ interface UserProfile {
   employeeCode: string | null;
   designation: string | null;
   isSuperadmin: boolean;
+  organizationId: string | null;
+  organizationName: string | null;
+  orgRole: string | null;
+  workLocationId: string | null;
 }
 
 // Module-level cache to eliminate lag and redundant network waterfall across components
@@ -50,13 +58,18 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
 
   profileInFlight = (async () => {
     try {
-      const [empRes, rolesRes] = await Promise.all([
+      const [empRes, rolesRes, orgMemRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, full_name, department_id, employee_code, designation, is_superadmin, departments(name)")
+          .select("id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, work_location_id, departments(name)")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase
+          .from("organization_members")
+          .select("organization_id, role, organizations(name)")
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
 
       const emp = empRes.data as {
@@ -66,10 +79,22 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
         employee_code: string;
         designation: string | null;
         is_superadmin?: boolean | null;
+        organization_id?: string | null;
+        work_location_id?: string | null;
         departments: { name: string } | null;
       } | null;
 
       const userRoles = (rolesRes.data ?? []).map((r) => r.role);
+      const orgMem = orgMemRes.data as {
+        organization_id: string;
+        role: string;
+        organizations: { name: string } | null;
+      } | null;
+
+      const orgId = orgMem?.organization_id || emp?.organization_id || null;
+      const orgName = orgMem?.organizations?.name || "Fluxora Technologies";
+      const orgRole = orgMem?.role || null;
+      const isSuper = !!emp?.is_superadmin || orgRole === "super_admin";
 
       const profile: UserProfile = {
         userId,
@@ -80,7 +105,11 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
         employeeId: emp?.id ?? null,
         employeeCode: emp?.employee_code ?? null,
         designation: emp?.designation ?? null,
-        isSuperadmin: !!emp?.is_superadmin,
+        isSuperadmin: isSuper,
+        organizationId: orgId,
+        organizationName: orgName,
+        orgRole,
+        workLocationId: emp?.work_location_id ?? null,
       };
 
       globalProfile = profile;
@@ -161,13 +190,14 @@ export function useSession(): AppSession {
   }, []);
 
   const roles = profile?.roles ?? [];
-  const isAdmin = roles.includes("admin");
-  const isSuperadmin = !!profile?.isSuperadmin;
-  const isManager = roles.includes("manager");
-  const isEmployee = roles.includes("employee") || (!isAdmin && !isManager);
+  const orgRole = profile?.orgRole ?? null;
+  const isAdmin = roles.includes("admin") || orgRole === "org_admin" || orgRole === "super_admin";
+  const isSuperadmin = !!profile?.isSuperadmin || orgRole === "super_admin";
+  const isManager = roles.includes("manager") || orgRole === "hr_manager";
+  const isEmployee = roles.includes("employee") || orgRole === "employee" || (!isAdmin && !isManager);
   const isStaff = isAdmin || isManager;
   const isKiosk = roles.includes("kiosk");
-  const hasAccess = !!session?.user && (roles.length > 0 || isEmployee);
+  const hasAccess = !!session?.user && (roles.length > 0 || isEmployee || !!orgRole);
 
   return {
     session,
@@ -188,5 +218,9 @@ export function useSession(): AppSession {
     isStaff,
     isKiosk,
     hasAccess,
+    organizationId: profile?.organizationId ?? null,
+    organizationName: profile?.organizationName ?? null,
+    orgRole,
+    workLocationId: profile?.workLocationId ?? null,
   };
 }

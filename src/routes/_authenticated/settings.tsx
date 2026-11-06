@@ -23,7 +23,11 @@ import {
   Lock,
   RefreshCw,
   Loader2,
+  MapPin,
+  Navigation,
+  Compass,
 } from "lucide-react";
+import { getCurrentDevicePosition } from "@/lib/geofence";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -98,6 +102,15 @@ function SettingsPage() {
   const [holidayOpen, setHolidayOpen] = useState(false);
   const [newHolidayDate, setNewHolidayDate] = useState("");
   const [newHolidayTitle, setNewHolidayTitle] = useState("");
+
+  // Work Locations & Geofence state
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [locName, setLocName] = useState("");
+  const [locAddress, setLocAddress] = useState("");
+  const [locLat, setLocLat] = useState<number | "">("");
+  const [locLng, setLocLng] = useState<number | "">("");
+  const [locRadius, setLocRadius] = useState<number>(150);
+  const [detectingGps, setDetectingGps] = useState(false);
 
   // Role Assignment Modal state
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -393,6 +406,78 @@ function SettingsPage() {
     },
   });
 
+  // Work Locations Query & Mutations
+  const { data: workLocations = [], isLoading: locationsLoading } = useQuery({
+    queryKey: ["work-locations-settings", session.organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("work_locations")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const createLocationMutation = useMutation({
+    mutationFn: async () => {
+      if (!locName.trim()) throw new Error("Location name is required");
+      if (locLat === "" || locLng === "") throw new Error("Latitude and longitude coordinates are required");
+      const orgId = session.organizationId || "00000000-0000-0000-0000-000000000001";
+      const { error } = await supabase.from("work_locations").insert({
+        organization_id: orgId,
+        name: locName.trim(),
+        address: locAddress.trim() || null,
+        latitude: Number(locLat),
+        longitude: Number(locLng),
+        radius_meters: Number(locRadius) || 150,
+        is_active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Office location and geofence created successfully!");
+      setLocationModalOpen(false);
+      setLocName("");
+      setLocAddress("");
+      setLocLat("");
+      setLocLng("");
+      setLocRadius(150);
+      queryClient.invalidateQueries({ queryKey: ["work-locations-settings"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to create office location");
+    },
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("work_locations").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Office location removed");
+      queryClient.invalidateQueries({ queryKey: ["work-locations-settings"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete location");
+    },
+  });
+
+  const handleDetectAdminLocation = async () => {
+    setDetectingGps(true);
+    try {
+      const pos = await getCurrentDevicePosition();
+      setLocLat(pos.latitude);
+      setLocLng(pos.longitude);
+      toast.success(`Acquired current coordinates (±${Math.round(pos.accuracy)}m accuracy)`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to detect location");
+    } finally {
+      setDetectingGps(false);
+    }
+  };
+
   // Assign Role Mutation
   const assignRoleMutation = useMutation({
     mutationFn: async () => {
@@ -546,6 +631,92 @@ function SettingsPage() {
                   })}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Card: Work Locations & Geofence Boundaries */}
+          <Card className="card-soft">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base font-semibold">Work Locations & Geofence Boundaries</CardTitle>
+                </div>
+                <CardDescription>
+                  Configure office campuses and circular GPS perimeters. Employees can only mark manual attendance when within their assigned location geofence.
+                </CardDescription>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => setLocationModalOpen(true)}
+                className="gap-1.5 self-start sm:self-auto text-xs h-8"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Location
+              </Button>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {locationsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                </div>
+              ) : workLocations.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-xs border border-dashed rounded-xl">
+                  No work locations configured yet. Add your first office location to enable geofenced attendance.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {workLocations.map((loc) => (
+                    <div
+                      key={loc.id}
+                      className="p-3.5 rounded-xl border border-border bg-card/60 flex flex-col justify-between gap-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <Building className="h-4 w-4 text-primary shrink-0" />
+                            {loc.name}
+                          </span>
+                          {loc.address && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">{loc.address}</p>
+                          )}
+                        </div>
+
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                          Active
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs text-muted-foreground">
+                        <div className="space-y-0.5">
+                          <span className="font-mono text-[11px] block">
+                            {Number(loc.latitude).toFixed(4)}°, {Number(loc.longitude).toFixed(4)}°
+                          </span>
+                          <span className="text-[10px] text-primary font-medium">
+                            Radius: {loc.radius_meters}m
+                          </span>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Remove location "${loc.name}"?`)) {
+                              deleteLocationMutation.mutate(loc.id);
+                            }
+                          }}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1060,6 +1231,129 @@ function SettingsPage() {
               disabled={assignRoleMutation.isPending || !selectedUserForRole}
             >
               Assign Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Work Location & Geofence Dialog */}
+      <Dialog open={locationModalOpen} onOpenChange={setLocationModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MapPin className="h-5 w-5 text-primary" />
+              <span>Add Office Work Location</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Define the physical coordinates and geofence boundary radius for your office branch.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Location Name *</Label>
+              <Input
+                placeholder="e.g. Pune Innovation Campus"
+                value={locName}
+                onChange={(e) => setLocName(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Office Street Address</Label>
+              <Input
+                placeholder="e.g. Tower B, Senapati Bapat Road, Shivaji Nagar"
+                value={locAddress}
+                onChange={(e) => setLocAddress(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Compass className="h-4 w-4 text-primary" />
+                  GPS Center Point
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDetectAdminLocation}
+                  disabled={detectingGps}
+                  className="h-7 text-[11px] gap-1"
+                >
+                  <Navigation className={`h-3 w-3 ${detectingGps ? "animate-spin text-primary" : ""}`} />
+                  {detectingGps ? "Detecting..." : "Use Current GPS"}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Latitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="18.5204"
+                    value={locLat}
+                    onChange={(e) => setLocLat(e.target.value ? parseFloat(e.target.value) : "")}
+                    className="text-xs font-mono h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Longitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="73.8567"
+                    value={locLng}
+                    onChange={(e) => setLocLng(e.target.value ? parseFloat(e.target.value) : "")}
+                    className="text-xs font-mono h-8"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Geofence Radius (Meters)</Label>
+                <span className="text-xs font-mono font-semibold text-primary">{locRadius}m</span>
+              </div>
+              <Input
+                type="number"
+                min={20}
+                max={1000}
+                step={10}
+                value={locRadius}
+                onChange={(e) => setLocRadius(parseInt(e.target.value) || 150)}
+                className="text-xs font-mono h-9"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Staff must be within {locRadius} meters of the center point to check in/out. Recommended: 100m–200m.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setLocationModalOpen(false)}
+              disabled={createLocationMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => createLocationMutation.mutate()}
+              disabled={createLocationMutation.isPending || !locName.trim() || locLat === "" || locLng === ""}
+              className="gap-1.5"
+            >
+              {createLocationMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Save Location
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -244,6 +244,72 @@ function SuperadminPage() {
   const [resetTargetUser, setResetTargetUser] = useState<SystemUserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
+  // Organization Management State
+  const [newOrgOpen, setNewOrgOpen] = useState(false);
+  const [newOrgSlug, setNewOrgSlug] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgLegalName, setNewOrgLegalName] = useState("");
+  const [newOrgTier, setNewOrgTier] = useState<"starter" | "pro" | "enterprise">("starter");
+  const [newOrgMaxEmployees, setNewOrgMaxEmployees] = useState(50);
+
+  // Fetch Organizations
+  const { data: organizationsList = [], isLoading: orgsLoading } = useQuery({
+    queryKey: ["superadmin-organizations-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const createOrgMutation = useMutation({
+    mutationFn: async () => {
+      if (!newOrgSlug.trim() || !newOrgName.trim()) {
+        throw new Error("Slug and organization name are required");
+      }
+      const { error } = await supabase.from("organizations").insert({
+        slug: newOrgSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+        name: newOrgName.trim(),
+        legal_name: newOrgLegalName.trim() || null,
+        plan_tier: newOrgTier,
+        max_employees: Number(newOrgMaxEmployees) || 50,
+        gps_retention_days: 90,
+        is_active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Organization created successfully!");
+      setNewOrgOpen(false);
+      setNewOrgSlug("");
+      setNewOrgName("");
+      setNewOrgLegalName("");
+      setNewOrgTier("starter");
+      setNewOrgMaxEmployees(50);
+      queryClient.invalidateQueries({ queryKey: ["superadmin-organizations-list"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to create organization");
+    },
+  });
+
+  const toggleOrgActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("organizations").update({ is_active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Organization status updated");
+      queryClient.invalidateQueries({ queryKey: ["superadmin-organizations-list"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update organization status");
+    },
+  });
+
   // 1. Fetch all system departments
   const { data: departments = [] } = useQuery({
     queryKey: ["superadmin-departments"],
@@ -803,6 +869,13 @@ function SuperadminPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-neutral-900 border border-white/10 p-1 text-xs w-full justify-start overflow-x-auto h-auto flex flex-nowrap sm:flex-wrap gap-1">
           <TabsTrigger
+            value="organizations"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            Organizations & Tenants
+          </TabsTrigger>
+          <TabsTrigger
             value="provisioning"
             className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
           >
@@ -824,6 +897,151 @@ function SuperadminPage() {
             Security Audit Logs
           </TabsTrigger>
         </TabsList>
+
+        {/* =========================================================================
+            TAB: MULTI-TENANT ORGANIZATIONS & SAAS MANAGEMENT
+        ========================================================================= */}
+        <TabsContent value="organizations" className="space-y-4">
+          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4">
+              <div>
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Multi-Tenant Organizations & Subscriptions
+                </CardTitle>
+                <CardDescription className="text-xs text-white/60">
+                  Provision client organizations, manage subscription tiers, employee quotas, and data retention rules.
+                </CardDescription>
+              </div>
+
+              <Button
+                onClick={() => setNewOrgOpen(true)}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
+              >
+                <Plus className="h-4 w-4" />
+                Register New Organization
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6 space-y-5">
+              {/* Quick Tenant Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Total Tenants</span>
+                  <div className="text-xl font-bold font-mono text-white mt-1">{organizationsList.length}</div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Active Status</span>
+                  <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                    {organizationsList.filter((o) => o.is_active).length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Enterprise Tier</span>
+                  <div className="text-xl font-bold font-mono text-amber-400 mt-1">
+                    {organizationsList.filter((o) => o.plan_tier === "enterprise").length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Total Capacity</span>
+                  <div className="text-xl font-bold font-mono text-blue-400 mt-1">
+                    {organizationsList.reduce((acc, o) => acc + (o.max_employees || 0), 0)} Seats
+                  </div>
+                </div>
+              </div>
+
+              {/* Organizations Table */}
+              <div className="rounded-xl border border-white/10 overflow-hidden bg-black/30">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left text-xs">
+                    <thead className="bg-white/5 border-b border-white/10 text-white/60 uppercase font-mono text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Organization / Legal Name</th>
+                        <th className="py-3 px-4">Slug Identifier</th>
+                        <th className="py-3 px-4">Plan Tier</th>
+                        <th className="py-3 px-4">Employee Capacity</th>
+                        <th className="py-3 px-4">GPS Retention</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-mono text-xs text-white/90">
+                      {orgsLoading ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-white/50">
+                            Loading organization tenants...
+                          </td>
+                        </tr>
+                      ) : organizationsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-white/50">
+                            No organizations found. Register your first tenant above.
+                          </td>
+                        </tr>
+                      ) : (
+                        organizationsList.map((org) => (
+                          <tr key={org.id} className="hover:bg-white/[0.02]">
+                            <td className="py-3 px-4">
+                              <div className="font-sans font-semibold text-white">{org.name}</div>
+                              {org.legal_name && (
+                                <div className="text-[10px] text-white/50 font-normal">{org.legal_name}</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-primary font-mono">{org.slug}</td>
+                            <td className="py-3 px-4">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] uppercase font-bold ${
+                                  org.plan_tier === "enterprise"
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                    : org.plan_tier === "pro"
+                                    ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                                    : "bg-neutral-500/20 text-neutral-300 border-neutral-500/40"
+                                }`}
+                              >
+                                {org.plan_tier}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">{org.max_employees} employees</td>
+                            <td className="py-3 px-4">{org.gps_retention_days} days rolling</td>
+                            <td className="py-3 px-4">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  org.is_active
+                                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                    : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                }`}
+                              >
+                                {org.is_active ? "Active" : "Suspended"}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  toggleOrgActiveMutation.mutate({
+                                    id: org.id,
+                                    is_active: !org.is_active,
+                                  })
+                                }
+                                disabled={toggleOrgActiveMutation.isPending}
+                                className="h-7 text-[11px] border border-white/10 hover:bg-white/10"
+                              >
+                                {org.is_active ? "Suspend" : "Activate"}
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* =========================================================================
             TAB 1: USER & ROLE PROVISIONING STUDIO
@@ -1529,6 +1747,104 @@ function SuperadminPage() {
       </Dialog>
 
       {/* =========================================================================
+          REGISTER NEW TENANT ORGANIZATION MODAL
+      ========================================================================= */}
+      <Dialog open={newOrgOpen} onOpenChange={setNewOrgOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Building2 className="h-5 w-5 text-primary" />
+              Register New Organization Tenant
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/60">
+              Provision an isolated organization with its own departments, employees, and geofence locations.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Organization Slug Identifier *</Label>
+              <Input
+                placeholder="e.g. acme-tech"
+                value={newOrgSlug}
+                onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+              />
+              <p className="text-[10px] text-white/50">Unique URL-friendly slug across the SaaS cluster.</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Display Name *</Label>
+              <Input
+                placeholder="e.g. Acme Technologies"
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Legal Entity Name</Label>
+              <Input
+                placeholder="e.g. Acme Technologies Pvt. Ltd."
+                value={newOrgLegalName}
+                onChange={(e) => setNewOrgLegalName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Subscription Tier</Label>
+                <select
+                  value={newOrgTier}
+                  onChange={(e) => setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")}
+                  className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
+                >
+                  <option value="starter">Starter (50 Seats)</option>
+                  <option value="pro">Pro (200 Seats)</option>
+                  <option value="enterprise">Enterprise (Unlimited)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Max Employees Quota</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={5000}
+                  value={newOrgMaxEmployees}
+                  onChange={(e) => setNewOrgMaxEmployees(parseInt(e.target.value) || 50)}
+                  className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNewOrgOpen(false)}
+              disabled={createOrgMutation.isPending}
+              className="border-white/20 text-white hover:bg-white/10 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => createOrgMutation.mutate()}
+              disabled={createOrgMutation.isPending || !newOrgSlug.trim() || !newOrgName.trim()}
+              className="bg-primary text-primary-foreground text-xs gap-1.5"
+            >
+              {createOrgMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Provision Organization
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
           PASSWORD RESET MODAL
       ========================================================================= */}
       <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
@@ -1587,6 +1903,104 @@ function SuperadminPage() {
               className="bg-primary text-primary-foreground text-xs"
             >
               Apply New Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          REGISTER NEW TENANT ORGANIZATION MODAL
+      ========================================================================= */}
+      <Dialog open={newOrgOpen} onOpenChange={setNewOrgOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Building2 className="h-5 w-5 text-primary" />
+              Register New Organization Tenant
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/60">
+              Provision an isolated organization with its own departments, employees, and geofence locations.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Organization Slug Identifier *</Label>
+              <Input
+                placeholder="e.g. acme-tech"
+                value={newOrgSlug}
+                onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+              />
+              <p className="text-[10px] text-white/50">Unique URL-friendly slug across the SaaS cluster.</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Display Name *</Label>
+              <Input
+                placeholder="e.g. Acme Technologies"
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Legal Entity Name</Label>
+              <Input
+                placeholder="e.g. Acme Technologies Pvt. Ltd."
+                value={newOrgLegalName}
+                onChange={(e) => setNewOrgLegalName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Subscription Tier</Label>
+                <select
+                  value={newOrgTier}
+                  onChange={(e) => setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")}
+                  className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
+                >
+                  <option value="starter">Starter (50 Seats)</option>
+                  <option value="pro">Pro (200 Seats)</option>
+                  <option value="enterprise">Enterprise (Unlimited)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Max Employees Quota</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={5000}
+                  value={newOrgMaxEmployees}
+                  onChange={(e) => setNewOrgMaxEmployees(parseInt(e.target.value) || 50)}
+                  className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNewOrgOpen(false)}
+              disabled={createOrgMutation.isPending}
+              className="border-white/20 text-white hover:bg-white/10 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => createOrgMutation.mutate()}
+              disabled={createOrgMutation.isPending || !newOrgSlug.trim() || !newOrgName.trim()}
+              className="bg-primary text-primary-foreground text-xs gap-1.5"
+            >
+              {createOrgMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Provision Organization
             </Button>
           </DialogFooter>
         </DialogContent>
