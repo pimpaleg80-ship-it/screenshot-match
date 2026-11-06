@@ -34,3 +34,4 @@ The Employee Dashboard (`/_authenticated/dashboard`) features the **`GeofenceAtt
   - **Check-in Button**: Disabled when outside geofence. Enabled with green status when inside ($d \le \text{radius}$).
   - **Check-out Button**: Disabled when outside geofence. Enabled only when checked-in and physically on-site.
   - **Regularization Modal**: Allows submitting attendance exception requests for missed check-out or off-site assignments.
+

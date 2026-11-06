@@ -40,3 +40,4 @@ describe("Multi-Tenancy & SaaS Role Hierarchy", () => {
     expect(hasAccess("employee", "employee")).toBe(true);
   });
 });
+

@@ -27,3 +27,4 @@
 4. **Geofence Attendance Action Center**:
    - Cards re-flow seamlessly from single-column on small screens (`320px–640px`) to two-column on tablets and desktops.
    - Touch targets for [ Check In ] and [ Check Out ] buttons are sized for thumb ergonomics (`h-13`, `min-h-[52px]`).
+

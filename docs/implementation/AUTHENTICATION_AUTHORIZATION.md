@@ -25,3 +25,4 @@
    - Route `/superadmin` is gated by a secondary credential verification modal.
    - Users accessing `/superadmin` must enter their password to unlock the workspace for the active browser session (`sessionStorage.getItem("superadmin_unlocked")`).
    - Non-superadmin users are redirected or denied access with security logging.
+

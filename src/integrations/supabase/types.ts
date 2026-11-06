@@ -1109,13 +1109,13 @@ export type Database = {
       app_role: "admin" | "manager" | "employee";
       leave_status: "pending" | "approved" | "rejected" | "cancelled";
       attendance_status:
-        | "present"
-        | "late"
-        | "absent"
-        | "half_day"
-        | "on_leave"
-        | "holiday"
-        | "weekly_off";
+      | "present"
+      | "late"
+      | "absent"
+      | "half_day"
+      | "on_leave"
+      | "holiday"
+      | "weekly_off";
     };
     CompositeTypes: {
       [_ in never]: never;

@@ -102,3 +102,4 @@ export async function notifyGeofenceTransition(
     console.warn("Failed to schedule local notification:", err);
   }
 }
+

@@ -15,3 +15,4 @@
 | **Super Admin Privilege Escalation** | CRITICAL | Secondary challenge gate in `/superadmin` requiring password entry; RPC validation on user provisioning. | **VERIFIED** |
 | **Data API Public Exposure** | HIGH | RLS enabled on all 14 multi-tenant tables. Explicit `GRANT` statements limited to `authenticated` role. | **VERIFIED** |
 | **Duplicate Employee Provisioning Conflict** | MEDIUM | Upsert conflict handling on `employees_user_id_key` with fallback to existing employee ID. | **VERIFIED** |
+

@@ -51,3 +51,4 @@ npx cap sync
 
 - Android utilizes `GeofencingClient` registered in `mobile/android/AndroidManifest.xml` with `ACCESS_BACKGROUND_LOCATION` and `RECEIVE_BOOT_COMPLETED`.
 - iOS utilizes `CLLocationManager` region monitoring configured in `mobile/ios/Info.plist` with `UIBackgroundModes` set to `location`.
+

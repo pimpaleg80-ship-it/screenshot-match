@@ -31,3 +31,4 @@ For an initial 25-employee production pilot:
 - **Monthly GPS Log Purge**: Scheduled function `public.cleanup_expired_gps_logs()` safely removes raw `geofence_events` older than 90 days.
 - **Permanent Canonical Ledger**: Canonical attendance rows (`attendance`, `attendance_monthly_summaries`) are permanent and legal.
 - **Drive Archival**: Historical monthly PDF reports are archived directly to Google Drive, ensuring zero long-term storage load on Supabase.
+

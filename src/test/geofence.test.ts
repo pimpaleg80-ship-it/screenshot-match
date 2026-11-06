@@ -52,3 +52,4 @@ describe("Geofence & Location Distance Calculations", () => {
     expect(distOutside > radiusMeters).toBe(true);
   });
 });
+

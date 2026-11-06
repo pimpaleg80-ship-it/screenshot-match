@@ -74,3 +74,4 @@ Calculates distance in meters between two coordinate pairs.
 
 - **Parameters**: `lat1`, `lon1`, `lat2`, `lon2` (`double precision`)
 - **Returns**: `double precision` (distance in meters)
+
