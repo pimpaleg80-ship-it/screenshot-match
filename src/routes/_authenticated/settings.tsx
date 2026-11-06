@@ -23,7 +23,12 @@ import {
   Lock,
   RefreshCw,
   Loader2,
+  MapPin,
+  Navigation,
+  Compass,
 } from "lucide-react";
+import { getCurrentDevicePosition } from "@/lib/geofence";
+import { AdminLocationStudio } from "@/components/admin/location-studio";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -549,6 +554,23 @@ function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Card: Work Locations & Geofence Boundaries (Interactive Studio) */}
+          <Card className="card-soft overflow-hidden">
+            <CardHeader className="border-b border-border/60 pb-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base font-semibold">Admin Location Studio & Geofence Perimeters</CardTitle>
+              </div>
+              <CardDescription>
+                Interactive mapping powered by OpenFreeMap. Position office campuses, adjust circular geofence perimeters, search landmarks, and assign employee work locations.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6">
+              <AdminLocationStudio />
+            </CardContent>
+          </Card>
+
           {/* Card 2: Biometric AI Parameters */}
           <Card className="card-soft">
             <CardHeader>
@@ -1064,6 +1086,7 @@ function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

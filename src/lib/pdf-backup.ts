@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { toDateKey } from "@/lib/attendance";
+import { toDateKey, formatHours, totalHours, formatTime } from "@/lib/attendance";
 
 export interface GeneratePdfOptions {
   title: string;
@@ -88,10 +88,127 @@ export async function generateAndBackupPdf(options: GeneratePdfOptions): Promise
         console.warn("Background Drive backup non-fatal warning:", e);
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("PDF generation failed:", err);
     toast.error("Failed to generate PDF document");
   }
+}
+
+/**
+ * Generate monthly PDF attendance ledger for an individual employee
+ */
+export async function generateMonthlyEmployeeAttendancePdf(
+  employeeId: string,
+  employeeName: string,
+  year: number,
+  month: number
+): Promise<void> {
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const { data: records, error } = await supabase
+    .from("attendance")
+    .select("date, check_in, check_out, status, total_hours, method")
+    .eq("employee_id", employeeId)
+    .gte("date", startDate)
+    .lte("date", endDate)
+    .order("date", { ascending: true });
+
+  if (error) {
+    toast.error("Failed to load employee attendance records for archive");
+    return;
+  }
+
+  const rows = (records || []).map((r) => [
+    r.date,
+    r.check_in ? formatTime(r.check_in) : "--",
+    r.check_out ? formatTime(r.check_out) : "--",
+    r.total_hours ? `${r.total_hours}h` : r.check_in && r.check_out ? formatHours(totalHours(r.check_in, r.check_out)) : "--",
+    r.status?.toUpperCase() || "PRESENT",
+    r.method || "manual_geofence",
+  ]);
+
+  await generateAndBackupPdf({
+    title: `Monthly Attendance Report — ${employeeName}`,
+    subtitle: `Period: ${startDate} to ${endDate} • Organization Archive`,
+    fileName: `Attendance_${employeeName.replace(/\s+/g, "_")}_${year}_${String(month).padStart(2, "0")}.pdf`,
+    fileType: "attendance",
+    periodStart: startDate,
+    periodEnd: endDate,
+    headers: ["Date", "Check-In", "Check-Out", "Hours", "Status", "Verification Method"],
+    rows,
+  });
+}
+
+/**
+ * Generate monthly master organization attendance summary PDF
+ */
+export async function generateMonthlyOrgMasterPdf(
+  organizationId: string,
+  organizationName: string,
+  year: number,
+  month: number
+): Promise<void> {
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const { data: employees } = await supabase
+    .from("employees")
+    .select("id, full_name, employee_code, departments(name)")
+    .order("full_name");
+
+  if (!employees || employees.length === 0) {
+    toast.error("No employees found to generate master archive");
+    return;
+  }
+
+  const { data: attendanceLogs } = await supabase
+    .from("attendance")
+    .select("employee_id, status, total_hours")
+    .gte("date", startDate)
+    .lte("date", endDate);
+
+  const empMap = new Map<string, { present: number; late: number; totalHours: number }>();
+  for (const emp of employees) {
+    empMap.set(emp.id, { present: 0, late: 0, totalHours: 0 });
+  }
+
+  for (const log of attendanceLogs || []) {
+    const stats = empMap.get(log.employee_id);
+    if (stats) {
+      if (log.status === "present") stats.present += 1;
+      if (log.status === "late") {
+        stats.late += 1;
+        stats.present += 1;
+      }
+      if (log.total_hours) stats.totalHours += Number(log.total_hours);
+    }
+  }
+
+  const rows = employees.map((emp) => {
+    const stats = empMap.get(emp.id) || { present: 0, late: 0, totalHours: 0 };
+    return [
+      emp.employee_code,
+      emp.full_name,
+      (emp as { departments?: { name: string } | null }).departments?.name || "General",
+      stats.present,
+      stats.late,
+      `${stats.totalHours.toFixed(1)} hrs`,
+    ];
+  });
+
+  await generateAndBackupPdf({
+    title: `Master Workforce Attendance Summary — ${organizationName}`,
+    subtitle: `Billing & Compliance Archive • Period: ${startDate} to ${endDate}`,
+    fileName: `Master_Attendance_${organizationName.replace(/\s+/g, "_")}_${year}_${String(month).padStart(2, "0")}.pdf`,
+    fileType: "report",
+    periodStart: startDate,
+    periodEnd: endDate,
+    headers: ["Emp Code", "Employee Name", "Department", "Days Present", "Late Marks", "Total Hours Logged"],
+    rows,
+  });
 }
 
 /**

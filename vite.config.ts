@@ -12,10 +12,13 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  nitro: {
+    preset: process.env.NITRO_PRESET || "cloudflare-pages",
+  },
   vite: {
     server: {
       watch: {
-        ignored: ["**/.output/**", "**/scratch/**"],
+        ignored: ["**/.output/**", "**/dist/**", "**/scratch/**"],
       },
     },
   },

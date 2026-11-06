@@ -50,6 +50,7 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/attendance";
+import { GeofenceAttendanceCard } from "@/components/geofence-attendance-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1032,6 +1033,7 @@ function ManagerDashboardView() {
 function EmployeeDashboardView() {
   const session = useSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
 
   // Query Today's Attendance for Employee
@@ -1153,46 +1155,16 @@ function EmployeeDashboardView() {
         </Button>
       </div>
 
-      {/* Today's Status Banner */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
-              }`}>
-              {isCheckedIn ? <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" /> : <Clock className="h-6 w-6 sm:h-7 sm:w-7" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={isCheckedIn ? "default" : "outline"}
-                  className={`text-[10px] sm:text-xs ${isCheckedOut ? "bg-emerald-600 text-white" : isCheckedIn ? "bg-blue-600 text-white" : ""}`}
-                >
-                  {isCheckedOut ? "Work Day Completed" : isCheckedIn ? "Checked In (Active)" : "Not Checked In Yet"}
-                </Badge>
-              </div>
-              <div className="mt-2 space-y-1">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm font-medium">
-                  <span>
-                    Check-in: <strong className="text-foreground font-mono">{isCheckedIn ? formatTime(todayRecord.check_in!) : "--:--"}</strong>
-                  </span>
-                  <span>
-                    Check-out: <strong className="text-foreground font-mono">{isCheckedOut ? formatTime(todayRecord.check_out!) : isCheckedIn ? "On Site" : "--:--"}</strong>
-                  </span>
-                </div>
-                {isCheckedIn && isCheckedOut && (
-                  <p className="text-xs text-muted-foreground">
-                    Total Time Logged: <strong className="text-foreground font-mono">{formatHours(totalHours(todayRecord.check_in!, todayRecord.check_out!))}</strong>
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="w-full sm:w-auto text-xs h-9">
-            View My Report
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Geofence Attendance Action Center */}
+      {session.employeeId && (
+        <GeofenceAttendanceCard
+          employeeId={session.employeeId}
+          onAttendanceUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: ["employee-today-status"] });
+            queryClient.invalidateQueries({ queryKey: ["employee-recent-records"] });
+          }}
+        />
+      )}
 
       {/* Leave Balances Grid */}
       <div className="space-y-3">

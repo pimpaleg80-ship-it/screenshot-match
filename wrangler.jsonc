@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flowpeople",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2026-11-05",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "VITE_SUPABASE_URL": "https://mnnecoyqofhrivxufhqm.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OzsJRyDmkBm8slrFgcnYeA_KilEWyGD"
+  }
+}
