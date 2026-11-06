@@ -105,6 +105,7 @@ function DashboardPage() {
    1. ADMIN DASHBOARD VIEW
 ========================================================================================= */
 function AdminDashboardView() {
+  const session = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
@@ -190,12 +191,15 @@ function AdminDashboardView() {
       const { data, error } = await supabase
         .from("leave_requests")
         .select(
-          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code, departments(name)), leave_types(name, color)",
+          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees:employees!leave_requests_employee_id_fkey(full_name, employee_code, departments(name)), leave_types(name, color)",
         )
         .eq("status", "pending")
         .order("applied_at", { ascending: false })
         .limit(5);
-      if (error) throw error;
+      if (error) {
+        console.error("Failed to query admin pending leaves:", error);
+        return [];
+      }
       return (data ?? []) as any[];
     },
   });
@@ -249,6 +253,9 @@ function AdminDashboardView() {
         .from("leave_requests")
         .update({
           status: decisionAction,
+          decided_at: new Date().toISOString(),
+          admin_id: session.employeeId,
+          admin_comment: managerComment.trim() || null,
           manager_comment: managerComment.trim() || null,
         })
         .eq("id", selectedReq.id);
@@ -261,6 +268,10 @@ function AdminDashboardView() {
       setManagerComment("");
       queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
       queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["my-leave-balances"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to process decision");
@@ -766,11 +777,14 @@ function ManagerDashboardView() {
       const { data, error } = await supabase
         .from("leave_requests")
         .select(
-          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code), leave_types(name, color)",
+          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees:employees!leave_requests_employee_id_fkey(full_name, employee_code), leave_types(name, color)",
         )
         .eq("status", "pending")
         .order("applied_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("Failed to query manager team pending leaves:", error);
+        return [];
+      }
       return (data ?? []) as any[];
     },
   });
@@ -808,6 +822,11 @@ function ManagerDashboardView() {
       setSelectedReq(null);
       setManagerComment("");
       queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["my-leave-balances"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to process decision");
@@ -1287,6 +1306,41 @@ function EmployeeDashboardView() {
         />
       )}
 
+      {/* Pending Leave Requests Notification Banner for Employee */}
+      {myPending.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+          <div className="flex items-center justify-between text-xs font-semibold text-amber-700 dark:text-amber-400">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 shrink-0" />
+              Pending Leave Applications ({myPending.length})
+            </span>
+            <Link to="/leaves" className="hover:underline flex items-center gap-1">
+              View all in Leaves &rarr;
+            </Link>
+          </div>
+          <div className="divide-y divide-border/40 text-xs">
+            {myPending.map((p: any) => (
+              <div key={p.id} className="py-2 first:pt-1 last:pb-0 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-semibold text-foreground">{p.leave_types?.name || "Leave"}</span>
+                  <span className="text-muted-foreground ml-2">
+                    {formatDate(p.from_date)} → {formatDate(p.to_date)} ({p.days}d)
+                  </span>
+                  {p.reason && (
+                    <p className="text-muted-foreground text-[11px] mt-0.5 truncate max-w-md">
+                      Reason: {p.reason}
+                    </p>
+                  )}
+                </div>
+                <Badge variant="outline" className="shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px]">
+                  Awaiting Approval
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Leave Balances Grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -1302,6 +1356,10 @@ function EmployeeDashboardView() {
               <Skeleton key={i} className="h-24 rounded-2xl" />
             ))}
           </div>
+        ) : balances.length === 0 ? (
+          <Card className="p-6 text-center text-xs text-muted-foreground">
+            No active leave balance assigned for {new Date().getFullYear()}. Contact your administrator.
+          </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {balances.map((b) => {

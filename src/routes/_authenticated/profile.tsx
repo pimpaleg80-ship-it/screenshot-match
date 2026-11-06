@@ -60,8 +60,9 @@ interface EmployeeDetail {
 
 interface LeaveBalanceRow {
   leave_type_id: string;
-  total_days: number;
-  used_days: number;
+  total: number;
+  used: number;
+  remaining?: number | null;
   leave_types?: { name: string; color: string | null } | null;
 }
 
@@ -158,10 +159,13 @@ function ProfilePage() {
       const currentYear = new Date().getFullYear();
       const { data, error } = await supabase
         .from("leave_balances")
-        .select("leave_type_id, total_days, used_days, leave_types(name, color)")
+        .select("leave_type_id, total, used, remaining, leave_types(name, color)")
         .eq("employee_id", employee.id)
         .eq("year", currentYear);
-      if (error) throw error;
+      if (error) {
+        console.error("Failed to query profile leave balances:", error);
+        return [];
+      }
       return (data ?? []) as unknown as LeaveBalanceRow[];
     },
     enabled: !!employee?.id,
@@ -428,20 +432,22 @@ function ProfilePage() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {balances.map((b) => {
-                      const available = Math.max(0, b.total_days - b.used_days);
-                      const pct = Math.round((b.used_days / (b.total_days || 1)) * 100);
+                      const total = Number(b.total || 0);
+                      const used = Number(b.used || 0);
+                      const available = Number(b.remaining ?? Math.max(0, total - used));
+                      const pct = Math.round((used / (total || 1)) * 100);
                       return (
                         <div key={b.leave_type_id} className="rounded-xl border p-3 space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold">{b.leave_types?.name || "Leave"}</span>
                             <span className="text-muted-foreground">
                               <span className="font-bold text-foreground">{available}</span> /{" "}
-                              {b.total_days} left
+                              {total} left
                             </span>
                           </div>
-                          <Progress value={b.used_days} max={b.total_days} className="h-1.5" />
+                          <Progress value={used} max={total} className="h-1.5" />
                           <div className="text-[10px] text-muted-foreground">
-                            {b.used_days} days used ({pct}%)
+                            {used} days used ({pct}%)
                           </div>
                         </div>
                       );

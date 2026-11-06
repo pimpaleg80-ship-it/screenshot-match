@@ -830,6 +830,7 @@ export type Database = {
           is_paid: boolean | null;
           active: boolean | null;
           requires_approval: boolean | null;
+          color: string | null;
         };
         Insert: {
           id?: string;
@@ -840,6 +841,7 @@ export type Database = {
           is_paid?: boolean | null;
           active?: boolean | null;
           requires_approval?: boolean | null;
+          color?: string | null;
         };
         Update: {
           id?: string;
@@ -850,6 +852,7 @@ export type Database = {
           is_paid?: boolean | null;
           active?: boolean | null;
           requires_approval?: boolean | null;
+          color?: string | null;
         };
         Relationships: [];
       };
