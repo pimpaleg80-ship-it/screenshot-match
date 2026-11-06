@@ -2,7 +2,7 @@
 
 **Target Platforms**: Android (API level 29–35 / Android 10–15), iOS (iOS 15–18)  
 **Hybrid Container**: Capacitor 6+ with React 19 Client SPA  
-**Core Purpose**: Native background geofence detection, hardware device identification, and secure manual attendance gating without high battery drain.  
+**Core Purpose**: Native background geofence detection, hardware device identification, and secure manual attendance gating without high battery drain.
 
 ---
 
@@ -37,6 +37,7 @@ The mobile application embeds the existing FlowPeople React client inside a nati
 ## 2. Android Native Geofencing Implementation Requirements
 
 ### 1. Required Manifest Permissions (`AndroidManifest.xml`)
+
 ```xml
 <!-- Foreground location access -->
 <uses-permission android:name="android.intent.action.BOOT_COMPLETED" />
@@ -56,6 +57,7 @@ The mobile application embeds the existing FlowPeople React client inside a nati
 ```
 
 ### 2. Native Geofence Registration (`GeofencingClient`)
+
 - Work locations are retrieved from `GET /api/v1/locations` and registered via Google Play Services `GeofencingClient.addGeofences()`:
   - `setExpirationDuration(NEVER_EXPIRE)`
   - `setTransitionTypes(GEOFENCE_TRANSITION_ENTER | GEOFENCE_TRANSITION_EXIT | GEOFENCE_TRANSITION_DWELL)`
@@ -63,10 +65,12 @@ The mobile application embeds the existing FlowPeople React client inside a nati
   - `setNotificationResponsiveness(60000)` (Optimized for low battery consumption)
 
 ### 3. Broadcast Receiver & Reboot Recovery
+
 - **`GeofenceBroadcastReceiver`**: Woken by the operating system when the employee crosses the office threshold. Updates local storage flag `is_inside_geofence = true`, updates app badge, and triggers local notification.
 - **`BootCompletedReceiver`**: Because Android OS clears active geofences upon system shutdown or reboot, this receiver listens for `android.intent.action.BOOT_COMPLETED`, reads cached office coordinates from encrypted preferences, and re-registers the geofences immediately upon phone boot.
 
 ### 4. Battery Optimization & Power Management
+
 - Uses Google Play Services hardware-assisted geofencing (WiFi scanning + cell tower triangulation + low-power GPS geofencing chip).
 - No continuous GPS streaming is used. High-accuracy GPS is only activated for 3 seconds when the employee presses the [ Check-in ] or [ Check-out ] button.
 
@@ -75,6 +79,7 @@ The mobile application embeds the existing FlowPeople React client inside a nati
 ## 3. iOS Core Location Region Monitoring Requirements
 
 ### 1. Required Capabilities & Permissions (`Info.plist`)
+
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>FlowPeople requires location access to enable attendance check-in buttons when you arrive at your office.</string>
@@ -90,6 +95,7 @@ The mobile application embeds the existing FlowPeople React client inside a nati
 ```
 
 ### 2. Native Region Monitoring (`CLLocationManager`)
+
 - Registers `CLCircularRegion` objects for each assigned office location:
   - `region.notifyOnEntry = true`
   - `region.notifyOnExit = true`
@@ -102,11 +108,10 @@ The mobile application embeds the existing FlowPeople React client inside a nati
 
 1. **Browser Printing API**:
    - `src/lib/attendance.ts` uses `window.open()` and `window.print()`.
-   - *Fix*: In Capacitor native builds, integrate `@capacitor/filesystem` and `@capacitor/share` to save generated PDFs to device storage and open the native system sharing sheet.
+   - _Fix_: In Capacitor native builds, integrate `@capacitor/filesystem` and `@capacitor/share` to save generated PDFs to device storage and open the native system sharing sheet.
 2. **Missing Native Bridge**:
    - The current codebase directly instantiates `navigator.geolocation.getCurrentPosition()`.
-   - *Fix*: Abstract location queries through a unified `LocationService` that uses `@capacitor/geolocation` on mobile and HTML5 Geolocation on desktop browsers.
+   - _Fix_: Abstract location queries through a unified `LocationService` that uses `@capacitor/geolocation` on mobile and HTML5 Geolocation on desktop browsers.
 3. **Face Recognition Camera Drain**:
    - The current face-api loop consumes ~30% CPU continuously on mobile devices.
-   - *Resolution*: Strictly isolate the webcam facial scanner to the office Smart Kiosk tablet mode (`/kiosk`). Mobile personal devices rely 100% on native geofencing + manual button tapping, preserving mobile battery life.
-
+   - _Resolution_: Strictly isolate the webcam facial scanner to the office Smart Kiosk tablet mode (`/kiosk`). Mobile personal devices rely 100% on native geofencing + manual button tapping, preserving mobile battery life.

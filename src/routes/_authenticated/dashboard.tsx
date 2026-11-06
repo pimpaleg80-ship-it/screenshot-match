@@ -130,12 +130,18 @@ function AdminDashboardView() {
   });
 
   // Query Today's Attendance
-  const { data: todayRecords = [], isLoading: todayLoading, refetch: refetchToday } = useQuery({
+  const {
+    data: todayRecords = [],
+    isLoading: todayLoading,
+    refetch: refetchToday,
+  } = useQuery({
     queryKey: ["admin-today-attendance", todayKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance")
-        .select("id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code, departments(name))")
+        .select(
+          "id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code, departments(name))",
+        )
         .eq("date", todayKey)
         .order("check_in", { ascending: false });
       if (error) throw error;
@@ -157,7 +163,7 @@ function AdminDashboardView() {
         () => {
           queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
           queryClient.invalidateQueries({ queryKey: ["admin-trend-14d"] });
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -168,7 +174,7 @@ function AdminDashboardView() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
-        }
+        },
       )
       .subscribe();
 
@@ -183,7 +189,9 @@ function AdminDashboardView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leave_requests")
-        .select("id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code, departments(name)), leave_types(name, color)")
+        .select(
+          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code, departments(name)), leave_types(name, color)",
+        )
         .eq("status", "pending")
         .order("applied_at", { ascending: false })
         .limit(5);
@@ -207,7 +215,10 @@ function AdminDashboardView() {
         .lte("date", todayKey);
       if (error) throw error;
 
-      const map: Record<string, { date: string; present: number; late: number; on_leave: number; absent: number }> = {};
+      const map: Record<
+        string,
+        { date: string; present: number; late: number; on_leave: number; absent: number }
+      > = {};
       for (let i = 13; i >= 0; i--) {
         const day = new Date();
         day.setDate(day.getDate() - i);
@@ -217,11 +228,12 @@ function AdminDashboardView() {
       }
 
       (data ?? []).forEach((row) => {
-        if (map[row.date]) {
-          if (row.status === "present") map[row.date].present++;
-          else if (row.status === "late") map[row.date].late++;
-          else if (row.status === "on_leave") map[row.date].on_leave++;
-          else if (row.status === "absent") map[row.date].absent++;
+        const item = map[row.date];
+        if (item) {
+          if (row.status === "present") item.present++;
+          else if (row.status === "late") item.late++;
+          else if (row.status === "on_leave") item.on_leave++;
+          else if (row.status === "absent") item.absent++;
         }
       });
 
@@ -257,7 +269,9 @@ function AdminDashboardView() {
 
   // Calculate stats
   const totalEmployees = employees.length;
-  const presentCount = todayRecords.filter((r) => r.status === "present" || r.status === "late").length;
+  const presentCount = todayRecords.filter(
+    (r) => r.status === "present" || r.status === "late",
+  ).length;
   const onLeaveCount = todayRecords.filter((r) => r.status === "on_leave").length;
   const pendingCount = pendingLeaves.length;
   const attendanceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
@@ -281,11 +295,20 @@ function AdminDashboardView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchToday()}
+            className="gap-1.5 text-xs h-9"
+          >
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary text-xs h-9">
+          <Button
+            size="sm"
+            onClick={() => navigate({ to: "/kiosk" })}
+            className="gap-1.5 bg-primary text-xs h-9"
+          >
             <ScanLine className="h-3.5 w-3.5" />
             Launch Kiosk
           </Button>
@@ -307,20 +330,26 @@ function AdminDashboardView() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Today's Attendance</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Today's Attendance
+            </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
               {todayLoading ? "..." : `${attendanceRate}%`}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{presentCount} of {totalEmployees} checked in</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {presentCount} of {totalEmployees} checked in
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">On Leave Today</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              On Leave Today
+            </CardTitle>
             <Palmtree className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -333,7 +362,9 @@ function AdminDashboardView() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pending Approvals</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Pending Approvals
+            </CardTitle>
             <CalendarRange className="h-4 w-4 text-rose-500" />
           </CardHeader>
           <CardContent>
@@ -350,19 +381,39 @@ function AdminDashboardView() {
         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4">
           <span className="text-xs sm:text-sm font-semibold">Quick Actions</span>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-9 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/people" })}
+              className="gap-1.5 text-xs h-9 justify-center"
+            >
               <UserPlus className="h-3.5 w-3.5" />
               Add Employee
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs h-9 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/leaves" })}
+              className="gap-1.5 text-xs h-9 justify-center"
+            >
               <CalendarRange className="h-3.5 w-3.5" />
               Review Leaves
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/reports" })} className="gap-1.5 text-xs h-9 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/reports" })}
+              className="gap-1.5 text-xs h-9 justify-center"
+            >
               <BarChart3 className="h-3.5 w-3.5" />
               Export Report
             </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs h-9 justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/settings" })}
+              className="gap-1.5 text-xs h-9 justify-center"
+            >
               <Sparkles className="h-3.5 w-3.5" />
               Drive Backup
             </Button>
@@ -376,7 +427,9 @@ function AdminDashboardView() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">14-Day Attendance Trend</CardTitle>
-            <CardDescription>Daily presence, punctuality, and leaves across the workforce.</CardDescription>
+            <CardDescription>
+              Daily presence, punctuality, and leaves across the workforce.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
@@ -433,7 +486,9 @@ function AdminDashboardView() {
                         {req.days}d {req.leave_types?.name}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground truncate">{req.reason || "Personal work"}</p>
+                    <p className="text-muted-foreground truncate">
+                      {req.reason || "Personal work"}
+                    </p>
                     <div className="flex items-center justify-between pt-1 border-t">
                       <span className="text-[10px] text-muted-foreground">{req.from_date}</span>
                       <div className="flex gap-1.5">
@@ -476,7 +531,9 @@ function AdminDashboardView() {
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-base">Today's Biometric Feed</CardTitle>
-            <CardDescription>Live attendance records logged at kiosks or authorized portals.</CardDescription>
+            <CardDescription>
+              Live attendance records logged at kiosks or authorized portals.
+            </CardDescription>
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -502,7 +559,10 @@ function AdminDashboardView() {
           ) : (
             <div className="divide-y">
               {filteredFeed.map((rec) => (
-                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
+                <div
+                  key={rec.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0"
+                >
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "EM"}
@@ -510,7 +570,8 @@ function AdminDashboardView() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {rec.employees?.employee_code} • {rec.employees?.departments?.name || "General"}
+                        {rec.employees?.employee_code} •{" "}
+                        {rec.employees?.departments?.name || "General"}
                       </p>
                     </div>
                   </div>
@@ -518,8 +579,18 @@ function AdminDashboardView() {
                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
                     <div className="text-left sm:text-right space-y-0.5">
                       <div className="flex items-center gap-2 sm:gap-3 text-xs">
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">
+                          In:{" "}
+                          <strong className="text-foreground font-mono">
+                            {rec.check_in ? formatTime(rec.check_in) : "--:--"}
+                          </strong>
+                        </span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">
+                          Out:{" "}
+                          <strong className="text-foreground font-mono">
+                            {rec.check_out ? formatTime(rec.check_out) : "On Site"}
+                          </strong>
+                        </span>
                       </div>
                       {rec.check_in && rec.check_out ? (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -567,7 +638,9 @@ function AdminDashboardView() {
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Period:</span>
-                <span>{selectedReq?.start_date} to {selectedReq?.end_date}</span>
+                <span>
+                  {selectedReq?.start_date} to {selectedReq?.end_date}
+                </span>
               </div>
               <div className="text-xs pt-1">
                 <span className="font-medium">Reason: </span>
@@ -576,7 +649,9 @@ function AdminDashboardView() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="admin-comment" className="text-xs">Manager / Admin Comment</Label>
+              <Label htmlFor="admin-comment" className="text-xs">
+                Manager / Admin Comment
+              </Label>
               <Input
                 id="admin-comment"
                 placeholder="Optional notes or feedback..."
@@ -642,7 +717,9 @@ function ManagerDashboardView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance")
-        .select("id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code)")
+        .select(
+          "id, date, check_in, check_out, status, method, employee_id, employees(full_name, employee_code)",
+        )
         .eq("date", todayKey);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -662,7 +739,7 @@ function ManagerDashboardView() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["manager-team-today"] });
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -673,7 +750,7 @@ function ManagerDashboardView() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
-        }
+        },
       )
       .subscribe();
 
@@ -688,7 +765,9 @@ function ManagerDashboardView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leave_requests")
-        .select("id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code), leave_types(name, color)")
+        .select(
+          "id, from_date, to_date, days, reason, status, applied_at, employee_id, leave_type_id, employees(full_name, employee_code), leave_types(name, color)",
+        )
         .eq("status", "pending")
         .order("applied_at", { ascending: false });
       if (error) throw error;
@@ -737,7 +816,9 @@ function ManagerDashboardView() {
 
   const teamIds = new Set(team.map((t) => t.id));
   const teamRecords = teamToday.filter((r) => teamIds.has(r.employee_id));
-  const presentCount = teamRecords.filter((r) => r.status === "present" || r.status === "late").length;
+  const presentCount = teamRecords.filter(
+    (r) => r.status === "present" || r.status === "late",
+  ).length;
   const onLeaveCount = teamRecords.filter((r) => r.status === "on_leave").length;
   const absentCount = Math.max(0, team.length - presentCount - onLeaveCount);
 
@@ -748,7 +829,10 @@ function ManagerDashboardView() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Team Overview</h1>
-            <Badge variant="outline" className="border-amber-200 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
+            <Badge
+              variant="outline"
+              className="border-amber-200 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
+            >
               {session.departmentName || "Engineering"} Dept
             </Badge>
           </div>
@@ -756,7 +840,11 @@ function ManagerDashboardView() {
             Manage your direct team presence, approve leaves, and track department schedules.
           </p>
         </div>
-        <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 self-start sm:self-auto text-xs h-9">
+        <Button
+          size="sm"
+          onClick={() => navigate({ to: "/people" })}
+          className="gap-1.5 self-start sm:self-auto text-xs h-9"
+        >
           <UserPlus className="h-3.5 w-3.5" />
           Add Team Member
         </Button>
@@ -777,7 +865,9 @@ function ManagerDashboardView() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Present Today</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Present Today
+            </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -843,7 +933,10 @@ function ManagerDashboardView() {
             ) : (
               <div className="divide-y">
                 {teamPendingLeaves.map((req) => (
-                  <div key={req.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                  <div
+                    key={req.id}
+                    className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm">{req.employees?.full_name}</span>
@@ -899,13 +992,19 @@ function ManagerDashboardView() {
           </CardHeader>
           <CardContent>
             {upcomingHolidays.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No upcoming holidays scheduled.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                No upcoming holidays scheduled.
+              </p>
             ) : (
               <div className="space-y-3">
                 {upcomingHolidays.map((h: any) => (
                   <div key={h.id} className="flex items-center gap-3 rounded-xl border p-2.5">
                     <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
-                      <span>{new Date(h.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}</span>
+                      <span>
+                        {new Date(h.date + "T00:00:00").toLocaleDateString("en-US", {
+                          month: "short",
+                        })}
+                      </span>
                       <span className="text-sm leading-none">{h.date.split("-")[2]}</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -924,7 +1023,9 @@ function ManagerDashboardView() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Team Attendance Log (Today)</CardTitle>
-          <CardDescription>Real-time check-in and check-out entries for your department.</CardDescription>
+          <CardDescription>
+            Real-time check-in and check-out entries for your department.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {todayLoading ? (
@@ -940,22 +1041,37 @@ function ManagerDashboardView() {
           ) : (
             <div className="divide-y">
               {teamRecords.map((rec: any) => (
-                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
+                <div
+                  key={rec.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0"
+                >
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "TM"}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate">{rec.employees?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{rec.employees?.employee_code}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {rec.employees?.employee_code}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs w-full sm:w-auto pl-12 sm:pl-0">
                     <div className="text-left sm:text-right space-y-0.5">
                       <div className="flex items-center gap-2 sm:gap-3 text-xs">
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">In: <strong className="text-foreground font-mono">{rec.check_in ? formatTime(rec.check_in) : "--:--"}</strong></span>
-                        <span className="text-muted-foreground text-[11px] sm:text-xs">Out: <strong className="text-foreground font-mono">{rec.check_out ? formatTime(rec.check_out) : "On Site"}</strong></span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">
+                          In:{" "}
+                          <strong className="text-foreground font-mono">
+                            {rec.check_in ? formatTime(rec.check_in) : "--:--"}
+                          </strong>
+                        </span>
+                        <span className="text-muted-foreground text-[11px] sm:text-xs">
+                          Out:{" "}
+                          <strong className="text-foreground font-mono">
+                            {rec.check_out ? formatTime(rec.check_out) : "On Site"}
+                          </strong>
+                        </span>
                       </div>
                       {rec.check_in && rec.check_out ? (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -997,7 +1113,9 @@ function ManagerDashboardView() {
 
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="mgr-comment" className="text-xs">Manager Comment</Label>
+              <Label htmlFor="mgr-comment" className="text-xs">
+                Manager Comment
+              </Label>
               <Input
                 id="mgr-comment"
                 placeholder="e.g. Approved. Please ensure task handover."
@@ -1149,7 +1267,10 @@ function EmployeeDashboardView() {
             {session.designation || "Staff Member"} • {session.departmentName || "Engineering"}
           </p>
         </div>
-        <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 self-start sm:self-auto text-xs h-9">
+        <Button
+          onClick={() => navigate({ to: "/leaves" })}
+          className="gap-2 self-start sm:self-auto text-xs h-9"
+        >
           <Palmtree className="h-4 w-4" />
           Apply for Leave
         </Button>
@@ -1184,7 +1305,7 @@ function EmployeeDashboardView() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {balances.map((b) => {
-              const remaining = Number(b.remaining ?? (b.total - b.used));
+              const remaining = Number(b.remaining ?? b.total - b.used);
               const used = Number(b.used ?? 0);
               const total = Number(b.total ?? 0);
               return (
@@ -1195,7 +1316,10 @@ function EmployeeDashboardView() {
                       {used} / {total} used
                     </Badge>
                   </div>
-                  <div className="text-2xl font-bold">{remaining} <span className="text-xs font-normal text-muted-foreground">days left</span></div>
+                  <div className="text-2xl font-bold">
+                    {remaining}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">days left</span>
+                  </div>
                   <Progress value={used} max={total} className="h-1.5" />
                 </Card>
               );
@@ -1220,15 +1344,21 @@ function EmployeeDashboardView() {
                 ))}
               </div>
             ) : recentRecords.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">No recent attendance records found.</p>
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                No recent attendance records found.
+              </p>
             ) : (
               <div className="divide-y text-xs">
                 {recentRecords.map((r: any) => (
-                  <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0"
+                  >
                     <div>
                       <span className="font-semibold">{formatDate(r.date)}</span>
                       <span className="text-muted-foreground ml-2">
-                        {r.check_in ? formatTime(r.check_in) : "--:--"} to {r.check_out ? formatTime(r.check_out) : "--:--"}
+                        {r.check_in ? formatTime(r.check_in) : "--:--"} to{" "}
+                        {r.check_out ? formatTime(r.check_out) : "--:--"}
                       </span>
                     </div>
                     <Badge
@@ -1252,7 +1382,9 @@ function EmployeeDashboardView() {
           </CardHeader>
           <CardContent>
             {announcements.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No announcements posted.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                No announcements posted.
+              </p>
             ) : (
               <div className="space-y-3">
                 {announcements.map((a: any) => (
@@ -1261,7 +1393,9 @@ function EmployeeDashboardView() {
                       <Megaphone className="h-3.5 w-3.5 text-primary" />
                       <span className="truncate">{a.title}</span>
                     </div>
-                    <p className="text-muted-foreground line-clamp-2 text-[11px]">{a.message || a.content}</p>
+                    <p className="text-muted-foreground line-clamp-2 text-[11px]">
+                      {a.message || a.content}
+                    </p>
                   </div>
                 ))}
               </div>

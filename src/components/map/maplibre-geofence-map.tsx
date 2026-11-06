@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  OPENFREEMAP_LIBERTY_STYLE,
-  createGeoJSONCircle,
-  isWebGLSupported,
-} from "@/lib/map-utils";
+import { OPENFREEMAP_LIBERTY_STYLE, createGeoJSONCircle, isWebGLSupported } from "@/lib/map-utils";
 import { AlertTriangle, MapPin, Loader2 } from "lucide-react";
 
 export interface MapCoordinates {
@@ -134,7 +130,7 @@ export function MapLibreGeofenceMap({
         });
       }
     },
-    [isInsideGeofence]
+    [isInsideGeofence],
   );
 
   // Sync color changes dynamically when inside/outside status flips
@@ -152,45 +148,42 @@ export function MapLibreGeofenceMap({
   }, [isInsideGeofence, mapLoaded]);
 
   // Update user location accuracy circle
-  const updateUserAccuracyLayer = useCallback(
-    (coords: [number, number], accuracy: number) => {
-      const map = mapRef.current;
-      if (!map || !map.isStyleLoaded()) return;
+  const updateUserAccuracyLayer = useCallback((coords: [number, number], accuracy: number) => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
 
-      const userCircle = createGeoJSONCircle(coords, Math.max(accuracy, 10));
-      const source = map.getSource(USER_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    const userCircle = createGeoJSONCircle(coords, Math.max(accuracy, 10));
+    const source = map.getSource(USER_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
 
-      if (source) {
-        source.setData(userCircle);
-      } else {
-        map.addSource(USER_SOURCE_ID, {
-          type: "geojson",
-          data: userCircle,
-        });
+    if (source) {
+      source.setData(userCircle);
+    } else {
+      map.addSource(USER_SOURCE_ID, {
+        type: "geojson",
+        data: userCircle,
+      });
 
-        map.addLayer({
-          id: USER_FILL_LAYER_ID,
-          type: "fill",
-          source: USER_SOURCE_ID,
-          paint: {
-            "fill-color": "#0ea5e9",
-            "fill-opacity": 0.15,
-          },
-        });
+      map.addLayer({
+        id: USER_FILL_LAYER_ID,
+        type: "fill",
+        source: USER_SOURCE_ID,
+        paint: {
+          "fill-color": "#0ea5e9",
+          "fill-opacity": 0.15,
+        },
+      });
 
-        map.addLayer({
-          id: USER_STROKE_LAYER_ID,
-          type: "line",
-          source: USER_SOURCE_ID,
-          paint: {
-            "line-color": "#0284c7",
-            "line-width": 1.5,
-          },
-        });
-      }
-    },
-    []
-  );
+      map.addLayer({
+        id: USER_STROKE_LAYER_ID,
+        type: "line",
+        source: USER_SOURCE_ID,
+        paint: {
+          "line-color": "#0284c7",
+          "line-width": 1.5,
+        },
+      });
+    }
+  }, []);
 
   // Initialize MapLibre GL
   useEffect(() => {
@@ -215,7 +208,7 @@ export function MapLibreGeofenceMap({
           compact: true,
           customAttribution: "© OpenFreeMap • © OpenStreetMap contributors",
         }),
-        "bottom-right"
+        "bottom-right",
       );
 
       // Create primary draggable office marker element
@@ -308,7 +301,16 @@ export function MapLibreGeofenceMap({
         mapRef.current = null;
       }
     };
-  }, [center, interactive, markerDraggable, onCoordinatesChange, radiusMeters, updateGeofenceLayer, webGlAvailable, zoom]);
+  }, [
+    center,
+    interactive,
+    markerDraggable,
+    onCoordinatesChange,
+    radiusMeters,
+    updateGeofenceLayer,
+    webGlAvailable,
+    zoom,
+  ]);
 
   // Sync external center and radius updates to existing map
   useEffect(() => {
@@ -374,8 +376,8 @@ export function MapLibreGeofenceMap({
         .setPopup(
           new maplibregl.Popup({ offset: 20 }).setHTML(
             `<strong style="font-size: 12px; font-family: sans-serif;">${loc.name}</strong><br/>
-             <span style="font-size: 11px; color: #64748b; font-family: sans-serif;">Radius: ${loc.radius_meters}m</span>`
-          )
+             <span style="font-size: 11px; color: #64748b; font-family: sans-serif;">Radius: ${loc.radius_meters}m</span>`,
+          ),
         )
         .addTo(map);
 
@@ -434,10 +436,12 @@ export function MapLibreGeofenceMap({
         style={{ height }}
       >
         <AlertTriangle className="h-10 w-10 text-amber-500 mb-2" />
-        <h4 className="text-sm font-semibold text-foreground">WebGL Hardware Acceleration Unavailable</h4>
+        <h4 className="text-sm font-semibold text-foreground">
+          WebGL Hardware Acceleration Unavailable
+        </h4>
         <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-          Interactive 3D map rendering requires WebGL. You can still view, enter, and adjust coordinates
-          and geofence radius manually in the location fields below.
+          Interactive 3D map rendering requires WebGL. You can still view, enter, and adjust
+          coordinates and geofence radius manually in the location fields below.
         </p>
         <div className="mt-3 text-xs font-mono bg-background p-2 rounded-lg border">
           Center: {center[1].toFixed(5)}° N, {center[0].toFixed(5)}° E (Radius: {radiusMeters}m)
@@ -447,7 +451,9 @@ export function MapLibreGeofenceMap({
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-border bg-muted/20 ${className}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-border bg-muted/20 ${className}`}
+    >
       {/* Map Canvas Container */}
       <div ref={containerRef} style={{ width: "100%", height }} />
 
@@ -465,7 +471,10 @@ export function MapLibreGeofenceMap({
       {mapError && (
         <div className="absolute top-3 left-3 right-3 p-2 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive flex items-center gap-2 z-20">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>Map tile loading encountered an issue. Manual coordinates entry remains fully functional.</span>
+          <span>
+            Map tile loading encountered an issue. Manual coordinates entry remains fully
+            functional.
+          </span>
         </div>
       )}
 
@@ -480,8 +489,8 @@ export function MapLibreGeofenceMap({
               isInsideGeofence === true
                 ? "border-emerald-600 bg-emerald-500/30"
                 : isInsideGeofence === false
-                ? "border-amber-600 bg-amber-500/30"
-                : "border-indigo-600 bg-indigo-500/30"
+                  ? "border-amber-600 bg-amber-500/30"
+                  : "border-indigo-600 bg-indigo-500/30"
             }`}
           ></span>{" "}
           Geofence ({radiusMeters}m)

@@ -45,7 +45,7 @@ export function calculateHaversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   if (lat1 === undefined || lon1 === undefined || lat2 === undefined || lon2 === undefined) {
     return Infinity;
@@ -82,7 +82,12 @@ export function formatDistance(meters: number): string {
  */
 export async function getCurrentDevicePosition(): Promise<Coordinates> {
   // Check if Capacitor Geolocation is available in native runtime
-  if (typeof window !== "undefined" && (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()) {
+  if (
+    typeof window !== "undefined" &&
+    (
+      window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
+    ).Capacitor?.isNativePlatform?.()
+  ) {
     try {
       const { Geolocation } = await import("@capacitor/geolocation");
       const pos = await Geolocation.getCurrentPosition({
@@ -118,7 +123,8 @@ export async function getCurrentDevicePosition(): Promise<Coordinates> {
       (err) => {
         let msg = "Could not retrieve GPS coordinates.";
         if (err.code === err.PERMISSION_DENIED) {
-          msg = "Location permission denied. Please allow GPS access in your browser or device settings.";
+          msg =
+            "Location permission denied. Please allow GPS access in your browser or device settings.";
         } else if (err.code === err.POSITION_UNAVAILABLE) {
           msg = "GPS signal unavailable. Please ensure location services are enabled.";
         } else if (err.code === err.TIMEOUT) {
@@ -130,7 +136,7 @@ export async function getCurrentDevicePosition(): Promise<Coordinates> {
         enableHighAccuracy: true,
         timeout: 12000,
         maximumAge: 0,
-      }
+      },
     );
   });
 }
@@ -155,7 +161,7 @@ export async function fetchEmployeeGeofenceContext(): Promise<GeofenceContext> {
 export async function submitGeofenceAttendance(
   action: "check_in" | "check_out",
   coords: Coordinates,
-  deviceId?: string
+  deviceId?: string,
 ): Promise<{
   success: boolean;
   action: string;
@@ -187,4 +193,3 @@ export async function submitGeofenceAttendance(
     distance_meters: number;
   };
 }
-

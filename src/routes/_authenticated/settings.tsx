@@ -61,7 +61,11 @@ export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Flowpeople by Fluxora" },
-      { name: "description", content: "Configure organization profile, biometric verification parameters, holidays, and Google Drive cloud backups." },
+      {
+        name: "description",
+        content:
+          "Configure organization profile, biometric verification parameters, holidays, and Google Drive cloud backups.",
+      },
     ],
   }),
   component: SettingsPage,
@@ -107,7 +111,9 @@ function SettingsPage() {
   // Role Assignment Modal state
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState("");
-  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<"admin" | "manager" | "employee">("manager");
+  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<
+    "admin" | "manager" | "employee"
+  >("manager");
 
   // Handle OAuth redirect url query params
   useEffect(() => {
@@ -147,18 +153,20 @@ function SettingsPage() {
   // Populate form on load
   useEffect(() => {
     if (settingsData) {
-      setOrgName(settingsData.org_name);
-      setWorkStart(settingsData.work_start);
-      setWorkEnd(settingsData.work_end);
-      setLateGraceMinutes(settingsData.late_grace_minutes);
-      setHalfDayHours(Number(settingsData.half_day_hours));
+      setOrgName(
+        (settingsData as any).org_name || session.organizationName || "Fluxora Technologies",
+      );
+      setWorkStart(settingsData.work_start || "09:00:00");
+      setWorkEnd(settingsData.work_end || "18:00:00");
+      setLateGraceMinutes(settingsData.late_grace_minutes ?? 15);
+      setHalfDayHours(Number((settingsData as any).half_day_hours || 4));
       setWeeklyOffDays(settingsData.weekly_off_days || [0, 6]);
-      setFaceThreshold(Number(settingsData.face_match_threshold));
-      setDuplicateScanMinutes(settingsData.duplicate_scan_minutes);
-      setStorePhotos(settingsData.store_photos);
-      setDataRetentionDays(settingsData.data_retention_days);
+      setFaceThreshold(Number(settingsData.face_match_threshold ?? 0.45));
+      setDuplicateScanMinutes(settingsData.duplicate_scan_minutes ?? 2);
+      setStorePhotos(settingsData.store_capture_photos ?? false);
+      setDataRetentionDays(settingsData.retention_days ?? 90);
     }
-  }, [settingsData]);
+  }, [settingsData, session.organizationName]);
 
   // Fetch Google Drive Status
   const { data: driveStatus, isLoading: driveStatusLoading } = useQuery({
@@ -169,12 +177,26 @@ function SettingsPage() {
         if (error) {
           // Fallback to direct table check
           const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-          return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup } : { connected: false };
+          return conn
+            ? {
+                connected: true,
+                email: conn.google_email,
+                auto_backup_on_pdf: conn.auto_backup_on_pdf,
+                daily_backup_enabled: conn.daily_backup,
+              }
+            : { connected: false };
         }
         return data;
       } catch {
         const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-        return conn ? { connected: true, email: conn.google_email, auto_backup_on_pdf: conn.auto_backup_on_pdf, daily_backup_enabled: conn.daily_backup } : { connected: false };
+        return conn
+          ? {
+              connected: true,
+              email: conn.google_email,
+              auto_backup_on_pdf: conn.auto_backup_on_pdf,
+              daily_backup_enabled: conn.daily_backup,
+            }
+          : { connected: false };
       }
     },
   });
@@ -290,7 +312,11 @@ function SettingsPage() {
 
   // Drive Disconnect Action
   async function handleDisconnectDrive() {
-    if (!confirm("Are you sure you want to disconnect Google Drive backup? Automatic cloud sync will be paused.")) {
+    if (
+      !confirm(
+        "Are you sure you want to disconnect Google Drive backup? Automatic cloud sync will be paused.",
+      )
+    ) {
       return;
     }
     try {
@@ -347,7 +373,10 @@ function SettingsPage() {
   }
 
   // Toggle Drive Setting
-  async function handleToggleDriveSetting(key: "auto_backup_on_pdf" | "daily_backup_enabled", value: boolean) {
+  async function handleToggleDriveSetting(
+    key: "auto_backup_on_pdf" | "daily_backup_enabled",
+    value: boolean,
+  ) {
     try {
       await supabase.functions.invoke("google-drive-status", {
         body: { action: "update_settings", [key]: value },
@@ -468,7 +497,9 @@ function SettingsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">System Settings</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            System Settings
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Configure working hours, face-matching precision, Google Drive backups, and holidays.
           </p>
@@ -494,11 +525,16 @@ function SettingsPage() {
             <div>
               <p className="font-bold">Google Drive Connection Revoked</p>
               <p className="text-muted-foreground">
-                Your authorization was revoked or expired in Google Security settings. Reconnect to resume backups.
+                Your authorization was revoked or expired in Google Security settings. Reconnect to
+                resume backups.
               </p>
             </div>
           </div>
-          <Button size="sm" onClick={handleConnectDrive} className="gap-1.5 w-full sm:w-auto shrink-0 text-xs h-8">
+          <Button
+            size="sm"
+            onClick={handleConnectDrive}
+            className="gap-1.5 w-full sm:w-auto shrink-0 text-xs h-8"
+          >
             <RotateCcw className="h-3.5 w-3.5" />
             Reconnect Drive
           </Button>
@@ -517,7 +553,9 @@ function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Building className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base font-semibold">Organization & Work Schedule</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Organization & Work Schedule
+                </CardTitle>
               </div>
               <CardDescription>
                 Configure organization profile and active operating schedule.
@@ -540,10 +578,11 @@ function SettingsPage() {
                         key={d.id}
                         type="button"
                         onClick={() => toggleDay(d.id)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent"
-                          }`}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          isChecked
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-card text-muted-foreground hover:bg-accent"
+                        }`}
                       >
                         {d.label}
                       </button>
@@ -559,10 +598,13 @@ function SettingsPage() {
             <CardHeader className="border-b border-border/60 pb-4">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base font-semibold">Admin Location Studio & Geofence Perimeters</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Admin Location Studio & Geofence Perimeters
+                </CardTitle>
               </div>
               <CardDescription>
-                Interactive mapping powered by OpenFreeMap. Position office campuses, adjust circular geofence perimeters, search landmarks, and assign employee work locations.
+                Interactive mapping powered by OpenFreeMap. Position office campuses, adjust
+                circular geofence perimeters, search landmarks, and assign employee work locations.
               </CardDescription>
             </CardHeader>
 
@@ -591,7 +633,11 @@ function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <Label>Face Match Threshold ({faceThreshold})</Label>
                     <span className="text-xs font-mono text-muted-foreground">
-                      {faceThreshold <= 0.45 ? "Strict" : faceThreshold <= 0.55 ? "Balanced" : "Lenient"}
+                      {faceThreshold <= 0.45
+                        ? "Strict"
+                        : faceThreshold <= 0.55
+                          ? "Balanced"
+                          : "Lenient"}
                     </span>
                   </div>
                   <Input
@@ -641,13 +687,21 @@ function SettingsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <HardDrive className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base font-semibold">Google Drive Cloud Backup</CardTitle>
+                  <CardTitle className="text-base font-semibold">
+                    Google Drive Cloud Backup
+                  </CardTitle>
                   {isDriveConnected ? (
-                    <Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px] gap-1">
+                    <Badge
+                      variant="outline"
+                      className="border-success/30 bg-success/10 text-success text-[10px] gap-1"
+                    >
                       <CheckCircle2 className="h-3 w-3" /> Connected
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="border-muted text-muted-foreground text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className="border-muted text-muted-foreground text-[10px]"
+                    >
                       Not Connected
                     </Badge>
                   )}
@@ -668,7 +722,11 @@ function SettingsPage() {
                         disabled={driveBackingUp}
                         className="gap-1.5 text-xs"
                       >
-                        {driveBackingUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
+                        {driveBackingUp ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CloudUpload className="h-3.5 w-3.5" />
+                        )}
                         Back up now
                       </Button>
                       <Button
@@ -687,7 +745,11 @@ function SettingsPage() {
                       disabled={driveConnecting}
                       className="gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs"
                     >
-                      {driveConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HardDrive className="h-3.5 w-3.5" />}
+                      {driveConnecting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <HardDrive className="h-3.5 w-3.5" />
+                      )}
                       Connect Google Drive
                     </Button>
                   )}
@@ -702,12 +764,16 @@ function SettingsPage() {
                   <div className="grid gap-3 sm:grid-cols-2 text-xs">
                     <div>
                       <p className="text-muted-foreground">Connected Google Account</p>
-                      <p className="font-semibold text-foreground mt-0.5">{driveStatus?.email || "Connected"}</p>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {driveStatus?.email || "Connected"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Last Cloud Backup</p>
                       <p className="font-semibold text-foreground mt-0.5">
-                        {driveStatus?.last_backup_at ? new Date(driveStatus.last_backup_at).toLocaleString() : "No backups performed yet"}
+                        {driveStatus?.last_backup_at
+                          ? new Date(driveStatus.last_backup_at).toLocaleString()
+                          : "No backups performed yet"}
                       </p>
                     </div>
                   </div>
@@ -718,25 +784,32 @@ function SettingsPage() {
                       <div className="space-y-0.5">
                         <Label className="text-xs">Auto backup on PDF generation</Label>
                         <p className="text-[11px] text-muted-foreground">
-                          Automatically upload attendance or report PDFs to Drive right when exported.
+                          Automatically upload attendance or report PDFs to Drive right when
+                          exported.
                         </p>
                       </div>
                       <Switch
                         checked={driveStatus?.auto_backup_on_pdf ?? true}
-                        onCheckedChange={(val) => handleToggleDriveSetting("auto_backup_on_pdf", val)}
+                        onCheckedChange={(val) =>
+                          handleToggleDriveSetting("auto_backup_on_pdf", val)
+                        }
                       />
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label className="text-xs">Daily automated attendance backup (11:30 PM)</Label>
+                        <Label className="text-xs">
+                          Daily automated attendance backup (11:30 PM)
+                        </Label>
                         <p className="text-[11px] text-muted-foreground">
                           Automated daily end-of-day backup of the entire day's attendance ledger.
                         </p>
                       </div>
                       <Switch
                         checked={driveStatus?.daily_backup_enabled ?? true}
-                        onCheckedChange={(val) => handleToggleDriveSetting("daily_backup_enabled", val)}
+                        onCheckedChange={(val) =>
+                          handleToggleDriveSetting("daily_backup_enabled", val)
+                        }
                       />
                     </div>
                   </div>
@@ -747,9 +820,10 @@ function SettingsPage() {
               <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
                 <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p>
-                  <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal personnel data.
-                  The application uses restricted secure cloud permissions (can only access files it creates).
-                  Please ensure your Google Drive folder remains private and is not shared publicly.
+                  <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal
+                  personnel data. The application uses restricted secure cloud permissions (can only
+                  access files it creates). Please ensure your Google Drive folder remains private
+                  and is not shared publicly.
                 </p>
               </div>
 
@@ -794,21 +868,33 @@ function SettingsPage() {
                               {item.file_type}
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
-                              {new Date(item.created_at).toLocaleDateString()}
+                              {item.created_at
+                                ? new Date(item.created_at).toLocaleDateString()
+                                : "--"}
                             </td>
                             <td className="px-3 py-2.5">
                               {item.status === "success" && (
-                                <Badge variant="outline" className="text-[10px] border-success/30 bg-success/10 text-success">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-success/30 bg-success/10 text-success"
+                                >
                                   Success
                                 </Badge>
                               )}
                               {item.status === "pending" && (
-                                <Badge variant="outline" className="text-[10px] border-warning/30 bg-warning/10 text-warning-foreground">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-warning/30 bg-warning/10 text-warning-foreground"
+                                >
                                   Pending
                                 </Badge>
                               )}
                               {item.status === "failed" && (
-                                <Badge variant="outline" className="text-[10px] border-destructive/30 bg-destructive/10 text-destructive" title={item.error_message || "Upload failed"}>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-destructive/30 bg-destructive/10 text-destructive"
+                                  title={item.error_message || "Upload failed"}
+                                >
                                   Failed
                                 </Badge>
                               )}
@@ -832,7 +918,11 @@ function SettingsPage() {
                                   onClick={() => handleRetryBackup(item.id)}
                                   disabled={retryingId === item.id}
                                 >
-                                  {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                                  {retryingId === item.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3 w-3" />
+                                  )}
                                   Retry
                                 </Button>
                               )}
@@ -877,7 +967,9 @@ function SettingsPage() {
               {holidaysLoading ? (
                 <Skeleton className="h-24 w-full rounded-xl" />
               ) : holidays.length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">No holidays added yet.</p>
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  No holidays added yet.
+                </p>
               ) : (
                 <div className="divide-y divide-border/60">
                   {holidays.map((h) => (
@@ -934,7 +1026,9 @@ function SettingsPage() {
                 {profilesLoading ? (
                   <Skeleton className="h-24 w-full rounded-xl" />
                 ) : userProfiles.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">No accounts found.</p>
+                  <p className="py-6 text-center text-xs text-muted-foreground">
+                    No accounts found.
+                  </p>
                 ) : (
                   <div className="divide-y divide-border/60">
                     {userProfiles.map((user) => (
@@ -1086,7 +1180,6 @@ function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

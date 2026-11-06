@@ -117,7 +117,11 @@ function AttendancePage() {
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-list-attendance", session.departmentId],
     queryFn: async () => {
-      let q = supabase.from("employees").select("id, full_name, employee_code, department_id, departments(name)").eq("status", "active").order("full_name");
+      let q = supabase
+        .from("employees")
+        .select("id, full_name, employee_code, department_id, departments(name)")
+        .eq("status", "active")
+        .order("full_name");
       if (session.isManager && session.departmentId) {
         q = q.eq("department_id", session.departmentId);
       }
@@ -128,16 +132,24 @@ function AttendancePage() {
   });
 
   const departments = Array.from(
-    new Set(employees.map((e: any) => e.departments?.name).filter(Boolean))
+    new Set(employees.map((e: any) => e.departments?.name).filter(Boolean)),
   ).sort() as string[];
 
   // Fetch attendance records
   const { data: records = [], isLoading } = useQuery({
-    queryKey: ["attendance-records", dateFilter, customDate, session.departmentId, session.employeeId],
+    queryKey: [
+      "attendance-records",
+      dateFilter,
+      customDate,
+      session.departmentId,
+      session.employeeId,
+    ],
     queryFn: async () => {
       let q = supabase
         .from("attendance")
-        .select("id, employee_id, date, check_in, check_out, status, method, confidence, note, created_at, employees!inner(id, full_name, employee_code, photo_url, departments(name))")
+        .select(
+          "id, employee_id, date, check_in, check_out, status, method, confidence, note, created_at, employees!inner(id, full_name, employee_code, photo_url, departments(name))",
+        )
         .order("date", { ascending: false })
         .order("check_in", { ascending: false });
 
@@ -181,7 +193,7 @@ function AttendancePage() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["attendance-records"] });
-        }
+        },
       )
       .subscribe();
 
@@ -385,7 +397,9 @@ function AttendancePage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Attendance Logs</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Attendance Logs
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Audit, verify, and export biometric and manual attendance check-ins.
           </p>
@@ -393,18 +407,29 @@ function AttendancePage() {
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {session.isAdmin && (
-            <Button onClick={() => setAddOpen(true)} className="flex-1 sm:flex-none gap-2 bg-primary text-xs h-9">
+            <Button
+              onClick={() => setAddOpen(true)}
+              className="flex-1 sm:flex-none gap-2 bg-primary text-xs h-9"
+            >
               <Plus className="h-4 w-4" />
               Manual Entry
             </Button>
           )}
 
-          <Button variant="outline" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+          <Button
+            variant="outline"
+            onClick={handleExportCsv}
+            className="flex-1 sm:flex-none gap-2 text-xs h-9"
+          >
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
 
-          <Button variant="outline" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            className="flex-1 sm:flex-none gap-2 text-xs h-9"
+          >
             <Printer className="h-4 w-4" />
             Print
           </Button>
@@ -419,19 +444,27 @@ function AttendancePage() {
         </Card>
         <Card className="p-3 sm:p-4">
           <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Present</p>
-          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{present}</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+            {present}
+          </p>
         </Card>
         <Card className="p-3 sm:p-4">
           <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Late Arrivals</p>
-          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{late}</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
+            {late}
+          </p>
         </Card>
         <Card className="p-3 sm:p-4">
           <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">On Leave</p>
-          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{onLeave}</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {onLeave}
+          </p>
         </Card>
         <Card className="p-3 sm:p-4 col-span-2 sm:col-span-1">
           <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">Absent</p>
-          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400">{absent}</p>
+          <p className="mt-0.5 text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400">
+            {absent}
+          </p>
         </Card>
       </div>
 
@@ -567,7 +600,8 @@ function AttendancePage() {
                                 {r.employees?.full_name || "Unknown"}
                               </p>
                               <p className="font-mono text-xs text-muted-foreground">
-                                {r.employees?.employee_code} • {r.employees?.departments?.name || "General"}
+                                {r.employees?.employee_code} •{" "}
+                                {r.employees?.departments?.name || "General"}
                               </p>
                             </div>
                           </div>
@@ -575,7 +609,9 @@ function AttendancePage() {
                         <td className="px-5 py-3.5 font-medium">{formatDate(r.date)}</td>
                         <td className="px-5 py-3.5 font-mono text-xs">{formatTime(r.check_in)}</td>
                         <td className="px-5 py-3.5 font-mono text-xs">{formatTime(r.check_out)}</td>
-                        <td className="px-5 py-3.5 text-xs text-muted-foreground">{formatHours(hours)}</td>
+                        <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                          {formatHours(hours)}
+                        </td>
                         <td className="px-5 py-3.5">
                           <Badge
                             variant="outline"
@@ -586,7 +622,9 @@ function AttendancePage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground capitalize">
-                            {r.method === "face" && <ScanFace className="h-3.5 w-3.5 text-primary" />}
+                            {r.method === "face" && (
+                              <ScanFace className="h-3.5 w-3.5 text-primary" />
+                            )}
                             <span>{r.method}</span>
                           </div>
                         </td>
@@ -657,11 +695,7 @@ function AttendancePage() {
 
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={addDate}
-                onChange={(e) => setAddDate(e.target.value)}
-              />
+              <Input type="date" value={addDate} onChange={(e) => setAddDate(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

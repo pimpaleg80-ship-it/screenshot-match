@@ -1,7 +1,7 @@
 # FlowPeople HRMS — Google Drive PDF Archival Integration
 
 **Purpose**: Automated cloud backup of monthly workforce attendance records and compliance reports directly to Google Drive.  
-**Storage Offload**: Completely bypasses Supabase database storage quotas for historical report files.  
+**Storage Offload**: Completely bypasses Supabase database storage quotas for historical report files.
 
 ---
 
@@ -22,4 +22,3 @@
    - Uploads to the organization's dedicated Google Drive folder structure:
      `FlowPeople Archives / <Organization Name> / <Year> / <Month> /`
    - Records upload metadata into `archive_files` with SHA-256 integrity checksums.
-

@@ -2,43 +2,44 @@
 
 **Target Database**: Supabase PostgreSQL 15+  
 **Design Standard**: Multi-Tenant (Tenant-Discriminated by `organization_id`), 3NF Normalization, Strict Foreign Key Cascades, Index Optimization for Supabase Free Tier  
-**Entity Classification**: Reused Existing Tables vs. New Proposed Tables  
+**Entity Classification**: Reused Existing Tables vs. New Proposed Tables
 
 ---
 
 ## 1. Entity Classification & Reuse Map
 
-| Target Entity Name | Status | Existing Table in Supabase | Migration Strategy |
-|---|---|---|---|
-| `organizations` | **NEW** | *None* | Create new core tenant registry table. |
-| `organization_members` | **NEW** | *user_roles* | Replace global `user_roles` with tenant-scoped membership table. |
-| `employees` | **REUSE & UPGRADE** | `employees` | Add `organization_id`, `work_location_id`, `default_shift_id`. |
-| `departments` | **REUSE & UPGRADE** | `departments` | Add `organization_id`. |
-| `designations` | **NEW** | *None* | Normalize text designations from `employees.designation`. |
-| `work_locations` | **NEW** | *None* | Office locations with lat/long and default radius. |
-| `geofence_zones` | **NEW** | *None* | Circular or polygon boundaries linked to work locations. |
-| `employee_location_assignments` | **NEW** | *None* | Mapping table linking employees to authorized work locations. |
-| `registered_devices` | **NEW** | *None* | Hardware binding table storing device UUID and model. |
-| `geofence_events` | **NEW** | *None* | Temporary rolling 90-day log of native enter/exit events. |
-| `attendance_sessions` | **REUSE & UPGRADE** | `attendance` | Upgrade `attendance` into full session entity with location proof. |
-| `attendance_events` | **NEW** | *None* | Immutable record of individual button tap actions. |
-| `attendance_exceptions` | **NEW** | *None* | Late entries, early departures, and regularization requests. |
-| `attendance_monthly_summaries` | **NEW** | *None* | Canonical monthly pre-aggregated attendance metrics. |
-| `shifts` | **NEW** | *settings (work_start/end)* | Multi-shift support (General, Morning, Night shifts). |
-| `employee_shift_assignments` | **NEW** | *None* | Employee-to-shift mapping with effective date ranges. |
-| `leave_types` | **REUSE & UPGRADE** | `leave_types` | Add `organization_id`. |
-| `leave_requests` | **REUSE & UPGRADE** | `leave_requests` | Add `organization_id`. |
-| `leave_balances` | **REUSE & UPGRADE** | `leave_balances` | Add `organization_id`. |
-| `holidays` | **REUSE & UPGRADE** | `holidays` | Add `organization_id`, `work_location_id`. |
-| `attendance_archives` | **REUSE & UPGRADE** | `drive_connection` | Scoped by `organization_id` for multi-tenant Drive connections. |
-| `archive_files` | **REUSE & UPGRADE** | `drive_backups` | Store individual employee PDF links and checksums. |
-| `archive_jobs` | **NEW** | *None* | Monthly batch execution tracking and manifest records. |
+| Target Entity Name              | Status              | Existing Table in Supabase  | Migration Strategy                                                 |
+| ------------------------------- | ------------------- | --------------------------- | ------------------------------------------------------------------ |
+| `organizations`                 | **NEW**             | _None_                      | Create new core tenant registry table.                             |
+| `organization_members`          | **NEW**             | _user_roles_                | Replace global `user_roles` with tenant-scoped membership table.   |
+| `employees`                     | **REUSE & UPGRADE** | `employees`                 | Add `organization_id`, `work_location_id`, `default_shift_id`.     |
+| `departments`                   | **REUSE & UPGRADE** | `departments`               | Add `organization_id`.                                             |
+| `designations`                  | **NEW**             | _None_                      | Normalize text designations from `employees.designation`.          |
+| `work_locations`                | **NEW**             | _None_                      | Office locations with lat/long and default radius.                 |
+| `geofence_zones`                | **NEW**             | _None_                      | Circular or polygon boundaries linked to work locations.           |
+| `employee_location_assignments` | **NEW**             | _None_                      | Mapping table linking employees to authorized work locations.      |
+| `registered_devices`            | **NEW**             | _None_                      | Hardware binding table storing device UUID and model.              |
+| `geofence_events`               | **NEW**             | _None_                      | Temporary rolling 90-day log of native enter/exit events.          |
+| `attendance_sessions`           | **REUSE & UPGRADE** | `attendance`                | Upgrade `attendance` into full session entity with location proof. |
+| `attendance_events`             | **NEW**             | _None_                      | Immutable record of individual button tap actions.                 |
+| `attendance_exceptions`         | **NEW**             | _None_                      | Late entries, early departures, and regularization requests.       |
+| `attendance_monthly_summaries`  | **NEW**             | _None_                      | Canonical monthly pre-aggregated attendance metrics.               |
+| `shifts`                        | **NEW**             | _settings (work_start/end)_ | Multi-shift support (General, Morning, Night shifts).              |
+| `employee_shift_assignments`    | **NEW**             | _None_                      | Employee-to-shift mapping with effective date ranges.              |
+| `leave_types`                   | **REUSE & UPGRADE** | `leave_types`               | Add `organization_id`.                                             |
+| `leave_requests`                | **REUSE & UPGRADE** | `leave_requests`            | Add `organization_id`.                                             |
+| `leave_balances`                | **REUSE & UPGRADE** | `leave_balances`            | Add `organization_id`.                                             |
+| `holidays`                      | **REUSE & UPGRADE** | `holidays`                  | Add `organization_id`, `work_location_id`.                         |
+| `attendance_archives`           | **REUSE & UPGRADE** | `drive_connection`          | Scoped by `organization_id` for multi-tenant Drive connections.    |
+| `archive_files`                 | **REUSE & UPGRADE** | `drive_backups`             | Store individual employee PDF links and checksums.                 |
+| `archive_jobs`                  | **NEW**             | _None_                      | Monthly batch execution tracking and manifest records.             |
 
 ---
 
 ## 2. Core SaaS & Multi-Tenancy Module
 
 ### `organizations`
+
 ```sql
 CREATE TABLE public.organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,6 +59,7 @@ CREATE INDEX idx_organizations_slug ON public.organizations(slug);
 ```
 
 ### `organization_members`
+
 ```sql
 CREATE TABLE public.organization_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -78,6 +80,7 @@ CREATE INDEX idx_org_members_org ON public.organization_members(organization_id)
 ## 3. Geofencing & Work Locations Module
 
 ### `work_locations`
+
 ```sql
 CREATE TABLE public.work_locations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,6 +98,7 @@ CREATE INDEX idx_work_locations_org ON public.work_locations(organization_id);
 ```
 
 ### `geofence_zones`
+
 ```sql
 CREATE TABLE public.geofence_zones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -107,6 +111,7 @@ CREATE TABLE public.geofence_zones (
 ```
 
 ### `employee_location_assignments`
+
 ```sql
 CREATE TABLE public.employee_location_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -122,6 +127,7 @@ CREATE INDEX idx_emp_location_emp ON public.employee_location_assignments(employ
 ```
 
 ### `registered_devices`
+
 ```sql
 CREATE TABLE public.registered_devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -138,6 +144,7 @@ CREATE INDEX idx_registered_devices_uuid ON public.registered_devices(device_uui
 ```
 
 ### `geofence_events` (Temporary 90-Day Retention)
+
 ```sql
 CREATE TABLE public.geofence_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,6 +168,7 @@ CREATE INDEX idx_geofence_events_emp_time ON public.geofence_events(employee_id,
 ## 4. Attendance Module
 
 ### `attendance_sessions` (Upgraded from `attendance`)
+
 ```sql
 CREATE TABLE public.attendance_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -189,6 +197,7 @@ CREATE INDEX idx_attendance_emp_date ON public.attendance_sessions(employee_id, 
 ```
 
 ### `attendance_exceptions`
+
 ```sql
 CREATE TABLE public.attendance_exceptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -207,6 +216,7 @@ CREATE INDEX idx_exceptions_status ON public.attendance_exceptions(organization_
 ```
 
 ### `attendance_monthly_summaries`
+
 ```sql
 CREATE TABLE public.attendance_monthly_summaries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -235,6 +245,7 @@ CREATE INDEX idx_monthly_summary_lookup ON public.attendance_monthly_summaries(o
 ## 5. Google Drive Archival Module
 
 ### `attendance_archives`
+
 ```sql
 CREATE TABLE public.attendance_archives (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -250,6 +261,7 @@ CREATE TABLE public.attendance_archives (
 ```
 
 ### `archive_jobs` & `archive_files`
+
 ```sql
 CREATE TABLE public.archive_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -281,4 +293,3 @@ CREATE TABLE public.archive_files (
 
 CREATE INDEX idx_archive_files_job ON public.archive_files(job_id);
 ```
-

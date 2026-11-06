@@ -1,6 +1,7 @@
 # FlowPeople HRMS — Attendance & Background Geofencing Architecture
 
 **Core Philosophy**:
+
 1. GPS ONLY controls Check-in and Check-out button eligibility.
 2. Employee must manually press both attendance buttons.
 3. No automatic attendance marking.
@@ -47,4 +48,3 @@ Implemented both in client-side TypeScript (`src/lib/geofence.ts`) and database 
 - Raw GPS telemetry and geofence transitions (`geofence_events`) are retained for **90 days by default** (configurable per organization in `organizations.gps_retention_days`).
 - Cleaned up safely via scheduled database function `public.cleanup_expired_gps_logs()`.
 - Canonical attendance records (`attendance`) and monthly summaries (`attendance_monthly_summaries`) are permanent and never deleted.
-

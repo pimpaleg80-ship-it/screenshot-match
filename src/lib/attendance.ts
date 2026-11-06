@@ -42,7 +42,11 @@ export function formatTime(ts: string | null): string {
 }
 
 export function formatDate(d: string | Date): string {
-  return new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function formatHours(h: number | null): string {

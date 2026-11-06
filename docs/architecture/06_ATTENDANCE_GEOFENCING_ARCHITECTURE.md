@@ -1,7 +1,7 @@
 # 06. Attendance & Geofencing Architecture
 
 **Core Philosophy**: Strict Manual Action Gated by Native Background Geofence Eligibility.  
-**Non-Negotiable Rule**: No automatic attendance marking. GPS events only control Check-in and Check-out button eligibility. The employee must manually press both buttons. Check-out is disabled when outside the assigned geofence.  
+**Non-Negotiable Rule**: No automatic attendance marking. GPS events only control Check-in and Check-out button eligibility. The employee must manually press both buttons. Check-out is disabled when outside the assigned geofence.
 
 ---
 
@@ -65,6 +65,7 @@ The lifecycle of an employee work day is governed by the state machine below:
 ## 2. Geofence Boundary & Mathematical Validation
 
 Each organization branch defines one or more work locations. Each location specifies:
+
 - `latitude` (double precision, e.g., `18.5204303`)
 - `longitude` (double precision, e.g., `73.8567437`)
 - `radius_meters` (integer, typically $50\text{m} - 250\text{m}$, default $100\text{m}$)
@@ -72,6 +73,7 @@ Each organization branch defines one or more work locations. Each location speci
 - `allowed_mock_location` (strictly `false` in production)
 
 ### 1. Distance Calculation (Haversine Formula)
+
 Used by the backend to independently verify whether a coordinate `(lat1, lon1)` is within radius $R$ of the office `(lat2, lon2)`:
 
 $$\Delta\phi = \phi_2 - \phi_1, \quad \Delta\lambda = \lambda_2 - \lambda_1$$
@@ -81,6 +83,7 @@ $$c = 2 \cdot \text{atan2}\left(\sqrt{a}, \sqrt{1-a}\right), \quad d = R_{\text{
 If $d \le \text{radius\_meters} + \text{accuracy\_meters}$, the coordinate is mathematically within the geofence boundary.
 
 ### 2. Ray-Casting Algorithm (Polygon Geofences)
+
 For multi-point building campuses, the backend applies the point-in-polygon ray-casting algorithm: a horizontal ray is cast from the coordinate; if the ray intersects the polygon edges an odd number of times, the point lies inside the boundary.
 
 ---
@@ -90,7 +93,7 @@ For multi-point building campuses, the backend applies the point-in-polygon ray-
 1. **Native Background Monitoring**:
    - The native mobile app (Android Geofencing API / iOS Core Location) registers the employee's assigned office locations as background monitored regions.
    - When the employee crosses the geofence boundary, the operating system fires an `ENTER` or `EXIT` broadcast receiver.
-   - The app updates its internal eligibility state and surfaces a local push notification: *"You have arrived at Pune HQ. Tap to Check-in."*
+   - The app updates its internal eligibility state and surfaces a local push notification: _"You have arrived at Pune HQ. Tap to Check-in."_
 
 2. **Manual Button Press (Zero Automation)**:
    - The employee opens the app and manually presses the green **[ Check-in ]** button.
@@ -111,6 +114,5 @@ For multi-point building campuses, the backend applies the point-in-polygon ray-
 
 4. **Strict Check-out Gating**:
    - When the employee is ready to leave, they must manually press **[ Check-out ]**.
-   - If the employee has already left the building and is outside the geofence, the button is **disabled**, and an error alert is displayed: *"Check-out is only permitted inside the assigned office location."*
+   - If the employee has already left the building and is outside the geofence, the button is **disabled**, and an error alert is displayed: _"Check-out is only permitted inside the assigned office location."_
    - If an employee forgets to check out on site, the session remains open until automatic day-end closure, requiring the employee to submit an **HR Regularization Request** the next morning.
-

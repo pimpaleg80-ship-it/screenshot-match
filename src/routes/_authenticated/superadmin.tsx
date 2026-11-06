@@ -41,6 +41,7 @@ import {
   LogOut,
   ExternalLink,
   Shield,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,7 +110,6 @@ interface SystemUserRow {
 function SuperadminPage() {
   const session = useSession();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   // Loading skeleton while session loads
   if (session.loading) {
@@ -159,6 +159,13 @@ function SuperadminPage() {
       </div>
     );
   }
+
+  return <SuperadminConsole session={session} />;
+}
+
+function SuperadminConsole({ session }: { session: ReturnType<typeof useSession> }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Active view tab
   const [activeTab, setActiveTab] = useState("provisioning");
@@ -233,7 +240,9 @@ function SuperadminPage() {
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("Welcome@2026");
-  const [formRole, setFormRole] = useState<"employee" | "manager" | "admin" | "superadmin">("employee");
+  const [formRole, setFormRole] = useState<"employee" | "manager" | "admin" | "superadmin">(
+    "employee",
+  );
   const [formDept, setFormDept] = useState<string>("");
   const [formDesignation, setFormDesignation] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -271,7 +280,10 @@ function SuperadminPage() {
         throw new Error("Slug and organization name are required");
       }
       const { error } = await supabase.from("organizations").insert({
-        slug: newOrgSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+        slug: newOrgSlug
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-"),
         name: newOrgName.trim(),
         legal_name: newOrgLegalName.trim() || null,
         plan_tier: newOrgTier,
@@ -331,7 +343,8 @@ function SuperadminPage() {
       // Query employees with joined departments and is_superadmin
       const { data: emps, error: empErr } = await supabase
         .from("employees")
-        .select(`
+        .select(
+          `
           id,
           user_id,
           employee_code,
@@ -345,7 +358,8 @@ function SuperadminPage() {
           photo_url,
           created_at,
           departments (name)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (empErr) throw empErr;
@@ -469,7 +483,7 @@ function SuperadminPage() {
       toast.success(
         res?.action === "created"
           ? `Successfully provisioned ${formRole.toUpperCase()} account for ${formName}`
-          : `Updated account details and role for ${formName}`
+          : `Updated account details and role for ${formName}`,
       );
       setProvisionModalOpen(false);
       setFormName("");
@@ -506,7 +520,15 @@ function SuperadminPage() {
 
   // Toggle Superadmin Flag Mutation
   const toggleSuperadminMutation = useMutation({
-    mutationFn: async ({ employeeId, userId, isSuper }: { employeeId: string; userId: string | null; isSuper: boolean }) => {
+    mutationFn: async ({
+      employeeId,
+      userId,
+      isSuper,
+    }: {
+      employeeId: string;
+      userId: string | null;
+      isSuper: boolean;
+    }) => {
       const { error: empErr } = await supabase
         .from("employees")
         .update({ is_superadmin: isSuper })
@@ -521,7 +543,9 @@ function SuperadminPage() {
       }
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.isSuper ? "User elevated to ROOT SUPERADMIN" : "Superadmin privileges revoked");
+      toast.success(
+        vars.isSuper ? "User elevated to ROOT SUPERADMIN" : "Superadmin privileges revoked",
+      );
       queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
     },
     onError: (err: any) => {
@@ -600,7 +624,7 @@ function SuperadminPage() {
   const adminCount = allUsers.filter((u) => u.roles.includes("admin")).length;
   const managerCount = allUsers.filter((u) => u.roles.includes("manager")).length;
   const employeeCount = allUsers.filter(
-    (u) => !u.roles.includes("admin") && !u.roles.includes("manager")
+    (u) => !u.roles.includes("admin") && !u.roles.includes("manager"),
   ).length;
   const enrolledFaces = allUsers.filter((u) => u.hasFaceEnrolled).length;
   const faceCoveragePct = totalUsers > 0 ? Math.round((enrolledFaces / totalUsers) * 100) : 0;
@@ -723,10 +747,13 @@ function SuperadminPage() {
               </span>
               <span>•</span>
               <span className="text-white/80 font-mono truncate max-w-[200px] sm:max-w-none">
-                Operator: <strong className="text-white">{session.fullName || session.user?.email}</strong>
+                Operator:{" "}
+                <strong className="text-white">{session.fullName || session.user?.email}</strong>
               </span>
               <span className="hidden sm:inline">•</span>
-              <span className="hidden sm:inline text-white/50">High-Availability Cloud Cluster</span>
+              <span className="hidden sm:inline text-white/50">
+                High-Availability Cloud Cluster
+              </span>
             </p>
           </div>
         </div>
@@ -910,7 +937,8 @@ function SuperadminPage() {
                   Multi-Tenant Organizations & Subscriptions
                 </CardTitle>
                 <CardDescription className="text-xs text-white/60">
-                  Provision client organizations, manage subscription tiers, employee quotas, and data retention rules.
+                  Provision client organizations, manage subscription tiers, employee quotas, and
+                  data retention rules.
                 </CardDescription>
               </div>
 
@@ -928,7 +956,9 @@ function SuperadminPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
                   <span className="text-[11px] text-white/60">Total Tenants</span>
-                  <div className="text-xl font-bold font-mono text-white mt-1">{organizationsList.length}</div>
+                  <div className="text-xl font-bold font-mono text-white mt-1">
+                    {organizationsList.length}
+                  </div>
                 </div>
                 <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
                   <span className="text-[11px] text-white/60">Active Status</span>
@@ -984,7 +1014,9 @@ function SuperadminPage() {
                             <td className="py-3 px-4">
                               <div className="font-sans font-semibold text-white">{org.name}</div>
                               {org.legal_name && (
-                                <div className="text-[10px] text-white/50 font-normal">{org.legal_name}</div>
+                                <div className="text-[10px] text-white/50 font-normal">
+                                  {org.legal_name}
+                                </div>
                               )}
                             </td>
                             <td className="py-3 px-4 text-primary font-mono">{org.slug}</td>
@@ -995,8 +1027,8 @@ function SuperadminPage() {
                                   org.plan_tier === "enterprise"
                                     ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
                                     : org.plan_tier === "pro"
-                                    ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                                    : "bg-neutral-500/20 text-neutral-300 border-neutral-500/40"
+                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                                      : "bg-neutral-500/20 text-neutral-300 border-neutral-500/40"
                                 }`}
                               >
                                 {org.plan_tier}
@@ -1055,7 +1087,8 @@ function SuperadminPage() {
                   Personnel Roster & Role Matrix
                 </CardTitle>
                 <CardDescription className="text-xs text-white/60">
-                  Provision new employee, manager, or admin accounts with instant login credentials and access levels.
+                  Provision new employee, manager, or admin accounts with instant login credentials
+                  and access levels.
                 </CardDescription>
               </div>
 
@@ -1137,7 +1170,10 @@ function SuperadminPage() {
                             : "employee";
 
                         return (
-                          <tr key={u.employee_id} className="hover:bg-white/[0.02] transition-colors">
+                          <tr
+                            key={u.employee_id}
+                            className="hover:bg-white/[0.02] transition-colors"
+                          >
                             {/* Personnel Identity */}
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
@@ -1362,7 +1398,9 @@ function SuperadminPage() {
                                     }`}
                                   >
                                     <ShieldAlert className="h-3.5 w-3.5" />
-                                    {u.status === "active" ? "Suspend Account" : "Reactivate Account"}
+                                    {u.status === "active"
+                                      ? "Suspend Account"
+                                      : "Reactivate Account"}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1389,7 +1427,8 @@ function SuperadminPage() {
                 Root System Parameters & Attendance Rules
               </CardTitle>
               <CardDescription className="text-xs text-white/60">
-                Configure corporate work hours, grace periods, biometric threshold, and leave approval workflows.
+                Configure corporate work hours, grace periods, biometric threshold, and leave
+                approval workflows.
               </CardDescription>
             </CardHeader>
 
@@ -1520,7 +1559,8 @@ function SuperadminPage() {
                 Real-Time Security & System Audit Trail
               </CardTitle>
               <CardDescription className="text-xs text-white/60">
-                Immutable ledger of administrative actions, role assignments, user creations, and authentication events.
+                Immutable ledger of administrative actions, role assignments, user creations, and
+                authentication events.
               </CardDescription>
             </CardHeader>
 
@@ -1545,7 +1585,9 @@ function SuperadminPage() {
                         </Badge>
                         <span className="font-mono text-white/80">
                           {log.user_email ? (
-                            <span className="text-amber-400 font-semibold mr-2">{log.user_email}:</span>
+                            <span className="text-amber-400 font-semibold mr-2">
+                              {log.user_email}:
+                            </span>
                           ) : null}
                           {log.details ? JSON.stringify(log.details) : "—"}
                         </span>
@@ -1573,7 +1615,8 @@ function SuperadminPage() {
               Provision New User Account
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60">
-              Create an employee, manager, admin, or superadmin account with automatic authentication and role linkage.
+              Create an employee, manager, admin, or superadmin account with automatic
+              authentication and role linkage.
             </DialogDescription>
           </DialogHeader>
 
@@ -1635,7 +1678,9 @@ function SuperadminPage() {
                 >
                   <Crown className="h-4 w-4 mb-1 text-amber-300" />
                   <span className="font-bold text-[11px] sm:text-[10px]">Superadmin</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Root Console</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">
+                    Root Console
+                  </span>
                 </button>
               </div>
             </div>
@@ -1740,7 +1785,9 @@ function SuperadminPage() {
               disabled={provisionMutation.isPending || !formName.trim() || !formEmail.trim()}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs shadow-glow"
             >
-              {provisionMutation.isPending ? "Creating Account..." : `Create ${formRole.toUpperCase()} Account`}
+              {provisionMutation.isPending
+                ? "Creating Account..."
+                : `Create ${formRole.toUpperCase()} Account`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1757,7 +1804,8 @@ function SuperadminPage() {
               Register New Organization Tenant
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60">
-              Provision an isolated organization with its own departments, employees, and geofence locations.
+              Provision an isolated organization with its own departments, employees, and geofence
+              locations.
             </DialogDescription>
           </DialogHeader>
 
@@ -1767,10 +1815,14 @@ function SuperadminPage() {
               <Input
                 placeholder="e.g. acme-tech"
                 value={newOrgSlug}
-                onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                onChange={(e) =>
+                  setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+                }
                 className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
               />
-              <p className="text-[10px] text-white/50">Unique URL-friendly slug across the SaaS cluster.</p>
+              <p className="text-[10px] text-white/50">
+                Unique URL-friendly slug across the SaaS cluster.
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -1798,7 +1850,9 @@ function SuperadminPage() {
                 <Label className="text-xs text-white/80">Subscription Tier</Label>
                 <select
                   value={newOrgTier}
-                  onChange={(e) => setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")}
+                  onChange={(e) =>
+                    setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")
+                  }
                   className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
                 >
                   <option value="starter">Starter (50 Seats)</option>
@@ -1891,7 +1945,11 @@ function SuperadminPage() {
                     p_email: resetTargetUser.email,
                     p_password: newPassword,
                     p_full_name: resetTargetUser.full_name,
-                    p_role: resetTargetUser.roles.includes("admin") ? "admin" : resetTargetUser.roles.includes("manager") ? "manager" : "employee",
+                    p_role: resetTargetUser.roles.includes("admin")
+                      ? "admin"
+                      : resetTargetUser.roles.includes("manager")
+                        ? "manager"
+                        : "employee",
                   });
                   if (error) throw error;
                   toast.success(`Password successfully updated for ${resetTargetUser.full_name}`);
@@ -1919,7 +1977,8 @@ function SuperadminPage() {
               Register New Organization Tenant
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60">
-              Provision an isolated organization with its own departments, employees, and geofence locations.
+              Provision an isolated organization with its own departments, employees, and geofence
+              locations.
             </DialogDescription>
           </DialogHeader>
 
@@ -1929,10 +1988,14 @@ function SuperadminPage() {
               <Input
                 placeholder="e.g. acme-tech"
                 value={newOrgSlug}
-                onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                onChange={(e) =>
+                  setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+                }
                 className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
               />
-              <p className="text-[10px] text-white/50">Unique URL-friendly slug across the SaaS cluster.</p>
+              <p className="text-[10px] text-white/50">
+                Unique URL-friendly slug across the SaaS cluster.
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -1960,7 +2023,9 @@ function SuperadminPage() {
                 <Label className="text-xs text-white/80">Subscription Tier</Label>
                 <select
                   value={newOrgTier}
-                  onChange={(e) => setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")}
+                  onChange={(e) =>
+                    setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")
+                  }
                   className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
                 >
                   <option value="starter">Starter (50 Seats)</option>

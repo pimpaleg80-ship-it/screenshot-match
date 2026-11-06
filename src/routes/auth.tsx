@@ -97,7 +97,11 @@ function SignInCard() {
     if (userId) {
       const [{ data: roles }, { data: emp }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase.from("employees").select("is_superadmin" as any).eq("user_id", userId).maybeSingle(),
+        supabase
+          .from("employees")
+          .select("is_superadmin" as any)
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
       isAdmin = roles?.some((r) => r.role === "admin") ?? false;
       isSuper = !!(emp as any)?.is_superadmin;
@@ -122,9 +126,7 @@ function SignInCard() {
     <Card className="card-soft">
       <CardHeader className="pb-3">
         <CardTitle>Enterprise Sign In</CardTitle>
-        <CardDescription>
-          Sign in with your work email and password.
-        </CardDescription>
+        <CardDescription>Sign in with your work email and password.</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSignIn}>
@@ -161,11 +163,7 @@ function SignInCard() {
         </CardContent>
 
         <CardFooter className="flex-col gap-3">
-          <Button
-            type="submit"
-            className="w-full font-semibold"
-            disabled={busy}
-          >
+          <Button type="submit" className="w-full font-semibold" disabled={busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign in
           </Button>

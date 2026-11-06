@@ -2,7 +2,7 @@
 
 **OAuth Scope**: `https://www.googleapis.com/auth/drive.file`, `https://www.googleapis.com/auth/userinfo.email`  
 **Encryption Standard**: AES-256-GCM (Authenticated Encryption with Associated Data)  
-**Archive Frequency**: Real-time export backup + Automated 1st-of-month historical batch archival  
+**Archive Frequency**: Real-time export backup + Automated 1st-of-month historical batch archival
 
 ---
 
@@ -11,6 +11,7 @@
 The current repository contains a functioning, production-ready implementation of Google Drive OAuth 2.0 and PDF upload in `supabase/functions/` and `src/lib/pdf-backup.ts`:
 
 ### 1. Existing OAuth Configuration & Flow
+
 - **Initiation (`google-drive-auth-start`)**:
   - Request URL: `https://accounts.google.com/o/oauth2/v2/auth`
   - Scopes requested:
@@ -78,7 +79,9 @@ In Phase 2, the archival system will be migrated to an asynchronous backend work
 ```
 
 ### Folder Structure Specification
+
 Inside the connected company Google Drive:
+
 ```
 FlowPeople HRMS Archives/
 └── [Acme Corporation - ORG102]/
@@ -93,8 +96,8 @@ FlowPeople HRMS Archives/
 ```
 
 ### Archive Integrity Verification
+
 - **Cryptographic Hash**: Every generated PDF is hashed with SHA-256 before upload.
 - **Google Drive Verification**: After upload, the worker queries Google Drive API `files.get(fileId, fields='id,name,size,md5Checksum')`.
 - **Manifest Record**: Once all employee files and the master summary are verified, an entry is written into `archive_jobs` with status `COMPLETED` and total verified file count.
 - **Safety Gate**: The 90-day temporary GPS log cleanup worker is strictly blocked from running for any month that lacks a `COMPLETED` archive manifest.
-

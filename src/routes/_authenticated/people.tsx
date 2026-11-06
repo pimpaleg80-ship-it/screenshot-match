@@ -24,11 +24,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
-import {
-  loadFaceApi,
-  detectOptions,
-  averageDescriptors,
-} from "@/lib/face";
+import { loadFaceApi, detectOptions, averageDescriptors } from "@/lib/face";
 import {
   formatDate,
   formatTime,
@@ -205,8 +201,10 @@ function PeoplePage() {
           })
           .eq("id", editingPerson.id);
         if (error) throw error;
+        return { success: true, action: "updated" };
       } else {
-        if (!formData.email.trim()) throw new Error("Email address is required for employee account");
+        if (!formData.email.trim())
+          throw new Error("Email address is required for employee account");
         if (!formData.password || formData.password.trim().length < 6) {
           throw new Error("Password must be at least 6 characters for employee login");
         }
@@ -224,7 +222,11 @@ function PeoplePage() {
       }
     },
     onSuccess: () => {
-      toast.success(editingPerson ? "Person updated" : `Personnel ${formData.name} added with login credentials`);
+      toast.success(
+        editingPerson
+          ? "Person updated"
+          : `Personnel ${formData.name} added with login credentials`,
+      );
       setEditModalOpen(false);
       setEditingPerson(null);
       queryClient.invalidateQueries({ queryKey: ["people-list"] });
@@ -300,7 +302,8 @@ function PeoplePage() {
         <ShieldAlert className="h-12 w-12 text-destructive mb-3" />
         <h2 className="text-xl font-bold">Access Restricted</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-md">
-          Personnel directory and biometric face enrollment is restricted to administrative and management staff.
+          Personnel directory and biometric face enrollment is restricted to administrative and
+          management staff.
         </p>
         <Button className="mt-4" onClick={() => navigate({ to: "/dashboard" })}>
           Return to Dashboard
@@ -314,14 +317,19 @@ function PeoplePage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Personnel & Faces</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Personnel & Faces
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Manage employee rosters, facial biometric profiles, and consent.
           </p>
         </div>
 
         {session.isStaff && (
-          <Button onClick={openCreateModal} className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9">
+          <Button
+            onClick={openCreateModal}
+            className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9"
+          >
             <UserPlus className="h-4 w-4" />
             Add Person
           </Button>
@@ -484,12 +492,18 @@ function PeoplePage() {
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
                     {/* Face status badge */}
                     {isEnrolled ? (
-                      <Badge variant="outline" className="gap-1 border-success/30 bg-success/10 text-success text-[11px]">
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-success/30 bg-success/10 text-success text-[11px]"
+                      >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Face Enrolled
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="gap-1 border-warning/30 bg-warning/10 text-warning-foreground text-[11px]">
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-warning/30 bg-warning/10 text-warning-foreground text-[11px]"
+                      >
                         <XCircle className="h-3.5 w-3.5" />
                         Not Enrolled
                       </Badge>
@@ -541,7 +555,9 @@ function PeoplePage() {
               <div className="space-y-1.5">
                 <Label>Personnel Code / ID {editingPerson ? "*" : "(Optional)"}</Label>
                 <Input
-                  placeholder={editingPerson ? "e.g. EMP002" : `Auto (e.g. ${getNextPersonCode(people)})`}
+                  placeholder={
+                    editingPerson ? "e.g. EMP002" : `Auto (e.g. ${getNextPersonCode(people)})`
+                  }
                   value={formData.person_code}
                   onChange={(e) => setFormData({ ...formData, person_code: e.target.value })}
                 />
@@ -595,7 +611,8 @@ function PeoplePage() {
                     required
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    The employee will sign in at /auth using this email & password to access their dedicated self-service portal.
+                    The employee will sign in at /auth using this email & password to access their
+                    dedicated self-service portal.
                   </p>
                 </div>
               </div>
@@ -617,7 +634,10 @@ function PeoplePage() {
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => savePersonMutation.mutate()} disabled={savePersonMutation.isPending}>
+            <Button
+              onClick={() => savePersonMutation.mutate()}
+              disabled={savePersonMutation.isPending}
+            >
               {savePersonMutation.isPending ? "Saving..." : "Save Personnel"}
             </Button>
           </DialogFooter>
@@ -862,10 +882,7 @@ function FaceEnrollmentDialog({
               playsInline
               className="h-full w-full object-cover scale-x-[-1]"
             />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 pointer-events-none scale-x-[-1]"
-            />
+            <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none scale-x-[-1]" />
 
             {modelLoading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
@@ -940,7 +957,11 @@ function FaceEnrollmentDialog({
               disabled={saving || samples.length === 0}
               className="gap-2 bg-primary shadow-glow"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
               Save Profile
             </Button>
           </div>
@@ -968,7 +989,7 @@ function PersonHistorySheet({
       const { data, error } = await supabase
         .from("attendance")
         .select("*")
-        .eq("person_id", person.id)
+        .eq("employee_id", person.id)
         .order("date", { ascending: false })
         .limit(30);
       if (error) throw error;
@@ -1055,4 +1076,3 @@ function PersonHistorySheet({
     </Sheet>
   );
 }
-

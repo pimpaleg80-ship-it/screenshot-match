@@ -56,7 +56,10 @@ export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
     meta: [
       { title: "Reports & Analytics — Flowpeople by Fluxora" },
-      { name: "description", content: "Real-time attendance trends, punctuality metrics, and department breakdowns." },
+      {
+        name: "description",
+        content: "Real-time attendance trends, punctuality metrics, and department breakdowns.",
+      },
     ],
   }),
   component: ReportsPage,
@@ -146,7 +149,8 @@ function ReportsPage() {
 
       let q = supabase
         .from("attendance")
-        .select(`
+        .select(
+          `
           id,
           employee_id,
           date,
@@ -165,7 +169,8 @@ function ReportsPage() {
             department_id,
             departments(id, name)
           )
-        `)
+        `,
+        )
         .gte("date", startKey)
         .lte("date", todayKey)
         .neq("employees.is_superadmin", true)
@@ -197,12 +202,16 @@ function ReportsPage() {
         (payload) => {
           queryClient.invalidateQueries({ queryKey: ["reports-records"] });
           queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
-          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const time = new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
           setLastLiveUpdate(`Synced at ${time}`);
           if (payload.eventType === "INSERT") {
             toast.success("Live attendance recorded! Reports updated.");
           }
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -214,9 +223,13 @@ function ReportsPage() {
         () => {
           queryClient.invalidateQueries({ queryKey: ["reports-records"] });
           queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
-          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const time = new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
           setLastLiveUpdate(`Synced at ${time}`);
-        }
+        },
       )
       .subscribe((status) => {
         setIsRealtimeConnected(status === "SUBSCRIBED");
@@ -257,7 +270,8 @@ function ReportsPage() {
         recordsWithHours++;
       }
     }
-    const avgDailyHours = recordsWithHours > 0 ? (totalWorkHours / recordsWithHours).toFixed(1) : "—";
+    const avgDailyHours =
+      recordsWithHours > 0 ? (totalWorkHours / recordsWithHours).toFixed(1) : "—";
     const punctuality = attended > 0 ? Math.round((presentRecords / attended) * 100) : 0;
 
     return {
@@ -273,8 +287,10 @@ function ReportsPage() {
   // Daily Trend Chart Data
   const dailyTrend = useMemo(() => {
     const days = parseInt(rangePreset, 10);
-    const map: Record<string, { date: string; displayDate: string; present: number; late: number; half_day: number }> =
-      {};
+    const map: Record<
+      string,
+      { date: string; displayDate: string; present: number; late: number; half_day: number }
+    > = {};
 
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
@@ -393,15 +409,7 @@ function ReportsPage() {
   }
 
   function handlePrint() {
-    const headers = [
-      "Name",
-      "Code",
-      "Department",
-      "Present",
-      "Late",
-      "Half Day",
-      "Total Hours",
-    ];
+    const headers = ["Name", "Code", "Department", "Present", "Late", "Half Day", "Total Hours"];
 
     const rows = employeeSummaries.map((s) => [
       s.name,
@@ -421,15 +429,7 @@ function ReportsPage() {
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const fileName = `report_monthly_${ym}.pdf`;
 
-    const headers = [
-      "Name",
-      "Code",
-      "Department",
-      "Present",
-      "Late",
-      "Half Day",
-      "Total Hours",
-    ];
+    const headers = ["Name", "Code", "Department", "Present", "Late", "Half Day", "Total Hours"];
 
     const rows = employeeSummaries.map((s) => [
       s.name,
@@ -460,9 +460,14 @@ function ReportsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+              Analytics & Reports
+            </h1>
             {isRealtimeConnected ? (
-              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
+              <Badge
+                variant="outline"
+                className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs"
+              >
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -477,7 +482,10 @@ function ReportsPage() {
             )}
           </div>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Real-time attendance trends, punctuality scores, and department comparisons. {lastLiveUpdate && <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>}
+            Real-time attendance trends, punctuality scores, and department comparisons.{" "}
+            {lastLiveUpdate && (
+              <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>
+            )}
           </p>
         </div>
 
@@ -493,17 +501,32 @@ function ReportsPage() {
             Sync
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportPdf} className="flex-1 sm:flex-none gap-2 text-primary border-primary/30 hover:bg-primary/5 text-xs h-9">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            className="flex-1 sm:flex-none gap-2 text-primary border-primary/30 hover:bg-primary/5 text-xs h-9"
+          >
             <Download className="h-4 w-4" />
             Export PDF
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            className="flex-1 sm:flex-none gap-2 text-xs h-9"
+          >
             <Download className="h-4 w-4" />
             CSV
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrint}
+            className="flex-1 sm:flex-none gap-2 text-xs h-9"
+          >
             <Printer className="h-4 w-4" />
             Print
           </Button>
@@ -594,7 +617,9 @@ function ReportsPage() {
 
         <Card className="card-soft">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Punctuality Score</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Punctuality Score
+            </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/15 text-success">
               <TrendingUp className="h-4 w-4" />
             </div>
@@ -636,7 +661,9 @@ function ReportsPage() {
 
         <Card className="card-soft">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Late Incidents</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Late Incidents
+            </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
               <UserX className="h-4 w-4" />
             </div>
@@ -647,7 +674,9 @@ function ReportsPage() {
             ) : (
               <div>
                 <span className="text-2xl font-bold text-destructive">{kpis.lateRecords}</span>
-                <p className="mt-1 text-xs text-muted-foreground">Exceeded shift start grace time</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Exceeded shift start grace time
+                </p>
               </div>
             )}
           </CardContent>
@@ -670,7 +699,10 @@ function ReportsPage() {
             ) : (
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dailyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart
+                    data={dailyTrend}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <defs>
                       <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="oklch(0.63 0.17 155)" stopOpacity={0.8} />
@@ -738,7 +770,12 @@ function ReportsPage() {
                   >
                     <CartesianGrid strokeDasharray="3 3" opacity={0.2} horizontal={false} />
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <YAxis dataKey="department" type="category" width={80} tick={{ fontSize: 11 }} />
+                    <YAxis
+                      dataKey="department"
+                      type="category"
+                      width={80}
+                      tick={{ fontSize: 11 }}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "var(--color-card)",
@@ -746,7 +783,12 @@ function ReportsPage() {
                         borderRadius: "12px",
                       }}
                     />
-                    <Bar dataKey="present" name="Present" fill="oklch(0.512 0.218 276.9)" radius={[0, 4, 4, 0]} />
+                    <Bar
+                      dataKey="present"
+                      name="Present"
+                      fill="oklch(0.512 0.218 276.9)"
+                      radius={[0, 4, 4, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -771,7 +813,9 @@ function ReportsPage() {
               ))}
             </div>
           ) : employeeSummaries.length === 0 ? (
-            <p className="py-12 text-center text-xs text-muted-foreground">No personnel records found.</p>
+            <p className="py-12 text-center text-xs text-muted-foreground">
+              No personnel records found.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px] text-left text-xs">
@@ -828,7 +872,9 @@ function ReportsPage() {
                           {s.late}
                         </td>
 
-                        <td className="px-4 py-3 text-center text-muted-foreground">{s.half_day}</td>
+                        <td className="px-4 py-3 text-center text-muted-foreground">
+                          {s.half_day}
+                        </td>
 
                         <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">
                           {Math.round(s.totalHours * 10) / 10}h
