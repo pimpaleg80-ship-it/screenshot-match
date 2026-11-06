@@ -7,12 +7,12 @@ export interface Coordinates {
   timestamp: number;
   isMock?: boolean;
   source?:
-    | "native_gps"
-    | "browser_gps"
-    | "browser_network"
-    | "edge_cloudflare"
-    | "edge_supabase"
-    | "ip_fallback";
+  | "native_gps"
+  | "browser_gps"
+  | "browser_network"
+  | "edge_cloudflare"
+  | "edge_supabase"
+  | "ip_fallback";
   city?: string;
 }
 
@@ -83,6 +83,90 @@ export function formatDistance(meters: number): string {
     return `${Math.round(meters)}m`;
   }
   return `${(meters / 1000).toFixed(1)}km`;
+}
+
+/**
+ * Categorize GPS accuracy based on strict attendance security rules:
+ * - <= 50m: Good (High precision, satellites or high-accuracy mobile GPS)
+ * - 51m - 100m: Warning (Acceptable but advisory warning displayed)
+ * - > 100m: Low / Unacceptable for strict verification
+ */
+export function getAccuracyCategory(
+  accuracyMeters: number,
+  maxAllowed = 150,
+): {
+  level: "good" | "warning" | "rejected";
+  label: string;
+  description: string;
+} {
+  if (!isFinite(accuracyMeters) || accuracyMeters < 0) {
+    return {
+      level: "rejected",
+      label: "Invalid Signal",
+      description: "Unable to evaluate GPS accuracy.",
+    };
+  }
+
+  if (accuracyMeters <= 50) {
+    return {
+      level: "good",
+      label: "High Precision",
+      description: `GPS accuracy is excellent (±${Math.round(accuracyMeters)}m).`,
+    };
+  }
+
+  if (accuracyMeters <= 100) {
+    return {
+      level: "warning",
+      label: "Moderate Accuracy",
+      description: `GPS accuracy is moderate (±${Math.round(accuracyMeters)}m). You can proceed, but outdoor position is recommended.`,
+    };
+  }
+
+  if (accuracyMeters <= maxAllowed) {
+    return {
+      level: "warning",
+      label: "Marginal Signal",
+      description: `GPS accuracy is marginal (±${Math.round(accuracyMeters)}m ≤ ${maxAllowed}m max). Step outdoors or connect to office Wi-Fi if possible.`,
+    };
+  }
+
+  return {
+    level: "rejected",
+    label: "Accuracy Too Low",
+    description: `GPS accuracy (±${Math.round(accuracyMeters)}m) exceeds maximum tolerance of ${maxAllowed}m. Verification rejected.`,
+  };
+}
+
+/**
+ * Validate geographic coordinate bounds
+ */
+export function validateCoordinates(
+  lat: number,
+  lng: number,
+): { valid: boolean; reason?: string } {
+  if (!isFinite(lat) || isNaN(lat)) {
+    return { valid: false, reason: "Latitude must be a valid number." };
+  }
+  if (!isFinite(lng) || isNaN(lng)) {
+    return { valid: false, reason: "Longitude must be a valid number." };
+  }
+  if (lat < -90 || lat > 90) {
+    return { valid: false, reason: "Latitude must be between -90.0° and +90.0°." };
+  }
+  if (lng < -180 || lng > 180) {
+    return { valid: false, reason: "Longitude must be between -180.0° and +180.0°." };
+  }
+  return { valid: true };
+}
+
+/**
+ * Format coordinates nicely with Cardinal directions
+ */
+export function formatCoordinates(lat: number, lng: number): string {
+  const latDir = lat >= 0 ? "N" : "S";
+  const lngDir = lng >= 0 ? "E" : "W";
+  return `${Math.abs(lat).toFixed(6)}° ${latDir}, ${Math.abs(lng).toFixed(6)}° ${lngDir}`;
 }
 
 /**
@@ -287,6 +371,7 @@ export async function submitGeofenceAttendance(
     p_lon: coords.longitude,
     p_accuracy: coords.accuracy,
     p_device_id: deviceId || "web-client",
+    p_location_source: coords.source || "browser_gps",
   });
 
   if (error) {

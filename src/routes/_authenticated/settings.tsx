@@ -599,12 +599,11 @@ function SettingsPage() {
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base font-semibold">
-                  Admin Location Studio & Geofence Perimeters
+                  Admin Location Studio & GPS Geofence Perimeters
                 </CardTitle>
               </div>
               <CardDescription>
-                Interactive mapping powered by OpenFreeMap. Position office campuses, adjust
-                circular geofence perimeters, search landmarks, and assign employee work locations.
+                Configure office GPS coordinates, adjust circular geofence perimeters, capture live on-site coordinates, and assign employee work locations.
               </CardDescription>
             </CardHeader>
 
