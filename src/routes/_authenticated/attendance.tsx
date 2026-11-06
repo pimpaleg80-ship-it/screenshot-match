@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardList,
@@ -16,6 +16,7 @@ import {
   UserX,
   ScanFace,
   FileSpreadsheet,
+  Navigation,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +88,7 @@ interface AttendanceRecord {
 
 function AttendancePage() {
   const session = useSession();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
 
@@ -413,6 +415,17 @@ function AttendancePage() {
             >
               <Plus className="h-4 w-4" />
               Manual Entry
+            </Button>
+          )}
+
+          {session.isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => navigate({ to: "/settings" })}
+              className="flex-1 sm:flex-none gap-2 text-xs h-9 hover:border-primary/50"
+            >
+              <Navigation className="h-4 w-4 text-primary" />
+              Office Geofences
             </Button>
           )}
 
