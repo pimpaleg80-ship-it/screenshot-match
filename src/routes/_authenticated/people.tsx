@@ -820,33 +820,23 @@ function FaceEnrollmentDialog({
       setSaving(true);
       const avgDesc = averageDescriptors(samples);
 
-      // Save to face_descriptors table
-      const { error: descError } = await supabase.from("face_descriptors").upsert({
-        person_id: person.id,
-        descriptor: avgDesc,
-        samples: samples.length,
-        updated_at: new Date().toISOString(),
-      });
-      if (descError) console.warn("face_descriptors upsert error:", descError);
-
-      // Also save to face_data table for kiosk compatibility
-      try {
-        await supabase.from("face_data").upsert(
-          {
-            employee_id: person.id,
-            descriptor: avgDesc,
-          },
-          { onConflict: "employee_id" },
-        );
-      } catch (e) {
-        // Fallback
-      }
+      // Save to face_data base table (with consent: true and enrolled_at)
+      const { error: faceError } = await supabase.from("face_data").upsert(
+        {
+          employee_id: person.id,
+          descriptor: avgDesc,
+          consent: true,
+          enrolled_at: new Date().toISOString(),
+        },
+        { onConflict: "employee_id" },
+      );
+      if (faceError) throw faceError;
 
       // Update photo thumbnail if captured in both people and employees
       if (capturedThumb) {
         await Promise.all([
-          supabase.from("people").update({ photo_url: capturedThumb }).eq("id", person.id),
           supabase.from("employees").update({ photo_url: capturedThumb }).eq("id", person.id),
+          supabase.from("people").update({ photo_url: capturedThumb }).eq("id", person.id),
         ]);
       }
 

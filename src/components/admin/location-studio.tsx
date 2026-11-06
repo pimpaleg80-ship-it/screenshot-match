@@ -68,9 +68,36 @@ export function AdminLocationStudio() {
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number>(18.5204);
   const [lng, setLng] = useState<number>(73.8567);
+  const [latStr, setLatStr] = useState<string>("18.520400");
+  const [lngStr, setLngStr] = useState<string>("73.856700");
   const [radius, setRadius] = useState<number>(150);
   const [isActive, setIsActive] = useState<boolean>(true);
   const [isDirty, setIsDirty] = useState(false);
+
+  const updateCoords = useCallback((newLat: number, newLng: number) => {
+    setLat(newLat);
+    setLng(newLng);
+    setLatStr(newLat.toFixed(6));
+    setLngStr(newLng.toFixed(6));
+  }, []);
+
+  const handleLatInputChange = (value: string) => {
+    setLatStr(value);
+    setIsDirty(true);
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed) && parsed >= -90 && parsed <= 90) {
+      setLat(parsed);
+    }
+  };
+
+  const handleLngInputChange = (value: string) => {
+    setLngStr(value);
+    setIsDirty(true);
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed) && parsed >= -180 && parsed <= 180) {
+      setLng(parsed);
+    }
+  };
 
   // Address Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -142,14 +169,13 @@ export function AdminLocationStudio() {
         setSelectedLocId(first.id);
         setName(first.name);
         setAddress(first.address || "");
-        setLat(first.latitude);
-        setLng(first.longitude);
+        updateCoords(first.latitude, first.longitude);
         setRadius(first.radius_meters);
         setIsActive(first.is_active);
         setIsDirty(false);
       }
     }
-  }, [isCreatingNew, locations, selectedLocId]);
+  }, [isCreatingNew, locations, selectedLocId, updateCoords]);
 
   // Load selected location into editor
   const handleSelectLocation = useCallback((loc: WorkLocationEntity) => {
@@ -157,12 +183,11 @@ export function AdminLocationStudio() {
     setSelectedLocId(loc.id);
     setName(loc.name);
     setAddress(loc.address || "");
-    setLat(loc.latitude);
-    setLng(loc.longitude);
+    updateCoords(loc.latitude, loc.longitude);
     setRadius(loc.radius_meters);
     setIsActive(loc.is_active);
     setIsDirty(false);
-  }, []);
+  }, [updateCoords]);
 
   // Start new office creation
   const handleStartCreateNew = () => {
@@ -173,8 +198,7 @@ export function AdminLocationStudio() {
     // Default to existing HQ coordinates or current user position
     const firstLoc = locations[0];
     if (firstLoc) {
-      setLat(firstLoc.latitude + 0.005);
-      setLng(firstLoc.longitude + 0.005);
+      updateCoords(firstLoc.latitude + 0.005, firstLoc.longitude + 0.005);
     }
     setRadius(150);
     setIsActive(true);
@@ -183,10 +207,9 @@ export function AdminLocationStudio() {
 
   // Sync coordinates when map marker moves
   const handleMapCoordinatesChange = useCallback((coords: MapCoordinates) => {
-    setLat(coords.lat);
-    setLng(coords.lng);
+    updateCoords(coords.lat, coords.lng);
     setIsDirty(true);
-  }, []);
+  }, [updateCoords]);
 
   // Handle address search
   const handleExecuteSearch = async () => {
@@ -202,8 +225,7 @@ export function AdminLocationStudio() {
   };
 
   const handleSelectSearchResult = (res: GeocodingResult) => {
-    setLat(res.latitude);
-    setLng(res.longitude);
+    updateCoords(res.latitude, res.longitude);
     if (!address) {
       setAddress(res.displayName);
     }
@@ -218,8 +240,7 @@ export function AdminLocationStudio() {
     setDetectingGps(true);
     try {
       const pos = await getCurrentDevicePosition();
-      setLat(pos.latitude);
-      setLng(pos.longitude);
+      updateCoords(pos.latitude, pos.longitude);
       setIsDirty(true);
       toast.success(`Acquired current coordinates (±${Math.round(pos.accuracy)}m accuracy)`);
     } catch (err: unknown) {
@@ -567,26 +588,22 @@ export function AdminLocationStudio() {
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Latitude (° N)</Label>
                   <Input
-                    type="number"
-                    step="any"
-                    value={lat}
-                    onChange={(e) => {
-                      setLat(parseFloat(e.target.value) || 0);
-                      setIsDirty(true);
-                    }}
+                    type="text"
+                    inputMode="decimal"
+                    value={latStr}
+                    onChange={(e) => handleLatInputChange(e.target.value)}
+                    placeholder="e.g. 18.520400"
                     className="h-8 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Longitude (° E)</Label>
                   <Input
-                    type="number"
-                    step="any"
-                    value={lng}
-                    onChange={(e) => {
-                      setLng(parseFloat(e.target.value) || 0);
-                      setIsDirty(true);
-                    }}
+                    type="text"
+                    inputMode="decimal"
+                    value={lngStr}
+                    onChange={(e) => handleLngInputChange(e.target.value)}
+                    placeholder="e.g. 73.856700"
                     className="h-8 text-xs font-mono"
                   />
                 </div>

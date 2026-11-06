@@ -82,6 +82,15 @@ export function MapLibreGeofenceMap({
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const officeMarkersMapRef = useRef<Map<string, maplibregl.Marker>>(new Map());
 
+  const onCoordinatesChangeRef = useRef(onCoordinatesChange);
+  onCoordinatesChangeRef.current = onCoordinatesChange;
+
+  const radiusMetersRef = useRef(radiusMeters);
+  radiusMetersRef.current = radiusMeters;
+
+  const initialCenterRef = useRef(center);
+  const initialRadiusRef = useRef(radiusMeters);
+
   const [mapLoaded, setMapLoaded] = useState(false);
   const [webGlAvailable, setWebGlAvailable] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -197,10 +206,13 @@ export function MapLibreGeofenceMap({
     let map: maplibregl.Map;
 
     try {
+      const initCenter = initialCenterRef.current;
+      const initRadius = initialRadiusRef.current;
+
       map = new maplibregl.Map({
         container: containerRef.current,
         style: OPENFREEMAP_LIBERTY_STYLE,
-        center: center,
+        center: initCenter,
         zoom: zoom,
         attributionControl: false, // We'll add custom attribution
       });
@@ -246,7 +258,7 @@ export function MapLibreGeofenceMap({
         element: el,
         draggable: markerDraggable,
       })
-        .setLngLat(center)
+        .setLngLat(initCenter)
         .addTo(map);
 
       primaryMarkerRef.current = marker;
@@ -255,13 +267,13 @@ export function MapLibreGeofenceMap({
       if (markerDraggable) {
         marker.on("drag", () => {
           const lngLat = marker.getLngLat();
-          updateGeofenceLayer([lngLat.lng, lngLat.lat], radiusMeters);
+          updateGeofenceLayer([lngLat.lng, lngLat.lat], radiusMetersRef.current);
         });
 
         marker.on("dragend", () => {
           const lngLat = marker.getLngLat();
-          updateGeofenceLayer([lngLat.lng, lngLat.lat], radiusMeters);
-          onCoordinatesChange?.({ lat: lngLat.lat, lng: lngLat.lng });
+          updateGeofenceLayer([lngLat.lng, lngLat.lat], radiusMetersRef.current);
+          onCoordinatesChangeRef.current?.({ lat: lngLat.lat, lng: lngLat.lng });
         });
       }
 
@@ -270,8 +282,8 @@ export function MapLibreGeofenceMap({
         map.on("click", (e) => {
           const { lng, lat } = e.lngLat;
           marker.setLngLat([lng, lat]);
-          updateGeofenceLayer([lng, lat], radiusMeters);
-          onCoordinatesChange?.({ lat, lng });
+          updateGeofenceLayer([lng, lat], radiusMetersRef.current);
+          onCoordinatesChangeRef.current?.({ lat, lng });
         });
       }
 
@@ -283,7 +295,7 @@ export function MapLibreGeofenceMap({
         if (!hasAppliedLayer && map.isStyleLoaded()) {
           hasAppliedLayer = true;
           try {
-            updateGeofenceLayer(center, radiusMeters);
+            updateGeofenceLayer(initCenter, initRadius);
           } catch (e) {
             console.warn("Geofence layer initialization warning:", e);
           }
@@ -362,11 +374,8 @@ export function MapLibreGeofenceMap({
       }
     };
   }, [
-    center,
     interactive,
     markerDraggable,
-    onCoordinatesChange,
-    radiusMeters,
     updateGeofenceLayer,
     webGlAvailable,
     zoom,
@@ -383,12 +392,14 @@ export function MapLibreGeofenceMap({
     const diffLat = Math.abs(currentPos.lat - center[1]);
 
     // Only update if difference is meaningful
-    if (diffLng > 0.00001 || diffLat > 0.00001) {
+    if (diffLng > 0.000001 || diffLat > 0.000001) {
       marker.setLngLat(center);
-      map.flyTo({ center, duration: 800 });
+      map.flyTo({ center, duration: 400, essential: true });
     }
 
-    updateGeofenceLayer(center, radiusMeters);
+    if (map.isStyleLoaded()) {
+      updateGeofenceLayer(center, radiusMeters);
+    }
   }, [center, radiusMeters, updateGeofenceLayer]);
 
   // Render secondary office location markers

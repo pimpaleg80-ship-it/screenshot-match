@@ -251,24 +251,19 @@ function FaceEnrollPage() {
       setSaving(true);
       const avgDesc = averageDescriptors(samples);
 
-      // 1. Save to face_descriptors
-      await supabase.from("face_descriptors").upsert({
-        person_id: selectedEmpId,
-        descriptor: avgDesc,
-        samples: samples.length,
-        updated_at: new Date().toISOString(),
-      });
-
-      // 2. Save to face_data for kiosk compatibility
-      await supabase.from("face_data").upsert(
+      // 1. Save to face_data base table (with consent: true and enrolled_at)
+      const { error: faceError } = await supabase.from("face_data").upsert(
         {
           employee_id: selectedEmpId,
           descriptor: avgDesc,
+          consent: true,
+          enrolled_at: new Date().toISOString(),
         },
         { onConflict: "employee_id" },
       );
+      if (faceError) throw faceError;
 
-      // 3. Update photo thumbnail in employees table
+      // 2. Update photo thumbnail in employees and people tables
       if (capturedThumb) {
         await Promise.all([
           supabase.from("employees").update({ photo_url: capturedThumb }).eq("id", selectedEmpId),
