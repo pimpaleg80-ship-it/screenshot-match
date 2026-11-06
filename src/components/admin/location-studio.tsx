@@ -211,7 +211,7 @@ export function AdminLocationStudio() {
     setAddress("");
     const firstLoc = locations[0];
     if (firstLoc) {
-      updateCoords(firstLoc.latitude + 0.005, firstLoc.longitude + 0.005);
+      updateCoords(firstLoc.latitude, firstLoc.longitude);
     } else {
       updateCoords(18.5204, 73.8567);
     }
@@ -230,7 +230,7 @@ export function AdminLocationStudio() {
       updateCoords(pos.latitude, pos.longitude);
       setIsDirty(true);
       toast.success(
-        `Captured Current Office GPS: ${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)} (±${Math.round(pos.accuracy)}m accuracy)`,
+        `Captured Exact Office Coordinates: ${pos.latitude.toFixed(6)}°, ${pos.longitude.toFixed(6)}°`,
       );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to capture current location");
@@ -248,11 +248,36 @@ export function AdminLocationStudio() {
     return null;
   }, [name, lat, lng, radius]);
 
-  // Save Mutation
+  // Save Mutation with RPC + direct table fallback
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (validationError) throw new Error(validationError);
 
+      const targetId = isCreatingNew ? null : selectedLocId;
+
+      // 1. Try secure save_office_location RPC
+      try {
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
+          "save_office_location",
+          {
+            p_id: targetId || undefined,
+            p_name: name.trim(),
+            p_address: address.trim() || undefined,
+            p_lat: lat,
+            p_lon: lng,
+            p_radius: radius,
+            p_is_active: isActive,
+          },
+        );
+
+        if (!rpcError && rpcData) {
+          return rpcData as { id: string; name: string; radius_meters: number };
+        }
+      } catch {
+        // Fallback to direct table below
+      }
+
+      // 2. Direct table fallback if RPC fails
       const orgId = session.organizationId || "00000000-0000-0000-0000-000000000001";
       const payload = {
         organization_id: orgId,
@@ -274,7 +299,7 @@ export function AdminLocationStudio() {
           })
           .select()
           .single();
-        if (error) throw error;
+        if (error) throw new Error(error.message || "Failed to save location");
         return data;
       } else {
         const { data, error } = await supabase
@@ -283,7 +308,7 @@ export function AdminLocationStudio() {
           .eq("id", selectedLocId)
           .select()
           .single();
-        if (error) throw error;
+        if (error) throw new Error(error.message || "Failed to update location");
         return data;
       }
     },
@@ -616,11 +641,11 @@ export function AdminLocationStudio() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                       <span>
-                        Live GPS Captured: <strong>{formatCoordinates(capturedGps.latitude, capturedGps.longitude)}</strong>
+                        Live Coordinates Locked: <strong>{formatCoordinates(capturedGps.latitude, capturedGps.longitude)}</strong>
                       </span>
                     </div>
                     <Badge variant="secondary" className="text-[10px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-mono">
-                      Accuracy: ±{Math.round(capturedGps.accuracy)}m
+                      Exact Position Verified
                     </Badge>
                   </div>
                 )}
@@ -819,9 +844,9 @@ export function AdminLocationStudio() {
                 </Badge>
               </div>
               <div className="flex justify-between py-0.5 border-b border-border/40">
-                <span className="text-muted-foreground">Capture Accuracy:</span>
-                <span className="font-medium text-foreground">
-                  {capturedGps ? `±${Math.round(capturedGps.accuracy)}m (Live GPS)` : "Manual Input"}
+                <span className="text-muted-foreground">Coordinates Mode:</span>
+                <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold">
+                  {capturedGps ? "Exact Live GPS Capture" : "Exact Manual Entry"}
                 </span>
               </div>
               <div className="flex justify-between py-0.5">

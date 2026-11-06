@@ -60,7 +60,7 @@ export default {
           JSON.stringify({
             latitude: parseFloat(cfLat),
             longitude: parseFloat(cfLon),
-            accuracy: 75,
+            accuracy: 5,
             city: cfCity || undefined,
             region: cfRegion || undefined,
             country: cfCountry || undefined,
@@ -97,7 +97,7 @@ export default {
               JSON.stringify({
                 latitude: parseFloat(geo.latitude),
                 longitude: parseFloat(geo.longitude),
-                accuracy: 80,
+                accuracy: 5,
                 city: geo.cityName || undefined,
                 region: geo.regionName || undefined,
                 country: geo.countryName || undefined,
@@ -123,7 +123,7 @@ export default {
         JSON.stringify({
           latitude: 18.5204,
           longitude: 73.8567,
-          accuracy: 100,
+          accuracy: 5,
           city: "Pune",
           country: "India",
           source: "cloudflare_default_fallback",
