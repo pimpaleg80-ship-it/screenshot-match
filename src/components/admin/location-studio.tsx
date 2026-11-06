@@ -104,6 +104,7 @@ export function AdminLocationStudio() {
 
   // Delete confirmation modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [locToDelete, setLocToDelete] = useState<WorkLocationEntity | null>(null);
 
   const updateCoords = useCallback((newLat: number, newLng: number) => {
     setLat(newLat);
@@ -130,20 +131,20 @@ export function AdminLocationStudio() {
     }
   };
 
-  // 1. Fetch work locations with employee stats
-  const { data: locations = [], isLoading: locationsLoading } = useQuery({
-    queryKey: ["work-locations-stats", session.organizationId],
+  // 1. Fetch work locations from base table
+  const { data: rawLocations = [], isLoading: locationsLoading } = useQuery({
+    queryKey: ["work-locations"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("work_location_stats" as any)
+        .from("work_locations")
         .select("*")
         .order("created_at", { ascending: true });
       if (error) {
         const { data: fallback, error: fbErr } = await supabase
-          .from("work_locations")
+          .from("work_location_stats" as any)
           .select("*")
           .order("created_at", { ascending: true });
-        if (fbErr) throw fbErr;
+        if (fbErr) throw error;
         return (fallback ?? []) as unknown as WorkLocationEntity[];
       }
       return (data ?? []) as unknown as WorkLocationEntity[];
@@ -173,9 +174,19 @@ export function AdminLocationStudio() {
     },
   });
 
-  // Select first location initially if none selected
+  // Calculate live employee count per office
+  const locations: WorkLocationEntity[] = useMemo(() => {
+    return rawLocations.map((loc) => ({
+      ...loc,
+      assigned_employee_count: allEmployees.filter((e) => e.work_location_id === loc.id).length,
+    }));
+  }, [rawLocations, allEmployees]);
+
+  // Sync form with selected location or select first office initially
   useEffect(() => {
-    if (!selectedLocId && locations.length > 0 && !isCreatingNew) {
+    if (isCreatingNew) return;
+
+    if (!selectedLocId && locations.length > 0) {
       const first = locations[0];
       if (first) {
         setSelectedLocId(first.id);
@@ -187,8 +198,20 @@ export function AdminLocationStudio() {
         setIsDirty(false);
         setCapturedGps(null);
       }
+      return;
     }
-  }, [isCreatingNew, locations, selectedLocId, updateCoords]);
+
+    if (selectedLocId && !isDirty) {
+      const current = locations.find((l) => l.id === selectedLocId);
+      if (current) {
+        setName(current.name);
+        setAddress(current.address || "");
+        updateCoords(current.latitude, current.longitude);
+        setRadius(current.radius_meters);
+        setIsActive(current.is_active);
+      }
+    }
+  }, [isCreatingNew, locations, selectedLocId, isDirty, updateCoords]);
 
   // Load selected location into editor
   const handleSelectLocation = useCallback((loc: WorkLocationEntity) => {
@@ -217,7 +240,7 @@ export function AdminLocationStudio() {
     }
     setRadius(150);
     setIsActive(true);
-    setIsDirty(true);
+    setIsDirty(false);
     setCapturedGps(null);
   };
 
@@ -270,8 +293,8 @@ export function AdminLocationStudio() {
           },
         );
 
-        if (!rpcError && rpcData) {
-          return rpcData as { id: string; name: string; radius_meters: number };
+        if (!rpcError && rpcData?.id) {
+          return rpcData as WorkLocationEntity;
         }
       } catch {
         // Fallback to direct table below
@@ -300,7 +323,7 @@ export function AdminLocationStudio() {
           .select()
           .single();
         if (error) throw new Error(error.message || "Failed to save location");
-        return data;
+        return data as WorkLocationEntity;
       } else {
         const { data, error } = await supabase
           .from("work_locations")
@@ -309,10 +332,11 @@ export function AdminLocationStudio() {
           .select()
           .single();
         if (error) throw new Error(error.message || "Failed to update location");
-        return data;
+        return data as WorkLocationEntity;
       }
     },
-    onSuccess: (savedLoc) => {
+    onSuccess: (savedLoc: any) => {
+      const locId = savedLoc?.id || selectedLocId;
       toast.success(
         isCreatingNew
           ? `Created office location "${savedLoc.name}" with ${savedLoc.radius_meters}m geofence.`
@@ -320,29 +344,81 @@ export function AdminLocationStudio() {
       );
       setIsDirty(false);
       setConfirmSaveOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["work-locations-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["work-locations"] });
-      setSelectedLocId(savedLoc.id);
       setIsCreatingNew(false);
+      setCapturedGps(null);
+
+      const normalized: WorkLocationEntity = {
+        id: locId,
+        organization_id: savedLoc.organization_id || session.organizationId || "00000000-0000-0000-0000-000000000001",
+        name: savedLoc.name || name.trim(),
+        address: savedLoc.address ?? (address.trim() || null),
+        latitude: Number(savedLoc.latitude ?? lat),
+        longitude: Number(savedLoc.longitude ?? lng),
+        radius_meters: Number(savedLoc.radius_meters ?? radius),
+        is_active: Boolean(savedLoc.is_active ?? isActive),
+        created_at: savedLoc.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setSelectedLocId(locId);
+      setName(normalized.name);
+      setAddress(normalized.address || "");
+      updateCoords(normalized.latitude, normalized.longitude);
+      setRadius(normalized.radius_meters);
+      setIsActive(normalized.is_active);
+
+      queryClient.setQueryData<WorkLocationEntity[]>(["work-locations"], (old = []) => {
+        const idx = old.findIndex((l) => l.id === locId);
+        if (idx >= 0) {
+          const next = [...old];
+          next[idx] = { ...next[idx], ...normalized };
+          return next;
+        }
+        return [...old, normalized];
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["work-locations"] });
+      queryClient.invalidateQueries({ queryKey: ["work-locations-stats"] });
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "Failed to save location");
     },
   });
 
-  // Delete Mutation
+  // Delete Mutation with RPC + direct fallback
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      try {
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
+          "delete_office_location",
+          { p_id: id },
+        );
+        if (!rpcError && rpcData?.success) {
+          return id;
+        }
+      } catch {
+        // Fallback to direct delete below
+      }
+
       const { error } = await supabase.from("work_locations").delete().eq("id", id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (deletedId) => {
       toast.success("Office location removed successfully.");
       setDeleteConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["work-locations-stats"] });
+      setLocToDelete(null);
+
+      queryClient.setQueryData<WorkLocationEntity[]>(["work-locations"], (old = []) =>
+        old.filter((l) => l.id !== deletedId),
+      );
       queryClient.invalidateQueries({ queryKey: ["work-locations"] });
-      setSelectedLocId(null);
-      setIsCreatingNew(false);
+      queryClient.invalidateQueries({ queryKey: ["work-locations-stats"] });
+
+      if (selectedLocId === deletedId) {
+        setSelectedLocId(null);
+        setIsCreatingNew(false);
+      }
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "Failed to delete location");
@@ -512,6 +588,20 @@ export function AdminLocationStudio() {
                         <Badge variant="outline" className="text-[10px] font-mono">
                           {loc.radius_meters}m
                         </Badge>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocToDelete(loc);
+                            setDeleteConfirmOpen(true);
+                          }}
+                          className="h-6 w-6 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-md p-0"
+                          title={`Delete ${loc.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
 
@@ -553,7 +643,11 @@ export function AdminLocationStudio() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setDeleteConfirmOpen(true)}
+                      onClick={() => {
+                        const cur = locations.find((l) => l.id === selectedLocId);
+                        setLocToDelete(cur || null);
+                        setDeleteConfirmOpen(true);
+                      }}
                       className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -975,7 +1069,7 @@ export function AdminLocationStudio() {
               <span>Delete Office Location</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Are you sure you want to delete <strong>{name}</strong>? Assigned employees will lose their office geofence assignment.
+              Are you sure you want to delete <strong>{locToDelete?.name || name || "this office"}</strong>? Assigned employees will lose their office geofence assignment.
             </DialogDescription>
           </DialogHeader>
 
@@ -983,7 +1077,10 @@ export function AdminLocationStudio() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDeleteConfirmOpen(false)}
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setLocToDelete(null);
+              }}
               disabled={deleteMutation.isPending}
             >
               Cancel
@@ -991,7 +1088,10 @@ export function AdminLocationStudio() {
             <Button
               type="button"
               variant="destructive"
-              onClick={() => selectedLocId && deleteMutation.mutate(selectedLocId)}
+              onClick={() => {
+                const targetId = locToDelete?.id || selectedLocId;
+                if (targetId) deleteMutation.mutate(targetId);
+              }}
               disabled={deleteMutation.isPending}
               className="gap-1.5"
             >
