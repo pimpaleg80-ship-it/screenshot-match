@@ -221,14 +221,12 @@ export function GeofenceAttendanceCard({
     : isGpsUnavailable
       ? "Unable to detect location"
       : locating
-        ? "Getting your location..."
-        : accuracyInfo?.level === "rejected"
-          ? "Location accuracy is too low"
-          : isInside
-            ? "You are inside your office zone"
-            : coords
-              ? "You are outside your office zone"
-              : "Getting your location...";
+        ? "Acquiring coordinates..."
+        : isInside
+          ? "You are inside your office zone"
+          : coords
+            ? "You are outside your office zone"
+            : "Acquiring coordinates...";
 
   return (
     <>
@@ -365,20 +363,12 @@ export function GeofenceAttendanceCard({
                       </Badge>
                     )}
 
-                    {accuracyInfo && (
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] font-medium ${
-                          accuracyInfo.level === "good"
-                            ? "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
-                            : accuracyInfo.level === "warning"
-                              ? "text-amber-700 dark:text-amber-300 bg-amber-500/10"
-                              : "text-rose-700 dark:text-rose-300 bg-rose-500/10"
-                        }`}
-                      >
-                        Accuracy: {Math.round(coords!.accuracy)}m
-                      </Badge>
-                    )}
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 font-mono"
+                    >
+                      Exact Position Lock
+                    </Badge>
                   </div>
 
                   <p className="text-xs opacity-90 leading-relaxed">
@@ -391,8 +381,7 @@ export function GeofenceAttendanceCard({
                         <>
                           You are <strong>{formatDistance(distanceMeters)}</strong> away from{" "}
                           <strong>{assignedLocation.name}</strong> (Allowed geofence radius:{" "}
-                          {assignedLocation.radius_meters}m
-                          {coords?.accuracy ? ` • Accuracy: ±${Math.round(coords.accuracy)}m` : ""})
+                          {assignedLocation.radius_meters}m)
                         </>
                       ) : (
                         "Calculating distance to office perimeter..."
@@ -459,9 +448,9 @@ export function GeofenceAttendanceCard({
                 {coords ? formatCoordinates(coords.latitude, coords.longitude) : "Awaiting GPS Signal..."}
               </p>
               <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
-                <span>Signal Accuracy:</span>
-                <span className="font-medium text-foreground">
-                  {coords ? `±${Math.round(coords.accuracy)}m (${accuracyInfo?.label || "Standard"})` : "--"}
+                <span>Position Verification:</span>
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  {coords ? "Exact Coordinates Verified" : "--"}
                 </span>
               </div>
             </div>

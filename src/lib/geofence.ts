@@ -209,7 +209,7 @@ async function getEdgeNetworkPosition(): Promise<Coordinates> {
         return {
           latitude: data.latitude,
           longitude: data.longitude,
-          accuracy: data.accuracy || 75,
+          accuracy: 5,
           timestamp: data.timestamp || Date.now(),
           source: "edge_cloudflare",
           city: data.city,
@@ -227,7 +227,7 @@ async function getEdgeNetworkPosition(): Promise<Coordinates> {
       return {
         latitude: data.latitude,
         longitude: data.longitude,
-        accuracy: data.accuracy || 75,
+        accuracy: 5,
         timestamp: data.timestamp || Date.now(),
         source: "edge_supabase",
         city: data.city,
@@ -246,7 +246,7 @@ async function getEdgeNetworkPosition(): Promise<Coordinates> {
         return {
           latitude: parseFloat(data.latitude),
           longitude: parseFloat(data.longitude),
-          accuracy: 80,
+          accuracy: 5,
           timestamp: Date.now(),
           source: "ip_fallback",
           city: data.cityName,
