@@ -30,10 +30,7 @@ export async function getMobileDeviceInfo(): Promise<MobileDeviceInfo> {
     };
   }
 
-  const [idResult, infoResult] = await Promise.all([
-    Device.getId(),
-    Device.getInfo(),
-  ]);
+  const [idResult, infoResult] = await Promise.all([Device.getId(), Device.getInfo()]);
 
   return {
     uuid: idResult.identifier,
@@ -79,7 +76,7 @@ export async function requestMobilePermissions(): Promise<{
  */
 export async function notifyGeofenceTransition(
   transition: "ENTER" | "EXIT",
-  officeName: string
+  officeName: string,
 ): Promise<void> {
   if (!isNativeMobile()) return;
 
@@ -102,4 +99,3 @@ export async function notifyGeofenceTransition(
     console.warn("Failed to schedule local notification:", err);
   }
 }
-

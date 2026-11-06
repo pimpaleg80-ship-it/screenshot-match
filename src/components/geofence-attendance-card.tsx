@@ -48,7 +48,10 @@ interface GeofenceAttendanceCardProps {
   onAttendanceUpdated?: () => void;
 }
 
-export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: GeofenceAttendanceCardProps) {
+export function GeofenceAttendanceCard({
+  employeeId,
+  onAttendanceUpdated,
+}: GeofenceAttendanceCardProps) {
   const queryClient = useQueryClient();
   const [coords, setCoords] = useState<Coordinates | null>(null);
   const [locating, setLocating] = useState<boolean>(false);
@@ -100,7 +103,7 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
           coords.latitude,
           coords.longitude,
           assignedLocation.latitude,
-          assignedLocation.longitude
+          assignedLocation.longitude,
         )
       : null;
 
@@ -113,13 +116,13 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
   const isCheckedOut = !!todayAttendance?.check_out;
 
   const isPermissionDenied = Boolean(
-    locationError && locationError.toLowerCase().includes("permission")
+    locationError && locationError.toLowerCase().includes("permission"),
   );
   const isGpsUnavailable = Boolean(
     locationError &&
-      (locationError.toLowerCase().includes("unavailable") ||
-        locationError.toLowerCase().includes("timed out") ||
-        locationError.toLowerCase().includes("not supported"))
+    (locationError.toLowerCase().includes("unavailable") ||
+      locationError.toLowerCase().includes("timed out") ||
+      locationError.toLowerCase().includes("not supported")),
   );
   const isPoorAccuracy = Boolean(coords && coords.accuracy > 150);
 
@@ -136,7 +139,7 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
       toast.success(
         isCheckIn
           ? `Checked In Successfully! Welcome to ${data.location_name}.`
-          : `Checked Out Successfully! Total hours: ${data.total_hours ?? 0}h.`
+          : `Checked Out Successfully! Total hours: ${data.total_hours ?? 0}h.`,
       );
       refetchContext();
       queryClient.invalidateQueries({ queryKey: ["attendance-records"] });
@@ -158,7 +161,8 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
     setSubmittingRegularize(true);
     try {
       const { error } = await supabase.from("attendance_exceptions").insert({
-        organization_id: context?.employee?.organization_id || "00000000-0000-0000-0000-000000000001",
+        organization_id:
+          context?.employee?.organization_id || "00000000-0000-0000-0000-000000000001",
         employee_id: employeeId,
         session_id: todayAttendance?.id ?? null,
         exception_type: isCheckedIn ? "OUTSIDE_GEOFENCE" : "MISSED_CHECKOUT",
@@ -200,13 +204,17 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                   <span>Geofence Attendance Center</span>
                 </CardTitle>
                 {assignedLocation && (
-                  <Badge variant="outline" className="text-[11px] font-normal border-primary/30 text-primary">
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] font-normal border-primary/30 text-primary"
+                  >
                     {assignedLocation.name}
                   </Badge>
                 )}
               </div>
               <CardDescription className="text-xs">
-                Manual check-in and check-out is gated by your physical presence inside the assigned office geofence.
+                Manual check-in and check-out is gated by your physical presence inside the assigned
+                office geofence.
               </CardDescription>
             </div>
 
@@ -230,7 +238,9 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                 disabled={locating}
                 className="h-8 gap-1.5 text-xs"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${locating ? "animate-spin text-primary" : ""}`} />
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${locating ? "animate-spin text-primary" : ""}`}
+                />
                 <span>{locating ? "Acquiring GPS..." : "Refresh Location"}</span>
               </Button>
             </div>
@@ -244,12 +254,12 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
               isPermissionDenied
                 ? "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-100"
                 : isGpsUnavailable
-                ? "bg-amber-500/15 border-amber-500/30 text-amber-950 dark:text-amber-100"
-                : isInside
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
-                : coords
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-100"
-                : "bg-muted/50 border-border text-muted-foreground"
+                  ? "bg-amber-500/15 border-amber-500/30 text-amber-950 dark:text-amber-100"
+                  : isInside
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
+                    : coords
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-100"
+                      : "bg-muted/50 border-border text-muted-foreground"
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -259,12 +269,12 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                     isPermissionDenied
                       ? "bg-rose-600 text-white shadow-sm"
                       : isGpsUnavailable
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : isInside
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : coords
-                      ? "bg-amber-500 text-white shadow-sm"
-                      : "bg-muted text-muted-foreground"
+                        ? "bg-amber-600 text-white shadow-sm"
+                        : isInside
+                          ? "bg-emerald-500 text-white shadow-sm"
+                          : coords
+                            ? "bg-amber-500 text-white shadow-sm"
+                            : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {isPermissionDenied ? (
@@ -286,33 +296,33 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                       {isPermissionDenied
                         ? "GPS Permission Denied"
                         : isGpsUnavailable
-                        ? "GPS Signal Unavailable"
-                        : isInside
-                        ? "Inside Assigned Office Geofence"
-                        : coords
-                        ? "Outside Office Geofence"
-                        : "Acquiring GPS Signal..."}
+                          ? "GPS Signal Unavailable"
+                          : isInside
+                            ? "Inside Assigned Office Geofence"
+                            : coords
+                              ? "Outside Office Geofence"
+                              : "Acquiring GPS Signal..."}
                     </span>
                     <Badge
                       className={`text-[10px] font-bold ${
                         isPermissionDenied || isGpsUnavailable
                           ? "bg-rose-600 text-white hover:bg-rose-600"
                           : isInside
-                          ? "bg-emerald-600 text-white hover:bg-emerald-600"
-                          : coords
-                          ? "bg-amber-600 text-white hover:bg-amber-600"
-                          : "bg-muted-foreground/30 text-muted-foreground"
+                            ? "bg-emerald-600 text-white hover:bg-emerald-600"
+                            : coords
+                              ? "bg-amber-600 text-white hover:bg-amber-600"
+                              : "bg-muted-foreground/30 text-muted-foreground"
                       }`}
                     >
                       {isPermissionDenied
                         ? "PERMISSION BLOCKED"
                         : isGpsUnavailable
-                        ? "SIGNAL OFFLINE"
-                        : isInside
-                        ? "ELIGIBLE TO MARK"
-                        : coords
-                        ? "LOCKED OUTSIDE"
-                        : "DETECTING"}
+                          ? "SIGNAL OFFLINE"
+                          : isInside
+                            ? "ELIGIBLE TO MARK"
+                            : coords
+                              ? "LOCKED OUTSIDE"
+                              : "DETECTING"}
                     </Badge>
                   </div>
 
@@ -325,7 +335,8 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                       distanceMeters !== null ? (
                         <>
                           You are <strong>{formatDistance(distanceMeters)}</strong> from{" "}
-                          <strong>{assignedLocation.name}</strong> (Allowed perimeter: {assignedLocation.radius_meters}m
+                          <strong>{assignedLocation.name}</strong> (Allowed perimeter:{" "}
+                          {assignedLocation.radius_meters}m
                           {coords?.accuracy ? ` • Accuracy ±${Math.round(coords.accuracy)}m` : ""})
                         </>
                       ) : (
@@ -383,8 +394,9 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
               <div className="mt-2.5 pt-2 border-t border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                 <span>
-                  GPS accuracy is currently low (±{Math.round(coords!.accuracy)}m). Server validation requires ≤150m accuracy.
-                  Move away from indoor walls or step outdoors for stronger satellite signal.
+                  GPS accuracy is currently low (±{Math.round(coords!.accuracy)}m). Server
+                  validation requires ≤150m accuracy. Move away from indoor walls or step outdoors
+                  for stronger satellite signal.
                 </span>
               </div>
             )}
@@ -445,8 +457,8 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                     {isCheckedOut
                       ? formatTime(todayAttendance.check_out!)
                       : isCheckedIn
-                      ? "Active On-Site"
-                      : "--:--"}
+                        ? "Active On-Site"
+                        : "--:--"}
                   </p>
                 </div>
               </div>
@@ -481,7 +493,9 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                   ) : (
                     <CheckCircle2 className="h-5 w-5" />
                   )}
-                  <span>{isInside ? "Check In (Manual Press)" : "Check In (Disabled Outside Geofence)"}</span>
+                  <span>
+                    {isInside ? "Check In (Manual Press)" : "Check In (Disabled Outside Geofence)"}
+                  </span>
                 </Button>
               ) : !isCheckedOut ? (
                 <Button
@@ -499,7 +513,11 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
                   ) : (
                     <Clock className="h-5 w-5" />
                   )}
-                  <span>{isInside ? "Check Out (Manual Press)" : "Check Out (Disabled Outside Geofence)"}</span>
+                  <span>
+                    {isInside
+                      ? "Check Out (Manual Press)"
+                      : "Check Out (Disabled Outside Geofence)"}
+                  </span>
                 </Button>
               ) : (
                 <div className="flex items-center justify-center p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-sm font-semibold gap-2">
@@ -528,8 +546,8 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
               <span>Attendance Regularization Request</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              If you worked off-site, experienced GPS signal failure, or were unable to check out inside the
-              geofence, submit your reason for manager review.
+              If you worked off-site, experienced GPS signal failure, or were unable to check out
+              inside the geofence, submit your reason for manager review.
             </DialogDescription>
           </DialogHeader>
 
@@ -570,4 +588,3 @@ export function GeofenceAttendanceCard({ employeeId, onAttendanceUpdated }: Geof
     </>
   );
 }
-

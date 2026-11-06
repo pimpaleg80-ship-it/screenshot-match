@@ -194,13 +194,18 @@ function AnnouncementsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Announcements</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Announcements
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official company news, policy updates, and team circulars.
           </p>
         </div>
         {canPost && (
-          <Button onClick={() => setPostModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
+          <Button
+            onClick={() => setPostModalOpen(true)}
+            className="gap-2 w-full sm:w-auto text-xs h-9"
+          >
             <Plus className="h-4 w-4" />
             New Announcement
           </Button>

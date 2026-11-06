@@ -786,6 +786,7 @@ ALTER TABLE public.archive_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.archive_files ENABLE ROW LEVEL SECURITY;
 
 -- Organizations policies
+DROP POLICY IF EXISTS "org_read_members" ON public.organizations;
 CREATE POLICY "org_read_members" ON public.organizations
   FOR SELECT TO authenticated
   USING (
@@ -793,6 +794,7 @@ CREATE POLICY "org_read_members" ON public.organizations
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "org_admin_manage" ON public.organizations;
 CREATE POLICY "org_admin_manage" ON public.organizations
   FOR ALL TO authenticated
   USING (
@@ -805,6 +807,7 @@ CREATE POLICY "org_admin_manage" ON public.organizations
   );
 
 -- Organization members policies
+DROP POLICY IF EXISTS "members_read_policy" ON public.organization_members;
 CREATE POLICY "members_read_policy" ON public.organization_members
   FOR SELECT TO authenticated
   USING (
@@ -812,6 +815,7 @@ CREATE POLICY "members_read_policy" ON public.organization_members
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "members_admin_manage" ON public.organization_members;
 CREATE POLICY "members_admin_manage" ON public.organization_members
   FOR ALL TO authenticated
   USING (
@@ -824,6 +828,7 @@ CREATE POLICY "members_admin_manage" ON public.organization_members
   );
 
 -- Work locations policies
+DROP POLICY IF EXISTS "work_locations_read" ON public.work_locations;
 CREATE POLICY "work_locations_read" ON public.work_locations
   FOR SELECT TO authenticated
   USING (
@@ -831,6 +836,7 @@ CREATE POLICY "work_locations_read" ON public.work_locations
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "work_locations_admin_manage" ON public.work_locations;
 CREATE POLICY "work_locations_admin_manage" ON public.work_locations
   FOR ALL TO authenticated
   USING (
@@ -843,6 +849,7 @@ CREATE POLICY "work_locations_admin_manage" ON public.work_locations
   );
 
 -- Shifts policies
+DROP POLICY IF EXISTS "shifts_read" ON public.shifts;
 CREATE POLICY "shifts_read" ON public.shifts
   FOR SELECT TO authenticated
   USING (
@@ -850,6 +857,7 @@ CREATE POLICY "shifts_read" ON public.shifts
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "shifts_admin_manage" ON public.shifts;
 CREATE POLICY "shifts_admin_manage" ON public.shifts
   FOR ALL TO authenticated
   USING (
@@ -862,6 +870,7 @@ CREATE POLICY "shifts_admin_manage" ON public.shifts
   );
 
 -- Employee location assignments policies
+DROP POLICY IF EXISTS "ela_read" ON public.employee_location_assignments;
 CREATE POLICY "ela_read" ON public.employee_location_assignments
   FOR SELECT TO authenticated
   USING (
@@ -869,6 +878,7 @@ CREATE POLICY "ela_read" ON public.employee_location_assignments
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "ela_admin_manage" ON public.employee_location_assignments;
 CREATE POLICY "ela_admin_manage" ON public.employee_location_assignments
   FOR ALL TO authenticated
   USING (
@@ -881,6 +891,7 @@ CREATE POLICY "ela_admin_manage" ON public.employee_location_assignments
   );
 
 -- Registered devices policies
+DROP POLICY IF EXISTS "devices_owner_read" ON public.registered_devices;
 CREATE POLICY "devices_owner_read" ON public.registered_devices
   FOR SELECT TO authenticated
   USING (
@@ -889,6 +900,7 @@ CREATE POLICY "devices_owner_read" ON public.registered_devices
   );
 
 -- Geofence events policies
+DROP POLICY IF EXISTS "geofence_events_admin_read" ON public.geofence_events;
 CREATE POLICY "geofence_events_admin_read" ON public.geofence_events
   FOR SELECT TO authenticated
   USING (
@@ -898,6 +910,7 @@ CREATE POLICY "geofence_events_admin_read" ON public.geofence_events
   );
 
 -- Attendance exceptions policies
+DROP POLICY IF EXISTS "exceptions_read" ON public.attendance_exceptions;
 CREATE POLICY "exceptions_read" ON public.attendance_exceptions
   FOR SELECT TO authenticated
   USING (
@@ -905,6 +918,7 @@ CREATE POLICY "exceptions_read" ON public.attendance_exceptions
     OR organization_id IN (SELECT organization_id FROM public.organization_members WHERE user_id = (select auth.uid()))
   );
 
+DROP POLICY IF EXISTS "exceptions_insert" ON public.attendance_exceptions;
 CREATE POLICY "exceptions_insert" ON public.attendance_exceptions
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -912,6 +926,7 @@ CREATE POLICY "exceptions_insert" ON public.attendance_exceptions
     OR (SELECT is_superadmin FROM public.employees WHERE user_id = (select auth.uid()) LIMIT 1) = true
   );
 
+DROP POLICY IF EXISTS "exceptions_admin_update" ON public.attendance_exceptions;
 CREATE POLICY "exceptions_admin_update" ON public.attendance_exceptions
   FOR UPDATE TO authenticated
   USING (
@@ -924,6 +939,7 @@ CREATE POLICY "exceptions_admin_update" ON public.attendance_exceptions
   );
 
 -- Attendance monthly summaries policies
+DROP POLICY IF EXISTS "monthly_summaries_read" ON public.attendance_monthly_summaries;
 CREATE POLICY "monthly_summaries_read" ON public.attendance_monthly_summaries
   FOR SELECT TO authenticated
   USING (
@@ -932,6 +948,7 @@ CREATE POLICY "monthly_summaries_read" ON public.attendance_monthly_summaries
   );
 
 -- Google Drive archives & jobs policies
+DROP POLICY IF EXISTS "drive_archives_admin" ON public.attendance_archives;
 CREATE POLICY "drive_archives_admin" ON public.attendance_archives
   FOR ALL TO authenticated
   USING (
@@ -943,6 +960,7 @@ CREATE POLICY "drive_archives_admin" ON public.attendance_archives
     OR organization_id IN (SELECT organization_id FROM public.organization_members WHERE user_id = (select auth.uid()) AND role IN ('super_admin', 'org_admin'))
   );
 
+DROP POLICY IF EXISTS "archive_jobs_admin" ON public.archive_jobs;
 CREATE POLICY "archive_jobs_admin" ON public.archive_jobs
   FOR ALL TO authenticated
   USING (
@@ -954,6 +972,7 @@ CREATE POLICY "archive_jobs_admin" ON public.archive_jobs
     OR organization_id IN (SELECT organization_id FROM public.organization_members WHERE user_id = (select auth.uid()) AND role IN ('super_admin', 'org_admin', 'hr_manager'))
   );
 
+DROP POLICY IF EXISTS "archive_files_read" ON public.archive_files;
 CREATE POLICY "archive_files_read" ON public.archive_files
   FOR SELECT TO authenticated
   USING (

@@ -74,7 +74,7 @@ function HolidaysPage() {
         .select("*")
         .order("date", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as HolidayRow[];
+      return (data ?? []) as unknown as HolidayRow[];
     },
   });
 
@@ -85,6 +85,7 @@ function HolidaysPage() {
 
       const { error } = await supabase.from("holidays").insert({
         name: formData.name.trim(),
+        title: formData.name.trim(),
         date: formData.date,
         is_optional: formData.is_optional,
       });
@@ -128,8 +129,7 @@ function HolidaysPage() {
   // Filtering
   const filteredHolidays = holidays.filter((h) => {
     const matchesSearch = !search || h.name.toLowerCase().includes(search.toLowerCase());
-    const matchesMonth =
-      selectedMonth === "all" || h.date.startsWith(`2026-${selectedMonth}`);
+    const matchesMonth = selectedMonth === "all" || h.date.startsWith(`2026-${selectedMonth}`);
     return matchesSearch && matchesMonth;
   });
 
@@ -161,13 +161,18 @@ function HolidaysPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Holidays</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Company Holidays
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official non-working days and optional observances for 2026.
           </p>
         </div>
         {session.isAdmin && (
-          <Button onClick={() => setAddModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
+          <Button
+            onClick={() => setAddModalOpen(true)}
+            className="gap-2 w-full sm:w-auto text-xs h-9"
+          >
             <Plus className="h-4 w-4" />
             Add Holiday
           </Button>
@@ -280,12 +285,13 @@ function HolidaysPage() {
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl text-xs font-semibold ${isPast
-                          ? "bg-muted text-muted-foreground"
-                          : isNext
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-primary/10 text-primary"
-                          }`}
+                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl text-xs font-semibold ${
+                          isPast
+                            ? "bg-muted text-muted-foreground"
+                            : isNext
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "bg-primary/10 text-primary"
+                        }`}
                       >
                         <span className="text-[10px] uppercase">
                           {new Date(holiday.date + "T00:00:00").toLocaleDateString("en-US", {
@@ -404,4 +410,3 @@ function HolidaysPage() {
     </div>
   );
 }
-

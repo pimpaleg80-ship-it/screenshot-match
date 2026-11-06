@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import {
   OPENFREEMAP_LIBERTY_STYLE,
   createGeoJSONCircle,
@@ -22,23 +22,23 @@ describe("OpenFreeMap & MapLibre Geofence Geometry Utilities", () => {
     expect(geojson.geometry.type).toBe("Polygon");
     expect(Array.isArray(geojson.geometry.coordinates)).toBe(true);
 
-    const ring = geojson.geometry.coordinates[0];
+    const ring = geojson.geometry.coordinates[0]!;
     // 64 segments + 1 closing vertex = 65 points
     expect(ring.length).toBe(65);
 
     // Verify polygon ring is properly closed (first === last)
-    const firstPoint = ring[0];
-    const lastPoint = ring[ring.length - 1];
+    const firstPoint = ring[0]!;
+    const lastPoint = ring[ring.length - 1]!;
     expect(firstPoint[0]).toBeCloseTo(lastPoint[0], 6);
     expect(firstPoint[1]).toBeCloseTo(lastPoint[1], 6);
   });
 
   it("calculates accurate geographic dispersion for different radii", () => {
     const center: [number, number] = [73.8567, 18.5204];
-    
+
     // 150m radius
     const geojson150 = createGeoJSONCircle(center, 150, 64);
-    const ring150 = geojson150.geometry.coordinates[0];
+    const ring150 = geojson150.geometry.coordinates[0]!;
 
     // Find max delta from center in degrees
     let maxDeltaLat150 = 0;
@@ -54,7 +54,7 @@ describe("OpenFreeMap & MapLibre Geofence Geometry Utilities", () => {
 
     // 300m radius should be approximately 2x delta
     const geojson300 = createGeoJSONCircle(center, 300, 64);
-    const ring300 = geojson300.geometry.coordinates[0];
+    const ring300 = geojson300.geometry.coordinates[0]!;
     let maxDeltaLat300 = 0;
     for (const [, lat] of ring300) {
       maxDeltaLat300 = Math.max(maxDeltaLat300, Math.abs(lat - center[1]));
@@ -77,4 +77,3 @@ describe("OpenFreeMap & MapLibre Geofence Geometry Utilities", () => {
     expect(typeof supported).toBe("boolean");
   });
 });
-

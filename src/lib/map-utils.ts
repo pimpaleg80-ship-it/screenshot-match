@@ -5,8 +5,35 @@
  */
 
 export const OPENFREEMAP_LIBERTY_STYLE =
-  (typeof process !== "undefined" && process.env?.VITE_MAP_STYLE_URL) ||
+  (typeof import.meta !== "undefined" && import.meta.env?.["VITE_MAP_STYLE_URL"]) ||
+  (typeof process !== "undefined" && process.env?.["VITE_MAP_STYLE_URL"]) ||
   "https://tiles.openfreemap.org/styles/liberty";
+
+/**
+ * Universal OpenStreetMap raster tile style specification.
+ * Used as a fast, zero-dependency fallback when remote vector tile servers
+ * or glyphs/fonts are slow, blocked, or unreachable.
+ */
+export const OSM_RASTER_FALLBACK_STYLE = {
+  version: 8 as const,
+  sources: {
+    "osm-raster-tiles": {
+      type: "raster" as const,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-raster-layer",
+      type: "raster" as const,
+      source: "osm-raster-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 
 /**
  * Checks whether the current device/browser environment supports WebGL
@@ -17,11 +44,24 @@ export function isWebGLSupported(): boolean {
     const canvas = document.createElement("canvas");
     return Boolean(
       window.WebGLRenderingContext &&
-        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")),
     );
   } catch {
     return false;
   }
+}
+
+export interface GeoJSONPolygonFeature {
+  type: "Feature";
+  geometry: {
+    type: "Polygon";
+    coordinates: [number, number][][];
+  };
+  properties: {
+    radius: number;
+    centerLat: number;
+    centerLng: number;
+  };
 }
 
 /**
@@ -35,14 +75,15 @@ export function isWebGLSupported(): boolean {
 export function createGeoJSONCircle(
   center: [number, number],
   radiusInMeters: number,
-  points: number = 64
-): GeoJSON.Feature<GeoJSON.Polygon> {
+  points: number = 64,
+): GeoJSONPolygonFeature {
   const [lng, lat] = center;
   const coordinates: [number, number][] = [];
 
   // Approximate meters per degree longitude and latitude at given latitude
   const latRad = (lat * Math.PI) / 180.0;
-  const metersPerDegLat = 111132.954 - 559.822 * Math.cos(2 * latRad) + 1.175 * Math.cos(4 * latRad);
+  const metersPerDegLat =
+    111132.954 - 559.822 * Math.cos(2 * latRad) + 1.175 * Math.cos(4 * latRad);
   const metersPerDegLng = 111412.84 * Math.cos(latRad) - 93.5 * Math.cos(3 * latRad);
 
   const deltaLat = radiusInMeters / metersPerDegLat;
@@ -56,7 +97,10 @@ export function createGeoJSONCircle(
   }
 
   // Close the polygon
-  coordinates.push(coordinates[0]);
+  const firstPoint = coordinates[0];
+  if (firstPoint) {
+    coordinates.push(firstPoint);
+  }
 
   return {
     type: "Feature",
@@ -129,4 +173,3 @@ export async function searchAddressWithOSM(query: string): Promise<GeocodingResu
     return [];
   }
 }
-

@@ -140,7 +140,13 @@ export function AppLayout() {
               <RoleIcon className="h-3.5 w-3.5" />
               <span>Portal</span>
             </div>
-            <Badge variant="outline" className={cn("text-[11px] font-semibold uppercase tracking-wider py-0 px-2", roleColor)}>
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[11px] font-semibold uppercase tracking-wider py-0 px-2",
+                roleColor,
+              )}
+            >
               {roleLabel}
             </Badge>
           </div>
@@ -175,7 +181,13 @@ export function AppLayout() {
                 {session.departmentName || session.designation || roleLabel}
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out" title="Sign out">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -230,7 +242,13 @@ export function AppLayout() {
                       <RoleIcon className="h-3.5 w-3.5" />
                       <span>Portal Mode</span>
                     </div>
-                    <Badge variant="outline" className={cn("text-[11px] font-semibold uppercase tracking-wider py-0 px-2", roleColor)}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[11px] font-semibold uppercase tracking-wider py-0 px-2",
+                        roleColor,
+                      )}
+                    >
                       {roleLabel}
                     </Badge>
                   </div>
@@ -270,7 +288,14 @@ export function AppLayout() {
                     {session.departmentName || session.designation || roleLabel}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="h-9 w-9">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSignOut}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="h-9 w-9"
+                >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </div>

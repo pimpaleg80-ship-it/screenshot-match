@@ -84,9 +84,7 @@ serve(async (req) => {
     const rootFolderId = await getOrCreateFolder(accessToken, "FaceAttendance Backups");
 
     // 4. Encrypt refresh token
-    const encryptedToken = refreshToken
-      ? await encryptToken(refreshToken)
-      : "";
+    const encryptedToken = refreshToken ? await encryptToken(refreshToken) : "";
 
     // 5. Save into Supabase drive_connection table
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -111,7 +109,9 @@ serve(async (req) => {
       // Retain existing refresh token if Google didn't reissue on re-auth
       recordData.refresh_token_encrypted = existing.refresh_token_encrypted;
     } else {
-      throw new Error("No refresh token received. Please remove app access in Google Security settings and reconnect.");
+      throw new Error(
+        "No refresh token received. Please remove app access in Google Security settings and reconnect.",
+      );
     }
 
     if (existing?.id) {
@@ -138,4 +138,3 @@ serve(async (req) => {
     return Response.redirect(redirectUrl.toString(), 302);
   }
 });
-

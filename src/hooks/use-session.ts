@@ -48,7 +48,11 @@ let globalSession: Session | null = null;
 let globalProfile: UserProfile | null = null;
 let profileInFlight: Promise<UserProfile | null> | null = null;
 
-async function fetchUserProfile(userId: string, email?: string, userMetaName?: string): Promise<UserProfile | null> {
+async function fetchUserProfile(
+  userId: string,
+  email?: string,
+  userMetaName?: string,
+): Promise<UserProfile | null> {
   if (globalProfile && globalProfile.userId === userId) {
     return globalProfile;
   }
@@ -61,7 +65,9 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
       const [empRes, rolesRes, orgMemRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, work_location_id, departments(name)")
+          .select(
+            "id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, work_location_id, departments(name)",
+          )
           .eq("user_id", userId)
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
@@ -194,7 +200,8 @@ export function useSession(): AppSession {
   const isAdmin = roles.includes("admin") || orgRole === "org_admin" || orgRole === "super_admin";
   const isSuperadmin = !!profile?.isSuperadmin || orgRole === "super_admin";
   const isManager = roles.includes("manager") || orgRole === "hr_manager";
-  const isEmployee = roles.includes("employee") || orgRole === "employee" || (!isAdmin && !isManager);
+  const isEmployee =
+    roles.includes("employee") || orgRole === "employee" || (!isAdmin && !isManager);
   const isStaff = isAdmin || isManager;
   const isKiosk = roles.includes("kiosk");
   const hasAccess = !!session?.user && (roles.length > 0 || isEmployee || !!orgRole);

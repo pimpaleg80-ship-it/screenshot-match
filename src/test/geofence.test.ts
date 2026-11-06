@@ -1,8 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import {
-  calculateHaversineDistance,
-  formatDistance,
-} from "../lib/geofence";
+import { describe, it, expect } from "vitest";
+import { calculateHaversineDistance, formatDistance } from "../lib/geofence";
 
 describe("Geofence & Location Distance Calculations", () => {
   // Test Coordinates:
@@ -23,7 +20,7 @@ describe("Geofence & Location Distance Calculations", () => {
   });
 
   it("calculates accurate distance for intercity coordinates (Pune to Mumbai ~120km)", () => {
-    const mumbaiLat = 19.0760;
+    const mumbaiLat = 19.076;
     const mumbaiLon = 72.8777;
     const dist = calculateHaversineDistance(hqLat, hqLon, mumbaiLat, mumbaiLon);
     const distKm = dist / 1000;
@@ -48,8 +45,7 @@ describe("Geofence & Location Distance Calculations", () => {
     expect(distInside <= radiusMeters).toBe(true);
 
     // Outside point (~400m away)
-    const distOutside = calculateHaversineDistance(hqLat, hqLon, 18.5240, 73.8567);
+    const distOutside = calculateHaversineDistance(hqLat, hqLon, 18.524, 73.8567);
     expect(distOutside > radiusMeters).toBe(true);
   });
 });
-

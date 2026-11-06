@@ -2,7 +2,7 @@
 
 **Target Framework**: Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.0 / Asyncpg  
 **Current Backend State in Repository**: **VERIFIED ABSENT** — No Python FastAPI backend currently exists in the repository.  
-**Current Backend Implementation**: Supabase PostgREST (direct client query layer) + PostgreSQL PL/pgSQL RPC Functions + Deno Supabase Edge Functions + Nitro Server Entry (`src/server.ts`).  
+**Current Backend Implementation**: Supabase PostgREST (direct client query layer) + PostgreSQL PL/pgSQL RPC Functions + Deno Supabase Edge Functions + Nitro Server Entry (`src/server.ts`).
 
 ---
 
@@ -31,7 +31,9 @@ Because no Python files exist in the repository, all current backend operations 
 ### Existing Backend Logic Inventory
 
 #### 1. Supabase Edge Functions (Deno Runtime)
+
 Located in `supabase/functions/`:
+
 - `google-drive-auth-start`: Initiates Google OAuth 2.0 flow with `drive.file` and `userinfo.email` scopes.
 - `google-drive-auth-callback`: Exchanges authorization code for tokens, encrypts refresh token with AES-256-GCM via Web Crypto API, and writes to `drive_connection`.
 - `google-drive-status`: Checks connection validity and reports whether token has been revoked by Google.
@@ -40,7 +42,9 @@ Located in `supabase/functions/`:
 - `seed-demo-users`: Utility function for provisioning initial administrative accounts.
 
 #### 2. PostgreSQL Stored Procedures (PL/pgSQL Functions)
+
 Located in `public` schema:
+
 - `superadmin_provision_user`: Provisions new user in `auth.users`, creates identity in `auth.identities`, sets password hash via `extensions.crypt(..., extensions.gen_salt('bf', 10))`, assigns role, updates or inserts into `employees`, and logs to `audit_logs`.
 - `superadmin_reset_user_password`: Updates `auth.users.encrypted_password` with bcrypt hash and logs audit entry.
 - `superadmin_toggle_user_status`: Sets `employees.status` and bans/unbans user in `auth.users`.
@@ -77,6 +81,7 @@ Located in `public` schema:
 To meet the production multi-tenant requirements, all business logic, geofence verification, shift calculations, and PDF generation must be centralized into a dedicated Python FastAPI service.
 
 ### Target Directory Structure
+
 ```
 backend/
 ├── app/
@@ -122,10 +127,12 @@ backend/
 ## 4. Target API Router & Endpoint Inventory
 
 ### Authentication & Tenant Context (`/api/v1/auth`)
+
 - `GET /me`: Returns authenticated user identity, assigned organizations, active organization context, and roles.
 - `POST /switch-organization`: Switches active organization context and issues scoped tenant token.
 
 ### Organizations & Locations (`/api/v1/organizations`, `/api/v1/locations`)
+
 - `GET /organizations`: List organizations (Super Admin sees all; users see member organizations).
 - `POST /organizations`: Provision new tenant organization with isolated schema/tables.
 - `GET /locations`: List active office locations and geofence polygons for the active organization.
@@ -134,6 +141,7 @@ backend/
 - `POST /locations/{id}/assign-employees`: Assign personnel to specific office locations.
 
 ### Attendance Engine (`/api/v1/attendance`)
+
 - `POST /verify-location`: Receives mobile GPS coordinate `(lat, lon, accuracy, device_id)` and evaluates geofence zone. Returns `{ eligible_for_checkin: bool, eligible_for_checkout: bool, location_id: uuid }`. **Crucial**: Does NOT mark attendance.
 - `POST /check-in`: Authenticated employee manual action. Re-evaluates live GPS location against assigned geofence, verifies device ID, checks active shift, and creates an `attendance_session` record.
 - `POST /check-out`: Authenticated employee manual action. Re-evaluates live GPS location. **Strictly disabled** if employee is outside the assigned geofence zone. Calculates total session hours.
@@ -142,8 +150,8 @@ backend/
 - `POST /regularize`: Employee regularization request for missed punches or off-site duties with mandatory manager approval.
 
 ### Archival & Retention (`/api/v1/archives`)
+
 - `POST /google-drive/connect`: Generates organization-scoped OAuth 2.0 authorization URL.
 - `GET /google-drive/callback`: Handles OAuth redirect, stores encrypted refresh token in `attendance_archives`.
 - `POST /generate-monthly-pdf`: Triggers background compilation of employee-wise and organization-wise PDF reports.
 - `POST /run-retention-cleanup`: Executes rolling 90-day cleanup of temporary GPS verification logs after confirming archive integrity.
-

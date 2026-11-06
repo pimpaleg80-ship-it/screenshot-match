@@ -3,13 +3,14 @@
 **Connected Database**: Supabase PostgreSQL (`mnnecoyqofhrivxufhqm.supabase.co`)  
 **Region**: `aws-0-ap-southeast-1` (Singapore)  
 **PostgreSQL Version**: 15+ with `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault` extensions  
-**Audit Method**: Direct PostgreSQL system catalog queries (`pg_class`, `information_schema`, `pg_proc`, `pg_trigger`, `pg_policies`)  
+**Audit Method**: Direct PostgreSQL system catalog queries (`pg_class`, `information_schema`, `pg_proc`, `pg_trigger`, `pg_policies`)
 
 ---
 
 ## 1. Schema Overview
 
 The live database consists of:
+
 - **16 Tables** in `public` schema (all 16 have Row-Level Security explicitly enabled).
 - **2 Views** (`people`, `face_descriptors`) with `INSTEAD OF` triggers for legacy compatibility.
 - **39 RLS Policies** enforcing role-based permissions.
@@ -23,6 +24,7 @@ The live database consists of:
 ## 2. Comprehensive Table-by-Table Inventory
 
 ### 1. `employees`
+
 - **Purpose**: Core personnel directory storing identity, employee code, department assignment, manager hierarchy, and superadmin flag.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -49,6 +51,7 @@ The live database consists of:
 ---
 
 ### 2. `attendance`
+
 - **Purpose**: Daily work presence records capturing check-in timestamp, check-out timestamp, and attendance status.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -76,6 +79,7 @@ The live database consists of:
 ---
 
 ### 3. `user_roles`
+
 - **Purpose**: Role assignment mapping users to permission levels.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -89,6 +93,7 @@ The live database consists of:
 ---
 
 ### 4. `departments`
+
 - **Purpose**: Organizational units/departments (e.g., Engineering, Sales, Human Resources).
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -101,6 +106,7 @@ The live database consists of:
 ---
 
 ### 5. `leave_requests`
+
 - **Purpose**: Employee leave applications, approval workflows, and manager/admin comments.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -129,6 +135,7 @@ The live database consists of:
 ---
 
 ### 6. `leave_balances`
+
 - **Purpose**: Annual employee leave quotas and consumed days.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -145,6 +152,7 @@ The live database consists of:
 ---
 
 ### 7. `leave_types`
+
 - **Purpose**: Catalog of available leave categories (Casual Leave, Sick Leave, Paid Leave).
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -158,6 +166,7 @@ The live database consists of:
 ---
 
 ### 8. `face_data`
+
 - **Purpose**: Biometric facial recognition descriptors and employee consent.
 - **Organization Ownership**: **None (Single-Tenant)**.
 - **Important Columns**:
@@ -171,6 +180,7 @@ The live database consists of:
 ---
 
 ### 9. `drive_connection` & `drive_backups`
+
 - **Purpose**: Google Drive OAuth 2.0 connection credentials and file upload audit log.
 - **Organization Ownership**: **None (Single-Tenant Singleton)**.
 - **Columns (`drive_connection`)**: `id`, `google_email`, `refresh_token_encrypted`, `root_folder_id`, `connected_at`, `connected_by`, `auto_backup_on_pdf`, `daily_backup`.
@@ -181,6 +191,7 @@ The live database consists of:
 ---
 
 ### 10. `settings`
+
 - **Purpose**: Global configuration for work hours, shift times, late grace period, weekly offs, and biometric match thresholds.
 - **Organization Ownership**: **None (Single-Tenant Singleton, ID=1)**.
 - **Important Columns**: `id`, `work_start`, `work_end`, `late_grace_minutes`, `weekly_off_days`, `face_match_threshold`, `approval_flow`, `store_capture_photos`, `retention_days`, `email_notifications`, `duplicate_scan_minutes`.
@@ -189,6 +200,7 @@ The live database consists of:
 ---
 
 ### 11. `audit_logs`, `holidays`, `documents`, `notifications`
+
 - `audit_logs`: System activity trail (`user_id`, `user_email`, `action`, `details`, `target_user_id`, `created_at`).
 - `holidays`: Calendar dates flagged as company-wide non-working holidays (`date`, `title`, `description`).
 - `documents`: HR policies and company documents (`title`, `file_url`, `drive_link`, `drive_file_id`, `file_type`).
@@ -199,6 +211,7 @@ The live database consists of:
 ## 3. Database Views & Trigger-Based Abstractions
 
 1. **`people` View**:
+
    ```sql
    SELECT e.id, e.full_name AS name, e.employee_code AS person_code,
           COALESCE(d.name, 'General') AS department, e.email, e.phone,
@@ -207,14 +220,15 @@ The live database consists of:
    LEFT JOIN departments d ON d.id = e.department_id
    WHERE e.is_superadmin IS NOT TRUE;
    ```
-   *Purpose*: Provides a simplified employee roster while hiding accounts flagged with `is_superadmin = true`. Backed by `INSTEAD OF` triggers (`trg_people_insert`, `trg_people_update`, `trg_people_delete`) mapping modifications back to `public.employees`.
+
+   _Purpose_: Provides a simplified employee roster while hiding accounts flagged with `is_superadmin = true`. Backed by `INSTEAD OF` triggers (`trg_people_insert`, `trg_people_update`, `trg_people_delete`) mapping modifications back to `public.employees`.
 
 2. **`face_descriptors` View**:
    ```sql
    SELECT employee_id AS person_id, descriptor, 1 AS samples, enrolled_at AS updated_at
    FROM face_data;
    ```
-   *Purpose*: Exposes biometric face data under legacy schema names for kiosk backward compatibility.
+   _Purpose_: Exposes biometric face data under legacy schema names for kiosk backward compatibility.
 
 ---
 
@@ -226,4 +240,3 @@ The live database consists of:
 4. `0003_superadmin_stealth_security.sql` (`is_superadmin` column, duplicate scan minutes, stealth separation).
 5. `0004_admin_employee_stealth_provisioning.sql` (`admin_create_employee` function).
 6. `0005_fix_pgcrypto_search_path_and_employee_provisioning.sql` (Resolved `pgcrypto` search path and trigger duplication).
-

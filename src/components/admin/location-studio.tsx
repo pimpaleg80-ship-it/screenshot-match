@@ -105,9 +105,9 @@ export function AdminLocationStudio() {
           .select("*")
           .order("created_at", { ascending: true });
         if (fbErr) throw fbErr;
-        return (fallback ?? []) as WorkLocationEntity[];
+        return (fallback ?? []) as unknown as WorkLocationEntity[];
       }
-      return (data ?? []) as WorkLocationEntity[];
+      return (data ?? []) as unknown as WorkLocationEntity[];
     },
   });
 
@@ -117,10 +117,12 @@ export function AdminLocationStudio() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, employee_code, email, designation, work_location_id, departments(name)")
+        .select(
+          "id, full_name, employee_code, email, designation, work_location_id, departments(name)",
+        )
         .order("full_name");
       if (error) throw error;
-      return (data ?? []) as Array<{
+      return (data ?? []) as unknown as Array<{
         id: string;
         full_name: string;
         employee_code: string;
@@ -136,14 +138,16 @@ export function AdminLocationStudio() {
   useEffect(() => {
     if (!selectedLocId && locations.length > 0 && !isCreatingNew) {
       const first = locations[0];
-      setSelectedLocId(first.id);
-      setName(first.name);
-      setAddress(first.address || "");
-      setLat(first.latitude);
-      setLng(first.longitude);
-      setRadius(first.radius_meters);
-      setIsActive(first.is_active);
-      setIsDirty(false);
+      if (first) {
+        setSelectedLocId(first.id);
+        setName(first.name);
+        setAddress(first.address || "");
+        setLat(first.latitude);
+        setLng(first.longitude);
+        setRadius(first.radius_meters);
+        setIsActive(first.is_active);
+        setIsDirty(false);
+      }
     }
   }, [isCreatingNew, locations, selectedLocId]);
 
@@ -167,9 +171,10 @@ export function AdminLocationStudio() {
     setName("");
     setAddress("");
     // Default to existing HQ coordinates or current user position
-    if (locations.length > 0) {
-      setLat(locations[0].latitude + 0.005);
-      setLng(locations[0].longitude + 0.005);
+    const firstLoc = locations[0];
+    if (firstLoc) {
+      setLat(firstLoc.latitude + 0.005);
+      setLng(firstLoc.longitude + 0.005);
     }
     setRadius(150);
     setIsActive(true);
@@ -272,7 +277,7 @@ export function AdminLocationStudio() {
       toast.success(
         data.action === "created"
           ? "New office location registered successfully!"
-          : "Office location and geofence updated!"
+          : "Office location and geofence updated!",
       );
       setIsDirty(false);
       setIsCreatingNew(false);
@@ -316,7 +321,7 @@ export function AdminLocationStudio() {
 
   const handleToggleStaffSelection = (empId: string) => {
     setSelectedStaffIds((prev) =>
-      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
+      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId],
     );
   };
 
@@ -347,7 +352,7 @@ export function AdminLocationStudio() {
       (e) =>
         e.full_name.toLowerCase().includes(q) ||
         e.employee_code.toLowerCase().includes(q) ||
-        (e.departments?.name && e.departments.name.toLowerCase().includes(q))
+        (e.departments?.name && e.departments.name.toLowerCase().includes(q)),
     );
   }, [allEmployees, staffSearch]);
 
@@ -380,9 +385,7 @@ export function AdminLocationStudio() {
                   <Badge
                     variant="outline"
                     className={`text-[10px] px-1 py-0 h-4 border-none ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-muted text-muted-foreground"
+                      isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {loc.assigned_employee_count ?? 0} staff
@@ -490,7 +493,9 @@ export function AdminLocationStudio() {
                 <span>{isCreatingNew ? "Create Office Location" : name || "Office Details"}</span>
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                {isCreatingNew ? "Configure coordinates and circular geofence" : "Edit coordinates, radius and assigned staff"}
+                {isCreatingNew
+                  ? "Configure coordinates and circular geofence"
+                  : "Edit coordinates, radius and assigned staff"}
               </p>
             </div>
 
@@ -551,7 +556,9 @@ export function AdminLocationStudio() {
                   disabled={detectingGps}
                   className="h-7 text-[11px] gap-1 px-2 rounded-lg"
                 >
-                  <Navigation className={`h-3 w-3 ${detectingGps ? "animate-spin text-primary" : ""}`} />
+                  <Navigation
+                    className={`h-3 w-3 ${detectingGps ? "animate-spin text-primary" : ""}`}
+                  />
                   {detectingGps ? "Detecting..." : "Use My GPS"}
                 </Button>
               </div>
@@ -638,7 +645,9 @@ export function AdminLocationStudio() {
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
               <div className="space-y-0.5">
                 <Label className="text-xs font-medium">Operational Status</Label>
-                <p className="text-[11px] text-muted-foreground">Allow employees to check in at this office</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Allow employees to check in at this office
+                </p>
               </div>
               <Switch
                 checked={isActive}
@@ -751,9 +760,13 @@ export function AdminLocationStudio() {
           {/* Employees List */}
           <div className="flex-1 overflow-y-auto divide-y divide-border/60 border rounded-xl max-h-72">
             {employeesLoading ? (
-              <div className="p-4 text-center text-xs text-muted-foreground">Loading employee directory...</div>
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                Loading employee directory...
+              </div>
             ) : filteredStaffList.length === 0 ? (
-              <div className="p-4 text-center text-xs text-muted-foreground">No matching employees found.</div>
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                No matching employees found.
+              </div>
             ) : (
               filteredStaffList.map((emp) => {
                 const isAssigned = selectedStaffIds.includes(emp.id);
@@ -832,8 +845,8 @@ export function AdminLocationStudio() {
               <span>Remove Office Location</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Are you sure you want to remove <strong>"{name}"</strong>? Any employees assigned to this location
-              will need to be reassigned to another active branch.
+              Are you sure you want to remove <strong>"{name}"</strong>? Any employees assigned to
+              this location will need to be reassigned to another active branch.
             </DialogDescription>
           </DialogHeader>
 
@@ -864,4 +877,3 @@ export function AdminLocationStudio() {
     </div>
   );
 }
-

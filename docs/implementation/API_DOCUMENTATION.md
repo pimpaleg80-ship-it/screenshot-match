@@ -1,13 +1,14 @@
 # FlowPeople HRMS — API & RPC Function Documentation
 
 **Protocol**: PostgreSQL Stored Procedures / Supabase PostgREST Data API  
-**Authentication**: Supabase JWT (`Bearer <access_token>`)  
+**Authentication**: Supabase JWT (`Bearer <access_token>`)
 
 ---
 
 ## 1. Remote Procedure Calls (RPCs)
 
 ### `public.verify_and_record_attendance`
+
 Gated manual attendance submission with horizontal GPS accuracy and geofence perimeter validation.
 
 - **Endpoint**: `POST /rest/v1/rpc/verify_and_record_attendance`
@@ -38,6 +39,7 @@ Gated manual attendance submission with horizontal GPS accuracy and geofence per
 ---
 
 ### `public.get_employee_geofence_context`
+
 Queries the active employee's assigned work location, shift boundaries, and today's attendance status.
 
 - **Endpoint**: `POST /rest/v1/rpc/get_employee_geofence_context`
@@ -70,8 +72,8 @@ Queries the active employee's assigned work location, shift boundaries, and toda
 ---
 
 ### `public.calculate_haversine_distance`
+
 Calculates distance in meters between two coordinate pairs.
 
 - **Parameters**: `lat1`, `lon1`, `lat2`, `lon2` (`double precision`)
 - **Returns**: `double precision` (distance in meters)
-

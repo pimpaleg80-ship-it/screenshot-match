@@ -3,13 +3,7 @@ import { createRouter, rootRouteId } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
-import {
-  toDateKey,
-  totalHours,
-  formatHours,
-  STATUS_COLORS,
-  STATUS_LABELS,
-} from "@/lib/attendance";
+import { toDateKey, totalHours, formatHours, STATUS_COLORS, STATUS_LABELS } from "@/lib/attendance";
 import {
   descriptorDistance,
   averageDescriptors,
@@ -27,7 +21,15 @@ describe("App routing", () => {
   });
 
   it("matches authenticated routes correctly", () => {
-    const routes = ["/dashboard", "/people", "/enroll", "/kiosk", "/attendance", "/reports", "/settings"];
+    const routes = [
+      "/dashboard",
+      "/people",
+      "/enroll",
+      "/kiosk",
+      "/attendance",
+      "/reports",
+      "/settings",
+    ];
     for (const r of routes) {
       const matches = router.matchRoutes(r);
       expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);

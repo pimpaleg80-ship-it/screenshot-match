@@ -39,7 +39,10 @@ export const Route = createFileRoute("/_authenticated/documents")({
   head: () => ({
     meta: [
       { title: "Company Documents — Flowpeople by Fluxora" },
-      { name: "description", content: "Corporate policies, employee handbooks, and official forms." },
+      {
+        name: "description",
+        content: "Corporate policies, employee handbooks, and official forms.",
+      },
     ],
   }),
   component: DocumentsPage,
@@ -58,14 +61,7 @@ interface DocumentRow {
   created_at: string;
 }
 
-const CATEGORIES = [
-  "All",
-  "Policy",
-  "Form",
-  "Handbook",
-  "Guide",
-  "General",
-];
+const CATEGORIES = ["All", "Policy", "Form", "Handbook", "Guide", "General"];
 
 function DocumentsPage() {
   const session = useSession();
@@ -92,7 +88,7 @@ function DocumentsPage() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as DocumentRow[];
+      return (data ?? []) as unknown as DocumentRow[];
     },
   });
 
@@ -121,6 +117,10 @@ function DocumentsPage() {
           .getPublicUrl(storageData.path);
 
         fileUrl = publicUrlData.publicUrl;
+      }
+
+      if (!fileUrl) {
+        throw new Error("Please upload a document file or provide a Google Drive share link.");
       }
 
       const { error } = await supabase.from("documents").insert({
@@ -175,7 +175,8 @@ function DocumentsPage() {
       !q ||
       d.title.toLowerCase().includes(q) ||
       (d.description && d.description.toLowerCase().includes(q));
-    const matchesCat = selectedCat === "All" || d.category.toLowerCase() === selectedCat.toLowerCase();
+    const matchesCat =
+      selectedCat === "All" || d.category.toLowerCase() === selectedCat.toLowerCase();
     return matchesSearch && matchesCat;
   });
 
@@ -205,13 +206,18 @@ function DocumentsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Documents</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Company Documents
+          </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Official repository for corporate policies, leave forms, handbooks, and guidelines.
           </p>
         </div>
         {canUpload && (
-          <Button onClick={() => setUploadModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
+          <Button
+            onClick={() => setUploadModalOpen(true)}
+            className="gap-2 w-full sm:w-auto text-xs h-9"
+          >
             <Upload className="h-4 w-4" />
             Upload Document
           </Button>
@@ -267,7 +273,10 @@ function DocumentsPage() {
           {filteredDocs.map((doc) => {
             const hasDrive = !!doc.drive_link || !!doc.drive_file_id;
             return (
-              <Card key={doc.id} className="flex flex-col justify-between transition-all hover:shadow-soft">
+              <Card
+                key={doc.id}
+                className="flex flex-col justify-between transition-all hover:shadow-soft"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -294,12 +303,7 @@ function DocumentsPage() {
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       {doc.file_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs"
-                          asChild
-                        >
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" asChild>
                           <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                             <Download className="h-3.5 w-3.5" />
                             Download
@@ -315,7 +319,10 @@ function DocumentsPage() {
                           asChild
                         >
                           <a
-                            href={doc.drive_link || `https://drive.google.com/file/d/${doc.drive_file_id}/view`}
+                            href={
+                              doc.drive_link ||
+                              `https://drive.google.com/file/d/${doc.drive_file_id}/view`
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -431,4 +438,3 @@ function DocumentsPage() {
     </div>
   );
 }
-

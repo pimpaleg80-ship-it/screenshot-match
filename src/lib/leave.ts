@@ -59,7 +59,7 @@ export function calculateWorkingLeaveDays(
   toDateStr: string,
   halfDay: boolean = false,
   holidays: Holiday[] = [],
-  weeklyOffDays: number[] = [0] // 0 = Sunday
+  weeklyOffDays: number[] = [0], // 0 = Sunday
 ): { days: number; excludedWeeklyOffs: number; excludedHolidays: number; breakdown: string[] } {
   if (!fromDateStr || !toDateStr) {
     return { days: 0, excludedWeeklyOffs: 0, excludedHolidays: 0, breakdown: [] };
@@ -114,7 +114,7 @@ export function checkLeaveOverlap(
   fromDateStr: string,
   toDateStr: string,
   existingRequests: LeaveRequest[],
-  excludeRequestId?: string
+  excludeRequestId?: string,
 ): boolean {
   const reqStart = new Date(fromDateStr + "T00:00:00").getTime();
   const reqEnd = new Date(toDateStr + "T23:59:59").getTime();
@@ -144,4 +144,3 @@ export const LEAVE_STATUS_LABELS: Record<string, string> = {
   rejected: "Rejected",
   cancelled: "Cancelled",
 };
-

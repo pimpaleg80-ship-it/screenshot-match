@@ -1,13 +1,14 @@
 # FlowPeople HRMS — Multi-Tenancy & Tenant Isolation Architecture
 
 **Pattern**: Pooled Multi-Tenancy with Tenant-Discriminated Row-Level Security  
-**Tenant Identifier**: `organization_id (uuid)`  
+**Tenant Identifier**: `organization_id (uuid)`
 
 ---
 
 ## 1. Isolation Mechanism
 
 Every multi-tenant entity contains an `organization_id` foreign key referencing `public.organizations(id)`:
+
 - `employees`
 - `departments`
 - `work_locations`
@@ -46,4 +47,3 @@ Every multi-tenant entity contains an `organization_id` foreign key referencing 
 
 - **Select Operations**: Constrained to records where `organization_id IN (SELECT organization_id FROM organization_members WHERE user_id = (select auth.uid()))` or caller is a verified `super_admin`.
 - **Insert/Update/Delete Operations**: Restricted to organization administrators (`role IN ('super_admin', 'org_admin')`).
-

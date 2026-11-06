@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 
 describe("Multi-Tenancy & SaaS Role Hierarchy", () => {
   const roleHierarchy = {
@@ -40,4 +40,3 @@ describe("Multi-Tenancy & SaaS Role Hierarchy", () => {
     expect(hasAccess("employee", "employee")).toBe(true);
   });
 });
-

@@ -24,17 +24,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  loadFaceApi,
-  detectOptions,
-  descriptorDistance,
-} from "@/lib/face";
-import {
-  toDateKey,
-  formatTime,
-  STATUS_COLORS,
-  STATUS_LABELS,
-} from "@/lib/attendance";
+import { loadFaceApi, detectOptions, descriptorDistance } from "@/lib/face";
+import { toDateKey, formatTime, STATUS_COLORS, STATUS_LABELS } from "@/lib/attendance";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +44,10 @@ export const Route = createFileRoute("/_authenticated/kiosk")({
   head: () => ({
     meta: [
       { title: "Smart Kiosk — Flowpeople by Fluxora" },
-      { name: "description", content: "Self-service facial recognition check-in/out kiosk terminal." },
+      {
+        name: "description",
+        content: "Self-service facial recognition check-in/out kiosk terminal.",
+      },
     ],
   }),
   component: KioskPage,
@@ -141,7 +135,7 @@ function drawFaceHUD(
   box: { x: number; y: number; width: number; height: number },
   isMatched: boolean,
   label: string,
-  distance: number
+  distance: number,
 ) {
   ctx.save();
   const { x, y, width: w, height: h } = box;
@@ -222,7 +216,9 @@ function KioskPage() {
 
   // Kiosk Operating Mode: Auto (smart in/out detection), In only, Out only
   const [mode, setMode] = useState<"auto" | "in" | "out">("auto");
-  const [thresholdPreset, setThresholdPreset] = useState<"strict" | "balanced" | "fast">("balanced");
+  const [thresholdPreset, setThresholdPreset] = useState<"strict" | "balanced" | "fast">(
+    "balanced",
+  );
   const [modelReady, setModelReady] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -273,9 +269,7 @@ function KioskPage() {
 
       try {
         // Query primary face_data table
-        const { data: primaryData, error: primaryErr } = await supabase
-          .from("face_data")
-          .select(`
+        const { data: primaryData, error: primaryErr } = await supabase.from("face_data").select(`
             id,
             employee_id,
             descriptor,
@@ -294,7 +288,12 @@ function KioskPage() {
         if (!primaryErr && primaryData) {
           for (const row of primaryData) {
             const emp = (row as any).employees;
-            if (emp && emp.status === "active" && Array.isArray(row.descriptor) && row.descriptor.length >= 128) {
+            if (
+              emp &&
+              emp.status === "active" &&
+              Array.isArray(row.descriptor) &&
+              row.descriptor.length >= 128
+            ) {
               list.push({
                 employee_id: emp.id,
                 descriptor: row.descriptor as number[],
@@ -316,11 +315,13 @@ function KioskPage() {
       try {
         const { data: legacyData } = await supabase
           .from("face_descriptors")
-          .select("person_id, descriptor, people:people!inner(id, name, person_code, department, photo_url, active)");
+          .select(
+            "person_id, descriptor, people:people!inner(id, name, person_code, department, photo_url, active)",
+          );
 
         if (legacyData) {
           for (const row of legacyData) {
-            if (seen.has(row.person_id)) continue;
+            if (!row.person_id || seen.has(row.person_id)) continue;
             const p = (row as any).people;
             if (p && p.active && Array.isArray(row.descriptor) && row.descriptor.length >= 128) {
               list.push({
@@ -497,7 +498,10 @@ function KioskPage() {
           toast.info(`Goodbye, ${match.name}! Checked Out.`);
         } else {
           // Cooldown notice (already logged in or logged out within 2-3 minutes)
-          recentScanMapRef.current.set(match.employee_id, { time: now, type: actionType === "cooldown_in" ? "in" : "out" });
+          recentScanMapRef.current.set(match.employee_id, {
+            time: now,
+            type: actionType === "cooldown_in" ? "in" : "out",
+          });
           if (soundEnabled) playKioskChime("cooldown");
           toast.warning(feedbackMessage, { duration: 3000 });
         }
@@ -690,7 +694,9 @@ function KioskPage() {
       // Look up in employees table
       const { data: emp, error: empErr } = await supabase
         .from("employees")
-        .select("id, full_name, employee_code, designation, photo_url, department_id, departments(name)")
+        .select(
+          "id, full_name, employee_code, designation, photo_url, department_id, departments(name)",
+        )
         .ilike("employee_code", code)
         .eq("status", "active")
         .maybeSingle();
@@ -721,10 +727,10 @@ function KioskPage() {
 
       if (person) {
         const dummy: EnrolledPerson = {
-          employee_id: person.id,
+          employee_id: person.id || "",
           descriptor: [],
-          name: person.name,
-          employee_code: person.person_code,
+          name: person.name || "Staff",
+          employee_code: person.person_code || "EMP",
           department: person.department || "General",
           designation: "Staff",
           photo_url: person.photo_url,
@@ -830,7 +836,9 @@ function KioskPage() {
             <button
               onClick={() => setThresholdPreset("strict")}
               className={`px-2 py-1 rounded font-medium ${
-                thresholdPreset === "strict" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
+                thresholdPreset === "strict"
+                  ? "bg-white/20 text-white"
+                  : "text-white/60 hover:text-white"
               }`}
               title="Strict matching threshold (0.42)"
             >
@@ -839,7 +847,9 @@ function KioskPage() {
             <button
               onClick={() => setThresholdPreset("balanced")}
               className={`px-2 py-1 rounded font-medium ${
-                thresholdPreset === "balanced" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
+                thresholdPreset === "balanced"
+                  ? "bg-white/20 text-white"
+                  : "text-white/60 hover:text-white"
               }`}
               title="Balanced threshold (0.48)"
             >
@@ -848,7 +858,9 @@ function KioskPage() {
             <button
               onClick={() => setThresholdPreset("fast")}
               className={`px-2 py-1 rounded font-medium ${
-                thresholdPreset === "fast" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
+                thresholdPreset === "fast"
+                  ? "bg-white/20 text-white"
+                  : "text-white/60 hover:text-white"
               }`}
               title="Fast threshold (0.52)"
             >
@@ -900,7 +912,9 @@ function KioskPage() {
         {(!modelReady || !cameraActive) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 text-white z-10">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <h3 className="mt-4 text-lg font-semibold tracking-tight">Initializing Biometric Terminal</h3>
+            <h3 className="mt-4 text-lg font-semibold tracking-tight">
+              Initializing Biometric Terminal
+            </h3>
             <p className="mt-1 text-xs text-white/60 max-w-xs text-center">
               Initializing camera and biometric scanner...
             </p>
@@ -1032,7 +1046,8 @@ function KioskPage() {
             <span className="font-semibold text-white">Live Kiosk Terminal</span>
             <span className="text-white/40">•</span>
             <span className="text-white/80">
-              Mode: <strong className="text-emerald-400 uppercase">{mode}</strong> (2.5m anti-double-scan cooldown)
+              Mode: <strong className="text-emerald-400 uppercase">{mode}</strong> (2.5m
+              anti-double-scan cooldown)
             </span>
           </div>
 

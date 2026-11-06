@@ -101,7 +101,7 @@ export async function generateMonthlyEmployeeAttendancePdf(
   employeeId: string,
   employeeName: string,
   year: number,
-  month: number
+  month: number,
 ): Promise<void> {
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
@@ -124,7 +124,11 @@ export async function generateMonthlyEmployeeAttendancePdf(
     r.date,
     r.check_in ? formatTime(r.check_in) : "--",
     r.check_out ? formatTime(r.check_out) : "--",
-    r.total_hours ? `${r.total_hours}h` : r.check_in && r.check_out ? formatHours(totalHours(r.check_in, r.check_out)) : "--",
+    r.total_hours
+      ? `${r.total_hours}h`
+      : r.check_in && r.check_out
+        ? formatHours(totalHours(r.check_in, r.check_out))
+        : "--",
     r.status?.toUpperCase() || "PRESENT",
     r.method || "manual_geofence",
   ]);
@@ -148,7 +152,7 @@ export async function generateMonthlyOrgMasterPdf(
   organizationId: string,
   organizationName: string,
   year: number,
-  month: number
+  month: number,
 ): Promise<void> {
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
@@ -206,7 +210,14 @@ export async function generateMonthlyOrgMasterPdf(
     fileType: "report",
     periodStart: startDate,
     periodEnd: endDate,
-    headers: ["Emp Code", "Employee Name", "Department", "Days Present", "Late Marks", "Total Hours Logged"],
+    headers: [
+      "Emp Code",
+      "Employee Name",
+      "Department",
+      "Days Present",
+      "Late Marks",
+      "Total Hours Logged",
+    ],
     rows,
   });
 }

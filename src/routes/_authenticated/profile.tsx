@@ -107,7 +107,8 @@ function ProfilePage() {
       if (!session.user?.id) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select(`
+        .select(
+          `
           id,
           user_id,
           employee_code,
@@ -122,7 +123,8 @@ function ProfilePage() {
           manager_id,
           departments(name),
           manager:employees!employees_manager_id_fkey(full_name)
-        `)
+        `,
+        )
         .eq("user_id", session.user.id)
         .maybeSingle();
 
@@ -308,7 +310,10 @@ function ProfilePage() {
                       <CheckCircle2 className="h-3 w-3" /> Enrolled
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400 text-[10px] gap-1">
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 dark:text-amber-400 text-[10px] gap-1"
+                    >
                       <AlertCircle className="h-3 w-3" /> Not Enrolled
                     </Badge>
                   )}
@@ -405,8 +410,12 @@ function ProfilePage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-base">Leave Balances ({new Date().getFullYear()})</CardTitle>
-                    <CardDescription>Available annual paid quota and utilized days.</CardDescription>
+                    <CardTitle className="text-base">
+                      Leave Balances ({new Date().getFullYear()})
+                    </CardTitle>
+                    <CardDescription>
+                      Available annual paid quota and utilized days.
+                    </CardDescription>
                   </div>
                   <Palmtree className="h-5 w-5 text-muted-foreground" />
                 </div>
@@ -426,7 +435,8 @@ function ProfilePage() {
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold">{b.leave_types?.name || "Leave"}</span>
                             <span className="text-muted-foreground">
-                              <span className="font-bold text-foreground">{available}</span> / {b.total_days} left
+                              <span className="font-bold text-foreground">{available}</span> /{" "}
+                              {b.total_days} left
                             </span>
                           </div>
                           <Progress value={b.used_days} max={b.total_days} className="h-1.5" />
@@ -485,7 +495,11 @@ function ProfilePage() {
                       disabled={passwordLoading || !newPassword || !confirmPassword}
                       className="gap-1.5"
                     >
-                      {passwordLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      {passwordLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Save className="h-3.5 w-3.5" />
+                      )}
                       Update Password
                     </Button>
                   </div>
@@ -498,4 +512,3 @@ function ProfilePage() {
     </div>
   );
 }
-

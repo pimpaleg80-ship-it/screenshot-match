@@ -118,7 +118,11 @@ function LeavesPage() {
   const { data: leaveTypes = [] } = useQuery({
     queryKey: ["leave-types"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("leave_types").select("*").eq("active", true).order("name");
+      const { data, error } = await supabase
+        .from("leave_types")
+        .select("*")
+        .eq("active", true)
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -150,7 +154,7 @@ function LeavesPage() {
         .eq("employee_id", session.employeeId!)
         .eq("year", currentYear);
       if (error) throw error;
-      return (data as LeaveBalance[]) ?? [];
+      return (data as unknown as LeaveBalance[]) ?? [];
     },
   });
 
@@ -160,7 +164,9 @@ function LeavesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leave_requests")
-        .select("*, employees(id, full_name, employee_code, department_id, departments(name)), leave_types(*)")
+        .select(
+          "*, employees(id, full_name, employee_code, department_id, departments(name)), leave_types(*)",
+        )
         .order("applied_at", { ascending: false });
       if (error) throw error;
       return (data as unknown as LeaveRequest[]) ?? [];
@@ -181,7 +187,7 @@ function LeavesPage() {
   const isBalanceExceeded = Boolean(
     selectedBalance &&
     selectedBalance.leave_types?.is_paid &&
-    calculatedDays.days > selectedBalance.remaining
+    calculatedDays.days > selectedBalance.remaining,
   );
 
   // My requests vs Team vs All
@@ -204,7 +210,8 @@ function LeavesPage() {
 
       // Check overlap
       const hasOverlap = checkLeaveOverlap(fromDate, toDate, myRequests);
-      if (hasOverlap) throw new Error("Leave dates overlap with another pending or approved request");
+      if (hasOverlap)
+        throw new Error("Leave dates overlap with another pending or approved request");
 
       let attachmentUrl: string | null = null;
       if (attachmentFile && session.user) {
@@ -283,16 +290,16 @@ function LeavesPage() {
       };
 
       if (isAdmin) {
-        updatePayload.admin_id = session.employeeId;
-        updatePayload.admin_comment = decisionComment.trim() || null;
+        updatePayload["admin_id"] = session.employeeId;
+        updatePayload["admin_comment"] = decisionComment.trim() || null;
       } else if (isMgr) {
-        updatePayload.manager_id = session.employeeId;
-        updatePayload.manager_comment = decisionComment.trim() || null;
+        updatePayload["manager_id"] = session.employeeId;
+        updatePayload["manager_comment"] = decisionComment.trim() || null;
       }
 
       const { error } = await supabase
         .from("leave_requests")
-        .update(updatePayload)
+        .update(updatePayload as any)
         .eq("id", selectedRequest.id);
 
       if (error) throw error;
@@ -354,8 +361,8 @@ function LeavesPage() {
             {session.isAdmin
               ? "Organization-wide leave ledger, approvals, and balance controls"
               : session.isManager
-              ? "Team leave inbox, approvals, and personal leave requests"
-              : "Track your leave balances, apply for leaves, and view past requests"}
+                ? "Team leave inbox, approvals, and personal leave requests"
+                : "Track your leave balances, apply for leaves, and view past requests"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -424,7 +431,8 @@ function LeavesPage() {
           ))
         ) : (
           <Card className="col-span-full p-6 text-center text-muted-foreground">
-            No active leave balance ledger assigned for {currentYear}. Contact your HR administrator.
+            No active leave balance ledger assigned for {currentYear}. Contact your HR
+            administrator.
           </Card>
         )}
       </div>
@@ -447,7 +455,9 @@ function LeavesPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-base">My Leave History</CardTitle>
-                <CardDescription>All submitted leave requests and their current decision status.</CardDescription>
+                <CardDescription>
+                  All submitted leave requests and their current decision status.
+                </CardDescription>
               </div>
             </CardHeader>
             <CardContent>
@@ -483,7 +493,9 @@ function LeavesPage() {
                           <td className="py-3.5 font-medium">{req.leave_types?.name || "Leave"}</td>
                           <td className="py-3.5 text-xs text-muted-foreground">
                             {formatDate(req.from_date)} → {formatDate(req.to_date)}
-                            {req.half_day && <span className="ml-1 font-semibold text-primary">(Half day)</span>}
+                            {req.half_day && (
+                              <span className="ml-1 font-semibold text-primary">(Half day)</span>
+                            )}
                           </td>
                           <td className="py-3.5 font-semibold">{req.days}d</td>
                           <td className="py-3.5 max-w-xs truncate text-xs text-muted-foreground">
@@ -567,7 +579,8 @@ function LeavesPage() {
                                 {req.employees?.full_name || "Employee"}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {req.employees?.employee_code} • {req.employees?.departments?.name || "General"}
+                                {req.employees?.employee_code} •{" "}
+                                {req.employees?.departments?.name || "General"}
                               </p>
                             </td>
                             <td className="py-3.5 font-medium">{req.leave_types?.name}</td>
@@ -581,7 +594,8 @@ function LeavesPage() {
                             <td className="py-3.5">
                               <span
                                 className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                                  LEAVE_STATUS_COLORS[req.status] || "bg-muted text-muted-foreground"
+                                  LEAVE_STATUS_COLORS[req.status] ||
+                                  "bg-muted text-muted-foreground"
                                 }`}
                               >
                                 {LEAVE_STATUS_LABELS[req.status] || req.status}
@@ -617,7 +631,9 @@ function LeavesPage() {
                                   </Button>
                                 </div>
                               ) : (
-                                <span className="text-xs text-muted-foreground italic">Decided</span>
+                                <span className="text-xs text-muted-foreground italic">
+                                  Decided
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -656,7 +672,9 @@ function LeavesPage() {
                           className="flex items-center justify-between rounded-lg border bg-background p-2.5 text-xs shadow-soft"
                         >
                           <span className="font-semibold text-foreground">{h.title}</span>
-                          <span className="text-muted-foreground font-mono">{formatDate(h.date)}</span>
+                          <span className="text-muted-foreground font-mono">
+                            {formatDate(h.date)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -705,8 +723,8 @@ function LeavesPage() {
           <DialogHeader>
             <DialogTitle>Apply for Leave</DialogTitle>
             <DialogDescription>
-              Submit a formal leave request. Working days are computed automatically, skipping weekly offs
-              and official holidays.
+              Submit a formal leave request. Working days are computed automatically, skipping
+              weekly offs and official holidays.
             </DialogDescription>
           </DialogHeader>
 
@@ -817,7 +835,9 @@ function LeavesPage() {
             </Button>
             <Button
               onClick={() => applyLeaveMutation.mutate()}
-              disabled={applyLeaveMutation.isPending || isBalanceExceeded || calculatedDays.days <= 0}
+              disabled={
+                applyLeaveMutation.isPending || isBalanceExceeded || calculatedDays.days <= 0
+              }
             >
               {applyLeaveMutation.isPending ? "Submitting..." : "Submit Request"}
             </Button>
@@ -840,7 +860,8 @@ function LeavesPage() {
 
           <div className="space-y-3 py-2 text-sm">
             <p className="text-xs text-muted-foreground">
-              Reason provided: <span className="font-medium text-foreground">{selectedRequest?.reason || "—"}</span>
+              Reason provided:{" "}
+              <span className="font-medium text-foreground">{selectedRequest?.reason || "—"}</span>
             </p>
             <div className="space-y-2">
               <Label htmlFor="decision-comment">Comments / Feedback</Label>
@@ -977,4 +998,3 @@ function LeavesPage() {
     </div>
   );
 }
-

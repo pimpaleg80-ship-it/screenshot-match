@@ -1,9 +1,10 @@
 # Flowpeople by Fluxora
+
 # Comprehensive User Manual & Operations Guide
 
 > **Version:** 2.4.0 (Enterprise B2B Edition)  
 > **Brand:** Flowpeople by Fluxora  
-> **Target Audience:** System Administrators, HR Personnel, Department Managers, Employees, and Terminal Operators  
+> **Target Audience:** System Administrators, HR Personnel, Department Managers, Employees, and Terminal Operators
 
 ---
 
@@ -51,6 +52,7 @@
 **Flowpeople by Fluxora** is a unified B2B workforce management and contactless attendance platform. The suite combines lightweight edge artificial intelligence for sub-second facial recognition with a secure cloud database backend.
 
 ### Key Architectural Strengths
+
 - **Pure B2B Closed Enrollment**: Open public registrations are eliminated. Every account is explicitly created and credentialed by an administrator.
 - **Stealth Superadmin Layer**: Root administration is completely decoupled and concealed from the standard user interface, preserving zero frontend disclosure.
 - **Exact Punch Logging**: Unfair shift boundary penalties have been removed. System directly logs exact check-in and check-out timestamps with live duration metrics.
@@ -84,6 +86,7 @@ Flowpeople implements four distinct clearance tiers, each tailored with appropri
 ```
 
 ### Sign-In Process
+
 1. Navigate to the enterprise login screen: `https://your-domain.com/auth`.
 2. Enter your corporate email address and assigned password.
 3. Click **Sign in**.
@@ -101,11 +104,13 @@ The Superadmin console is an isolated administrative surface built for platform 
 > To preserve organizational hierarchy and operational security, **Superadmin links and branding are never displayed in the standard sidebar, navigation bars, or employee lists**. Access is exclusively via direct URL navigation to `/superadmin`.
 
 ### Accessing the Console
+
 1. Log in with your Superadmin account (e.g., `pimpaleharshad99@gmail.com`).
 2. Navigate directly to `/superadmin` in the browser address bar.
 3. If accessed by an unauthorized user, the system automatically redirects them to `/dashboard` with an access-denied advisory.
 
 ### Console Features & Controls
+
 - **System Health & Connectivity Status**: Real-time diagnostic ping checking the PostgreSQL database cluster, latency, and active connection pool status.
 - **Account Clearance Governance**: View all provisioned administrative accounts and grant or revoke administrator privileges.
 - **Superadmin Provisioning Form**: Privileged tool allowing the creation of root or executive accounts with encrypted credentials directly bypassing ordinary RLS gates.
@@ -118,16 +123,20 @@ The Superadmin console is an isolated administrative surface built for platform 
 Administrators maintain complete authority over daily business operations, personnel records, attendance validations, and company-wide configurations.
 
 ### 4.1 Executive Dashboard
+
 Upon logging in, administrators see an interactive overview of current day metrics:
+
 - **Total Personnel Roster**: Active count of registered staff members.
 - **Live Attendance Status**: Real-time count and percentage of employees currently checked in, checked out, on approved leave, or absent.
 - **Dual Check-In & Check-Out Table**: Live feed showing each employee's name, department, exact Check-In timestamp, exact Check-Out timestamp, elapsed work duration, and status badge.
 - **Pending Actions**: Count of open leave requests awaiting administrative approval.
 
 ### 4.2 Creating & Provisioning Employees
+
 Because Flowpeople is a B2B enterprise platform, employees do not sign up on their own. Administrators create and credential every user account.
 
 #### Step-by-Step Provisioning:
+
 1. Open the left navigation sidebar and click **Employees** (`/employees`).
 2. Click the primary **Add Employee** button at the top-right corner.
 3. In the modal dialog, complete the profile fields:
@@ -143,9 +152,11 @@ Because Flowpeople is a B2B enterprise platform, employees do not sign up on the
 5. **Credentials Delivery**: The system provisions the account inside Supabase Auth, updates employee metadata, and initializes an annual leave ledger. Hand the employee their email and password so they can log in to their self-service space immediately.
 
 ### 4.3 Biometric Face Enrollment Guide
+
 To enable an employee to punch in and out using the Smart Kiosk, their facial profile must be enrolled into the biometric engine.
 
 #### Step-by-Step Face Enrollment:
+
 1. Navigate to **Face Enrollment** (`/enroll`) from the sidebar or click **Enroll Face** beside any employee in the directory.
 2. Select the target employee from the dropdown selector.
 3. **Camera Placement**: Ensure the employee is seated or standing 1.5 to 2.5 feet directly in front of the webcam.
@@ -159,21 +170,26 @@ To enable an employee to punch in and out using the Smart Kiosk, their facial pr
 6. A success message confirms the employee is now authorized for kiosk recognition.
 
 ### 4.4 Managing Employee Directory & Roster
+
 - **Edit Profiles**: Update job titles, phone numbers, department transfers, or employee codes at any time.
 - **Deactivate / Terminate Access**: Toggle an employee's status to `Inactive`. Inactive employees are immediately blocked from kiosk check-ins and portal sign-ins.
 - **Search & Filters**: Instantly find personnel by name, email, department, or employee code.
 
 ### 4.5 Attendance Monitoring & Audit Overrides
+
 Located under **Attendance** (`/attendance`):
+
 - **Live Daily Register**: Inspect every punch event with exact times, method (`Face Recognition`, `Manual Entry`, `Kiosk`), and AI confidence score (e.g., `96.4%`).
 - **Manual Punch Adjustment**: If an employee forgot to check out or was on client site duty:
   1. Click the **Adjust Record** button beside the entry.
   2. Enter the approved Check-In or Check-Out time.
-  3. Enter a mandatory audit note explaining the manual adjustment (e.g., *"Client visit at Mumbai HQ approved by Director"*).
+  3. Enter a mandatory audit note explaining the manual adjustment (e.g., _"Client visit at Mumbai HQ approved by Director"_).
   4. Save the adjustment. The audit log permanently records the administrator's identity and timestamp.
 
 ### 4.6 Leave Governance & Balance Allotments
+
 Located under **Leaves** (`/leaves`):
+
 - **Review Requests**: View incoming leave applications from all departments.
 - **Approve or Reject**: Click **Approve** or **Reject** with optional remarks. The employee's dashboard reflects the decision in real time.
 - **Balance Ledgers**: View each employee's annual entitlement:
@@ -184,10 +200,12 @@ Located under **Leaves** (`/leaves`):
 - The database calculates `Remaining = Total - Used` automatically.
 
 ### 4.7 Publishing Corporate Announcements
+
 Located under **Announcements** (`/announcements`):
+
 1. Click **New Announcement**.
 2. Fill in:
-   - **Title**: Clear headline (e.g., *"Annual Town Hall & Q3 Product Roadmap"*).
+   - **Title**: Clear headline (e.g., _"Annual Town Hall & Q3 Product Roadmap"_).
    - **Priority**: Select `Normal`, `High`, or `Urgent`. Urgent circulars display a vibrant red banner.
    - **Target Audience**: Select `All Departments` or a specific department (e.g., `Sales`).
    - **Content**: Detailed text, agenda, instructions, or links.
@@ -195,19 +213,25 @@ Located under **Announcements** (`/announcements`):
 3. Click **Publish Broadcast**.
 
 ### 4.8 Managing the Holiday Calendar
+
 Located under **Calendar** (`/calendar`):
+
 - Add official corporate and gazetted holidays.
 - Specify holiday name, date, type (`Public Holiday`, `Company Off`, `Regional Holiday`), and notes.
 - Dates marked as holidays are automatically displayed on employee calendars and exempted from leave balance deductions.
 
 ### 4.9 Document Vault & File Management
+
 Located under **Documents** (`/documents`):
+
 - Upload corporate documents, company policies, tax declaration formats, and employee-specific contracts.
 - Categorize documents by tag (`Payroll`, `Legal`, `HR Policies`, `Certificates`).
 - Assign documents as public (visible to all staff) or restricted to an individual employee (e.g., monthly payslips).
 
 ### 4.10 Reports, Analytics & Payroll Exports
+
 Located under **Reports** (`/reports`):
+
 - **Date Range Selector**: Run reports for Today, This Week, This Month, or Custom Date Ranges.
 - **Department Filters**: Drill down by department or view organization-wide metrics.
 - **Key Metrics Displayed**:
@@ -218,7 +242,9 @@ Located under **Reports** (`/reports`):
 - **Exporting Data**: Click **Export to CSV** for direct Excel/payroll software import, or **Print / PDF** for printable compliance audit sheets.
 
 ### 4.11 System Settings & Google Drive Cloud Backup
+
 Located under **Settings** (`/settings`):
+
 - **Company Profile**: Update organization name, official contact email, and primary business address.
 - **Biometric Confidence Sensitivity**: Adjust face verification sensitivity slider (recommended standard: `0.70`). Higher values increase strictness; lower values allow looser verification in variable lighting.
 - **Google Drive Cloud Sync**:
@@ -233,16 +259,19 @@ Located under **Settings** (`/settings`):
 Managers hold team-level visibility and approval powers for their designated departments.
 
 ### 5.1 Department Attendance Feed
+
 - **Live Team Roster**: Managers see an attendance table showing only members of their assigned department.
 - **Check-In / Out Status**: Instantly see who has arrived, who is currently working, who has left for the day, and who is on leave.
 - **Punctuality & Working Hours**: View exact arrival times and accumulated hours to manage department workflows smoothly.
 
 ### 5.2 Reviewing & Approving Leave Requests
+
 1. Navigate to **Leaves** (`/leaves`). The list filters automatically to show leave applications from team members.
 2. Review the leave category, start/end dates, total working days requested, and employee reason.
 3. Click **Approve** to authorize the leave (automatically deducting from their remaining balance) or **Reject** with an explanatory note.
 
 ### 5.3 Team Circulars & Calendar
+
 Managers can post announcements targeting their specific department and consult the corporate holiday calendar when planning shift schedules.
 
 ---
@@ -252,15 +281,18 @@ Managers can post announcements targeting their specific department and consult 
 The Employee Space is a clean, focused, distraction-free portal designed for staff members to access their own records without seeing administrative controls.
 
 ### 6.1 Accessing the Employee Workspace
+
 1. Visit `https://your-domain.com/auth`.
 2. Sign in with the work email and initial password provided by HR/Admin.
 3. You will arrive at your personal **Dashboard** (`/dashboard`).
 
 ### 6.2 Reading Announcements
+
 - The **Announcements** card on your dashboard showcases recent company notices, holiday advisories, and management circulars.
 - Urgent or pinned broadcasts appear highlighted at the top. Click any announcement to read the complete memo.
 
 ### 6.3 Applying for Leave & Tracking Balances
+
 1. Click **Leaves** in the sidebar.
 2. Inspect your **Live Balance Cards**:
    - `Casual Leave`: Total, Used, Remaining
@@ -272,6 +304,7 @@ The Employee Space is a clean, focused, distraction-free portal designed for sta
 6. Track the status badge (`Pending Review`, `Approved`, or `Rejected`) directly from your leave history table.
 
 ### 6.4 Viewing Personal Attendance ("My Report")
+
 - On your dashboard and attendance section, click **My Report**.
 - View your daily attendance record:
   - **Date**: The calendar date.
@@ -281,13 +314,16 @@ The Employee Space is a clean, focused, distraction-free portal designed for sta
   - **Status**: `Present`, `Half-day`, or `Approved Leave`.
 
 ### 6.5 Consulting the Holiday Calendar
+
 - Click **Holiday Calendar** (`/calendar`) to browse all upcoming official company holidays and long weekends throughout the year to assist with vacation planning.
 
 ### 6.6 Accessing Documents & Payslips
+
 - Click **Documents** (`/documents`) to access digital copies of your appointment letter, tax compliance receipts, company policies, and monthly salary slips.
 - Click the download icon beside any file to securely download it to your device.
 
 ### 6.7 Profile & Password Management
+
 - Click **Settings** (`/settings`) to update your contact phone number, profile photo, or change your account password.
 
 ---
@@ -316,11 +352,13 @@ The Smart Kiosk is the touchless physical terminal installed at company entrance
 ```
 
 ### 7.1 Terminal Setup & Hardware Recommendations
+
 - **Recommended Devices**: Dedicated 10" or 12" tablet (iPad, Samsung Galaxy Tab) or an all-in-one touchscreen PC mounted at eye level (5 to 5.5 feet from floor).
 - **Lighting**: Ensure even, frontal ambient lighting. Avoid pointing cameras directly at exterior glass doors with fluctuating sunlight.
 - **Launching Kiosk**: Log in as an administrator, navigate to `/kiosk`, and switch the browser to full-screen mode (`F11` on PC or iOS Guided Access on iPad).
 
 ### 7.2 Walk-Up Experience & Auto In/Out Detection
+
 1. The employee walks up to the terminal and positions their face within the on-screen oval guide.
 2. In less than 300ms, the facial recognition engine identifies the employee.
 3. **Smart In/Out Logic**:
@@ -329,9 +367,11 @@ The Smart Kiosk is the touchless physical terminal installed at company entrance
 4. Both Check-In and Check-Out records are synchronized in real time to the cloud database.
 
 ### 7.3 Anti-Duplicate Punch Lockout (Cooldown)
+
 To prevent accidental double-punches (such as when an employee stops to talk to a colleague in front of the camera), Flowpeople enforces a **2.5-minute cooldown timer**. If the same face remains in view within 2.5 minutes of a recorded punch, the system skips re-punching and displays a gentle on-screen notice.
 
 ### 7.4 Audio-Visual Feedback & Toast Notifications
+
 - **Visual Toast**: Displays the employee's name, avatar, department, exact punch timestamp, and confirmation badge.
 - **Audio Sound**: Emits a pleasant, audible confirmation chime indicating successful verification so employees know their punch succeeded without having to touch the screen.
 
@@ -340,6 +380,7 @@ To prevent accidental double-punches (such as when an employee stops to talk to 
 ## 8. Troubleshooting & Frequently Asked Questions (FAQ)
 
 ### Q1: The kiosk says "Camera permission denied" or video is black.
+
 - **Resolution**:
   1. Look at your browser address bar. Click the camera/lock icon.
   2. Select **Allow** for camera permissions.
@@ -347,23 +388,27 @@ To prevent accidental double-punches (such as when an employee stops to talk to 
   4. Refresh the page (`Ctrl + F5` or `Cmd + Shift + R`).
 
 ### Q2: Face recognition says "Low Confidence" or does not identify an employee.
+
 - **Resolution**:
   1. Check lighting conditions. If backlighting is too strong, add a warm frontal desk lamp or move the kiosk away from direct sunlight.
   2. Ask the employee to remove thick scarves, hats, or dark sunglasses.
   3. Open **Face Enrollment** (`/enroll`) and re-enroll the employee with 3 fresh angle captures.
 
 ### Q3: An employee forgot their login password.
+
 - **Resolution**:
   1. An administrator can open **Employees** (`/employees`), click the employee profile, and select **Reset Password**.
   2. Alternatively, the employee can click **Forgot password?** on the sign-in page to receive an automated reset link via email.
 
 ### Q4: An employee worked off-site and missed their kiosk punch.
+
 - **Resolution**:
   1. An administrator can open **Attendance** (`/attendance`).
   2. Click **Adjust Record** or **Add Manual Punch**.
   3. Select the employee, date, exact Check-In and Check-Out times, and type an explanatory note.
 
 ### Q5: How do I export attendance records for my monthly payroll?
+
 - **Resolution**:
   1. Open **Reports** (`/reports`).
   2. Select the desired date range (e.g., `1st to 30th of the month`).
@@ -374,19 +419,23 @@ To prevent accidental double-punches (such as when an employee stops to talk to 
 ## 9. Security, Privacy & Data Compliance
 
 ### Biometric Privacy
+
 Flowpeople adheres to strict data privacy principles:
+
 - **No Raw Photo Storage**: The platform converts facial landmarks into 128-dimensional floating point numerical vectors locally on the device.
 - **Non-Reversible Data**: A 128-dimensional mathematical vector cannot be reverse-engineered back into an image of a human face.
 
 ### Database Row-Level Security (RLS)
+
 Every database table (`employees`, `attendance`, `leaves`, `documents`, `announcements`) is governed by PostgreSQL Row-Level Security policies:
+
 - Employees are strictly prohibited by the database kernel from reading or modifying another employee's private records.
 - All administrative and managerial operations require active, validated session tokens.
 
 ### Stealth Superadmin Protection
+
 The Superadmin console does not expose root credentials or identifiers anywhere in public frontend code bundles, ensuring enterprise security from external and internal sniffing.
 
 ---
 
-*Flowpeople by Fluxora User Manual — Version 2.4.0 — All Rights Reserved.*
-
+_Flowpeople by Fluxora User Manual — Version 2.4.0 — All Rights Reserved._

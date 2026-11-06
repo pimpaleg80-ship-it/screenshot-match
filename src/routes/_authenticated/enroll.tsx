@@ -136,7 +136,12 @@ function FaceEnrollPage() {
           const renderLoop = async () => {
             if (!isMounted) return;
 
-            if (videoRef.current && canvasRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+            if (
+              videoRef.current &&
+              canvasRef.current &&
+              !videoRef.current.paused &&
+              !videoRef.current.ended
+            ) {
               try {
                 const detection = await faceapi
                   .detectSingleFace(videoRef.current, options)
@@ -292,10 +297,13 @@ function FaceEnrollPage() {
         <div>
           <div className="flex items-center gap-2">
             <ScanFace className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Face Enrollment Studio</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+              Face Enrollment Studio
+            </h1>
           </div>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Capture biometric face samples to enable instant recognition at the smart kiosk terminal.
+            Capture biometric face samples to enable instant recognition at the smart kiosk
+            terminal.
           </p>
         </div>
 
@@ -318,11 +326,17 @@ function FaceEnrollPage() {
                   <Camera className="h-4 w-4 text-primary" /> Live Biometric Viewfinder
                 </CardTitle>
                 {faceDetected ? (
-                  <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 gap-1 text-[11px]">
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 gap-1 text-[11px]"
+                  >
                     <CheckCircle2 className="h-3.5 w-3.5" /> Face Locked
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="border-muted text-muted-foreground text-[11px]">
+                  <Badge
+                    variant="outline"
+                    className="border-muted text-muted-foreground text-[11px]"
+                  >
                     Searching for face...
                   </Badge>
                 )}
@@ -346,7 +360,9 @@ function FaceEnrollPage() {
                 {modelLoading && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white z-10">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="mt-3 text-xs text-white/80">Loading Biometric Recognition Models...</p>
+                    <p className="mt-3 text-xs text-white/80">
+                      Loading Biometric Recognition Models...
+                    </p>
                   </div>
                 )}
 
@@ -359,7 +375,8 @@ function FaceEnrollPage() {
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
                 <div className="text-xs text-muted-foreground text-center sm:text-left">
-                  Samples Captured: <strong className="text-foreground">{samples.length}</strong> / 3 recommended
+                  Samples Captured: <strong className="text-foreground">{samples.length}</strong> /
+                  3 recommended
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -402,26 +419,28 @@ function FaceEnrollPage() {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <User className="h-4 w-4 text-primary" /> Select Employee
               </CardTitle>
-              <CardDescription>
-                Choose the team member you wish to enroll.
-              </CardDescription>
+              <CardDescription>Choose the team member you wish to enroll.</CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Employee</Label>
-                <Select value={selectedEmpId} onValueChange={(val) => {
-                  setSelectedEmpId(val);
-                  setSamples([]);
-                  setCapturedThumb(null);
-                }}>
+                <Select
+                  value={selectedEmpId}
+                  onValueChange={(val) => {
+                    setSelectedEmpId(val);
+                    setSamples([]);
+                    setCapturedThumb(null);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select an employee..." />
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
-                        {emp.full_name} ({emp.employee_code}) {emp.has_face ? "✓" : "— Not Enrolled"}
+                        {emp.full_name} ({emp.employee_code}){" "}
+                        {emp.has_face ? "✓" : "— Not Enrolled"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -433,22 +452,32 @@ function FaceEnrollPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Status:</span>
                     {selectedEmployee.has_face ? (
-                      <Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px] gap-1">
+                      <Badge
+                        variant="outline"
+                        className="border-success/30 bg-success/10 text-success text-[10px] gap-1"
+                      >
                         <Check className="h-3 w-3" /> Already Enrolled
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning-foreground text-[10px]">
+                      <Badge
+                        variant="outline"
+                        className="border-warning/30 bg-warning/10 text-warning-foreground text-[10px]"
+                      >
                         Not Enrolled
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-semibold text-foreground">{selectedEmployee.department}</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedEmployee.department}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Designation:</span>
-                    <span className="font-semibold text-foreground">{selectedEmployee.designation}</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedEmployee.designation}
+                    </span>
                   </div>
                 </div>
               )}
