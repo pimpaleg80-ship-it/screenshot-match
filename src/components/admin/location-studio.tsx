@@ -296,8 +296,11 @@ export function AdminLocationStudio() {
         if (!rpcError && rpcData?.id) {
           return rpcData as WorkLocationEntity;
         }
-      } catch {
-        // Fallback to direct table below
+        if (rpcError) {
+          console.warn("[save_office_location RPC warn, using direct table fallback]", rpcError);
+        }
+      } catch (rpcEx) {
+        console.warn("[save_office_location RPC catch, using direct table fallback]", rpcEx);
       }
 
       // 2. Direct table fallback if RPC fails
@@ -396,8 +399,11 @@ export function AdminLocationStudio() {
         if (!rpcError && rpcData?.success) {
           return id;
         }
-      } catch {
-        // Fallback to direct delete below
+        if (rpcError) {
+          console.warn("[delete_office_location RPC warn, using direct delete fallback]", rpcError);
+        }
+      } catch (rpcEx) {
+        console.warn("[delete_office_location RPC catch, using direct delete fallback]", rpcEx);
       }
 
       const { error } = await supabase.from("work_locations").delete().eq("id", id);

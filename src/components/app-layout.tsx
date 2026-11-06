@@ -78,7 +78,7 @@ export function AppLayout() {
       { to: "/documents", label: "Documents", icon: FileText },
       { to: "/reports", label: "Reports", icon: BarChart3 },
       { to: "/kiosk", label: "Face Kiosk", icon: ScanLine },
-      { to: "/settings", label: "Settings", icon: Settings },
+      { to: "/settings", label: "Settings & Geofencing", icon: Settings },
     ];
   } else if (session.isManager) {
     navItems = [

@@ -594,7 +594,7 @@ function SettingsPage() {
           </Card>
 
           {/* Card: Work Locations & Geofence Boundaries (Interactive Studio) */}
-          <Card className="card-soft overflow-hidden">
+          <Card id="geofence" className="card-soft overflow-hidden scroll-mt-20">
             <CardHeader className="border-b border-border/60 pb-4">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
