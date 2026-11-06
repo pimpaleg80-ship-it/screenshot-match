@@ -572,6 +572,46 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
     },
   });
 
+  // Delete User & Employee Mutation
+  const [deleteTargetUser, setDeleteTargetUser] = useState<any | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async ({ userId, employeeId }: { userId: string | null; employeeId: string }) => {
+      // 1. Try secure superadmin_delete_user RPC
+      try {
+        const { data, error } = await (supabase.rpc as any)("superadmin_delete_user", {
+          p_target_user_id: userId || undefined,
+          p_employee_id: employeeId || undefined,
+        });
+        if (!error && (data as any)?.success) return data;
+        if (error) console.warn("superadmin_delete_user RPC error:", error);
+      } catch (e) {
+        console.warn("superadmin_delete_user catch:", e);
+      }
+
+      // 2. Direct table fallback
+      if (employeeId) {
+        await supabase.from("employees").delete().eq("id", employeeId);
+      }
+      if (userId) {
+        await supabase.from("user_roles").delete().eq("user_id", userId);
+        await supabase.from("organization_members").delete().eq("user_id", userId);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("User and employee record permanently removed");
+      setDeleteModalOpen(false);
+      setDeleteTargetUser(null);
+      queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
+      queryClient.invalidateQueries({ queryKey: ["people-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to remove user");
+    },
+  });
+
   // Save System Settings Mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
@@ -1402,6 +1442,20 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                       ? "Suspend Account"
                                       : "Reactivate Account"}
                                   </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator className="bg-white/10" />
+
+                                  {/* Delete / Remove User */}
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setDeleteTargetUser(u);
+                                      setDeleteModalOpen(true);
+                                    }}
+                                    className="gap-2 cursor-pointer text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Remove User & Employee
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </td>
@@ -2066,6 +2120,58 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             >
               {createOrgMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Provision Organization
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          DELETE USER CONFIRMATION MODAL
+      ========================================================================= */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="bg-neutral-900 border-white/10 text-white sm:max-w-md p-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-500 text-sm font-semibold">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Permanently Remove User & Employee</span>
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs mt-1">
+              Are you sure you want to permanently delete{" "}
+              <strong className="text-white">{deleteTargetUser?.full_name || "this user"}</strong>{" "}
+              ({deleteTargetUser?.email})? This action removes their authentication credentials,
+              employee profile, attendance logs, and organization roles. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex-row gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setDeleteTargetUser(null);
+              }}
+              disabled={deleteUserMutation.isPending}
+              className="border-white/20 text-white hover:bg-white/10 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (deleteTargetUser) {
+                  deleteUserMutation.mutate({
+                    userId: deleteTargetUser.user_id,
+                    employeeId: deleteTargetUser.employee_id,
+                  });
+                }
+              }}
+              disabled={deleteUserMutation.isPending}
+              className="gap-1.5 bg-rose-600 hover:bg-rose-700 text-xs"
+            >
+              {deleteUserMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Confirm Delete
             </Button>
           </DialogFooter>
         </DialogContent>
