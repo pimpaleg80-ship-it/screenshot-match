@@ -52,6 +52,12 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const resolvedEnv =
+      env ||
+      (request as any)?.runtime?.cloudflare?.env ||
+      (request as any)?.env ||
+      (globalThis as any)?.__env__;
+
     // 1. Cloudflare Pages Native Geolocation Endpoint
     const url = new URL(request.url);
 
@@ -60,7 +66,7 @@ export default {
       url.pathname === "/api/integrations/google-drive/auth" ||
       url.pathname === "/api/google-drive/auth"
     ) {
-      return await handleGoogleDriveAuthStart(request, env);
+      return await handleGoogleDriveAuthStart(request, resolvedEnv);
     }
 
     if (
@@ -68,21 +74,21 @@ export default {
       url.pathname === "/api/google-drive/callback" ||
       url.pathname === "/api/auth/google-drive/callback"
     ) {
-      return await handleGoogleDriveOAuthCallback(request, env);
+      return await handleGoogleDriveOAuthCallback(request, resolvedEnv);
     }
 
     if (
       url.pathname === "/api/integrations/google-drive/backup" ||
       url.pathname === "/api/google-drive/backup"
     ) {
-      return await handleGoogleDriveDailyBackup(request, env);
+      return await handleGoogleDriveDailyBackup(request, resolvedEnv);
     }
 
     if (
       url.pathname === "/api/integrations/google-drive/upload" ||
       url.pathname === "/api/google-drive/upload"
     ) {
-      return await handleGoogleDriveUpload(request, env);
+      return await handleGoogleDriveUpload(request, resolvedEnv);
     }
 
     if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
