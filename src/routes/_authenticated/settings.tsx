@@ -295,25 +295,47 @@ function SettingsPage() {
     try {
       setDriveConnecting(true);
       const returnUrl = window.location.origin + "/settings";
-      const { data, error } = await supabase.functions.invoke("google-drive-auth-start", {
-        headers: { Accept: "application/json" },
-        body: { return_to: returnUrl },
-      });
 
-      if (error) {
-        const msg = error.message || "";
-        if (msg.includes("404") || msg.includes("FunctionsFetchError") || msg.includes("not found")) {
-          throw new Error(
-            "Google Drive Edge Function is pending deployment. Please configure GOOGLE_CLIENT_ID and deploy Edge Functions.",
-          );
+      // 1. Try starting via Supabase Edge Function
+      try {
+        const { data, error } = await supabase.functions.invoke("google-drive-auth-start", {
+          headers: { Accept: "application/json" },
+          body: { return_to: returnUrl },
+        });
+
+        if (!error && data?.url) {
+          window.location.href = data.url;
+          return;
         }
-        throw error;
+      } catch (fnErr) {
+        console.warn("Edge function not responding, using direct OAuth redirect:", fnErr);
       }
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data?.error || "No authorization URL returned");
+
+      // 2. Direct fallback using configured Google Client ID from environment
+      const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        throw new Error(
+          "Google Client ID is not configured. Please set VITE_GOOGLE_CLIENT_ID in .env.local",
+        );
       }
+      const redirectUri =
+        (import.meta as any).env?.VITE_GOOGLE_REDIRECT_URI ||
+        `${window.location.origin}/api/integrations/google-drive/callback`;
+      const state = btoa(JSON.stringify({ return_to: returnUrl }));
+
+      const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      googleAuthUrl.searchParams.set("client_id", clientId);
+      googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
+      googleAuthUrl.searchParams.set("response_type", "code");
+      googleAuthUrl.searchParams.set(
+        "scope",
+        "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
+      );
+      googleAuthUrl.searchParams.set("access_type", "offline");
+      googleAuthUrl.searchParams.set("prompt", "consent");
+      googleAuthUrl.searchParams.set("state", state);
+
+      window.location.href = googleAuthUrl.toString();
     } catch (err: any) {
       toast.error(err.message || "Failed to initiate Google Drive authentication");
       setDriveConnecting(false);

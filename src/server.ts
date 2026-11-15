@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleGoogleDriveOAuthCallback } from "./lib/server-google-drive";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -48,6 +49,16 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     // 1. Cloudflare Pages Native Geolocation Endpoint
     const url = new URL(request.url);
+
+    // Google Drive Cloud Backup OAuth Callback
+    if (
+      url.pathname === "/api/integrations/google-drive/callback" ||
+      url.pathname === "/api/google-drive/callback" ||
+      url.pathname === "/api/auth/google-drive/callback"
+    ) {
+      return await handleGoogleDriveOAuthCallback(request);
+    }
+
     if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
       const cfLat = request.headers.get("cf-iplatitude");
       const cfLon = request.headers.get("cf-iplongitude");
