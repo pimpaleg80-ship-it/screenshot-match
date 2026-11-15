@@ -1,25 +1,33 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL =
-  process.env["SUPABASE_URL"] ||
-  process.env["VITE_SUPABASE_URL"] ||
-  "https://mnnecoyqofhrivxufhqm.supabase.co";
+function getEnv(key: string, env?: unknown): string {
+  if (env && typeof env === "object" && key in env) {
+    const val = (env as Record<string, unknown>)[key];
+    if (typeof val === "string") return val;
+  }
+  return process.env[key] || "";
+}
 
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-  process.env["SUPABASE_SECRET_KEY"] ||
-  "";
-
-async function getCredentials() {
+async function getCredentials(env?: unknown) {
   let clientId =
-    process.env["GOOGLE_CLIENT_ID"] ||
-    process.env["VITE_GOOGLE_CLIENT_ID"] ||
+    getEnv("GOOGLE_CLIENT_ID", env) ||
+    getEnv("VITE_GOOGLE_CLIENT_ID", env) ||
     "";
-  let clientSecret = process.env["GOOGLE_CLIENT_SECRET"] || "";
+  let clientSecret = getEnv("GOOGLE_CLIENT_SECRET", env) || "";
 
-  if ((!clientId || !clientSecret) && SUPABASE_SERVICE_ROLE_KEY) {
+  const supabaseUrl =
+    getEnv("SUPABASE_URL", env) ||
+    getEnv("VITE_SUPABASE_URL", env) ||
+    "https://mnnecoyqofhrivxufhqm.supabase.co";
+
+  const serviceRoleKey =
+    getEnv("SUPABASE_SERVICE_ROLE_KEY", env) ||
+    getEnv("SUPABASE_SECRET_KEY", env) ||
+    "";
+
+  if ((!clientId || !clientSecret) && serviceRoleKey) {
     try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
       const { data } = await supabase
         .from("system_secrets")
         .select("name, value")
@@ -34,13 +42,12 @@ async function getCredentials() {
     }
   }
 
-  return { clientId, clientSecret };
+  return { clientId, clientSecret, supabaseUrl, serviceRoleKey };
 }
 
-async function getEncryptionKey(): Promise<CryptoKey> {
-  const secret = SUPABASE_SERVICE_ROLE_KEY || "face-attendance-drive-secret-fallback-key-32b";
+async function getEncryptionKey(secret: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
-  const rawKey = enc.encode(secret);
+  const rawKey = enc.encode(secret || "face-attendance-drive-secret-fallback-key-32b");
   const hash = await crypto.subtle.digest("SHA-256", rawKey);
 
   return await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, [
@@ -49,8 +56,8 @@ async function getEncryptionKey(): Promise<CryptoKey> {
   ]);
 }
 
-export async function encryptToken(plainText: string): Promise<string> {
-  const key = await getEncryptionKey();
+export async function encryptToken(plainText: string, secret: string): Promise<string> {
+  const key = await getEncryptionKey(secret);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const enc = new TextEncoder();
   const encoded = enc.encode(plainText);
@@ -115,10 +122,13 @@ export async function getOrCreateFolder(
   return folderData.id;
 }
 
-export async function handleGoogleDriveAuthStart(request: Request): Promise<Response> {
+export async function handleGoogleDriveAuthStart(
+  request: Request,
+  env?: unknown,
+): Promise<Response> {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("return_to") || `${url.origin}/settings`;
-  const { clientId } = await getCredentials();
+  const { clientId } = await getCredentials(env);
 
   if (!clientId) {
     const errorUrl = new URL(returnTo, url.origin);
@@ -144,7 +154,10 @@ export async function handleGoogleDriveAuthStart(request: Request): Promise<Resp
   return Response.redirect(googleAuthUrl.toString(), 302);
 }
 
-export async function handleGoogleDriveOAuthCallback(request: Request): Promise<Response> {
+export async function handleGoogleDriveOAuthCallback(
+  request: Request,
+  env?: unknown,
+): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const errorParam = url.searchParams.get("error");
@@ -180,7 +193,7 @@ export async function handleGoogleDriveOAuthCallback(request: Request): Promise<
   }
 
   try {
-    const { clientId, clientSecret } = await getCredentials();
+    const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
     if (!clientId || !clientSecret) {
       throw new Error("Missing Google OAuth credentials (client ID or secret)");
     }
@@ -230,10 +243,10 @@ export async function handleGoogleDriveOAuthCallback(request: Request): Promise<
     }
 
     // 4. Encrypt refresh token
-    const encryptedToken = refreshToken ? await encryptToken(refreshToken) : "";
+    const encryptedToken = refreshToken ? await encryptToken(refreshToken, serviceRoleKey) : "";
 
     // 5. Save to Supabase drive_connection table
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: existing } = await supabase
       .from("drive_connection")

@@ -58,7 +58,7 @@ export default {
       url.pathname === "/api/integrations/google-drive/auth" ||
       url.pathname === "/api/google-drive/auth"
     ) {
-      return await handleGoogleDriveAuthStart(request);
+      return await handleGoogleDriveAuthStart(request, env);
     }
 
     if (
@@ -66,7 +66,7 @@ export default {
       url.pathname === "/api/google-drive/callback" ||
       url.pathname === "/api/auth/google-drive/callback"
     ) {
-      return await handleGoogleDriveOAuthCallback(request);
+      return await handleGoogleDriveOAuthCallback(request, env);
     }
 
     if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
