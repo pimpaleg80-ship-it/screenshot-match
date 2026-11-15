@@ -115,6 +115,35 @@ export async function getOrCreateFolder(
   return folderData.id;
 }
 
+export async function handleGoogleDriveAuthStart(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const returnTo = url.searchParams.get("return_to") || `${url.origin}/settings`;
+  const { clientId } = await getCredentials();
+
+  if (!clientId) {
+    const errorUrl = new URL(returnTo, url.origin);
+    errorUrl.searchParams.set("drive_error", "Missing Google Client ID in server configuration");
+    return Response.redirect(errorUrl.toString(), 302);
+  }
+
+  const redirectUri = `${url.origin}/api/integrations/google-drive/callback`;
+  const state = btoa(JSON.stringify({ return_to: returnTo }));
+
+  const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  googleAuthUrl.searchParams.set("client_id", clientId);
+  googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
+  googleAuthUrl.searchParams.set("response_type", "code");
+  googleAuthUrl.searchParams.set(
+    "scope",
+    "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
+  );
+  googleAuthUrl.searchParams.set("access_type", "offline");
+  googleAuthUrl.searchParams.set("prompt", "consent");
+  googleAuthUrl.searchParams.set("state", state);
+
+  return Response.redirect(googleAuthUrl.toString(), 302);
+}
+
 export async function handleGoogleDriveOAuthCallback(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

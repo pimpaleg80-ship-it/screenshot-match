@@ -2,7 +2,10 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { handleGoogleDriveOAuthCallback } from "./lib/server-google-drive";
+import {
+  handleGoogleDriveAuthStart,
+  handleGoogleDriveOAuthCallback,
+} from "./lib/server-google-drive";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -50,7 +53,14 @@ export default {
     // 1. Cloudflare Pages Native Geolocation Endpoint
     const url = new URL(request.url);
 
-    // Google Drive Cloud Backup OAuth Callback
+    // Google Drive Cloud Backup OAuth Handlers
+    if (
+      url.pathname === "/api/integrations/google-drive/auth" ||
+      url.pathname === "/api/google-drive/auth"
+    ) {
+      return await handleGoogleDriveAuthStart(request);
+    }
+
     if (
       url.pathname === "/api/integrations/google-drive/callback" ||
       url.pathname === "/api/google-drive/callback" ||

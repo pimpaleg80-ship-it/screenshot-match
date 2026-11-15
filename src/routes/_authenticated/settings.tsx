@@ -168,35 +168,42 @@ function SettingsPage() {
     }
   }, [settingsData, session.organizationName]);
 
+interface DriveStatusInfo {
+  connected: boolean;
+  revoked?: boolean;
+  email?: string | null;
+  auto_backup_on_pdf?: boolean;
+  daily_backup_enabled?: boolean;
+  last_backup_at?: string | null;
+}
+
   // Fetch Google Drive Status
-  const { data: driveStatus, isLoading: driveStatusLoading } = useQuery({
+  const { data: driveStatus, isLoading: driveStatusLoading } = useQuery<DriveStatusInfo>({
     queryKey: ["google-drive-status"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("google-drive-status");
-        if (error) {
-          // Fallback to direct table check
-          const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-          return conn
-            ? {
-              connected: true,
-              email: conn.google_email,
-              auto_backup_on_pdf: conn.auto_backup_on_pdf,
-              daily_backup_enabled: conn.daily_backup,
-            }
-            : { connected: false };
-        }
-        return data;
-      } catch {
         const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-        return conn
-          ? {
-            connected: true,
-            email: conn.google_email,
-            auto_backup_on_pdf: conn.auto_backup_on_pdf,
-            daily_backup_enabled: conn.daily_backup,
-          }
-          : { connected: false };
+        if (!conn) return { connected: false };
+
+        const { data: lastBackup } = await supabase
+          .from("drive_backups")
+          .select("created_at")
+          .eq("status", "success")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const connAny = conn as any;
+        return {
+          connected: true,
+          revoked: false,
+          email: conn.google_email,
+          auto_backup_on_pdf: conn.auto_backup_on_pdf ?? true,
+          daily_backup_enabled: connAny.daily_backup_enabled ?? conn.daily_backup ?? true,
+          last_backup_at: lastBackup?.created_at || null,
+        };
+      } catch {
+        return { connected: false };
       }
     },
   });
@@ -290,56 +297,11 @@ function SettingsPage() {
     },
   });
 
-  // Drive Connect Action
-  async function handleConnectDrive() {
-    try {
-      setDriveConnecting(true);
-      const returnUrl = window.location.origin + "/settings";
-
-      // 1. Try starting via Supabase Edge Function
-      try {
-        const { data, error } = await supabase.functions.invoke("google-drive-auth-start", {
-          headers: { Accept: "application/json" },
-          body: { return_to: returnUrl },
-        });
-
-        if (!error && data?.url) {
-          window.location.href = data.url;
-          return;
-        }
-      } catch (fnErr) {
-        console.warn("Edge function not responding, using direct OAuth redirect:", fnErr);
-      }
-
-      // 2. Direct fallback using configured Google Client ID from environment
-      const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
-      if (!clientId) {
-        throw new Error(
-          "Google Client ID is not configured. Please set VITE_GOOGLE_CLIENT_ID in .env.local",
-        );
-      }
-      const redirectUri =
-        (import.meta as any).env?.VITE_GOOGLE_REDIRECT_URI ||
-        `${window.location.origin}/api/integrations/google-drive/callback`;
-      const state = btoa(JSON.stringify({ return_to: returnUrl }));
-
-      const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-      googleAuthUrl.searchParams.set("client_id", clientId);
-      googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
-      googleAuthUrl.searchParams.set("response_type", "code");
-      googleAuthUrl.searchParams.set(
-        "scope",
-        "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
-      );
-      googleAuthUrl.searchParams.set("access_type", "offline");
-      googleAuthUrl.searchParams.set("prompt", "consent");
-      googleAuthUrl.searchParams.set("state", state);
-
-      window.location.href = googleAuthUrl.toString();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to initiate Google Drive authentication");
-      setDriveConnecting(false);
-    }
+  // Drive Connect Action - Direct OAuth via Server
+  function handleConnectDrive() {
+    setDriveConnecting(true);
+    const returnUrl = encodeURIComponent(window.location.origin + "/settings");
+    window.location.href = `/api/integrations/google-drive/auth?return_to=${returnUrl}`;
   }
 
   // Drive Disconnect Action
@@ -352,9 +314,10 @@ function SettingsPage() {
       return;
     }
     try {
-      const { error } = await supabase.functions.invoke("google-drive-status", {
-        body: { action: "disconnect" },
-      });
+      const { error } = await supabase
+        .from("drive_connection")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
       if (error) throw error;
       toast.success("Google Drive disconnected");
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
@@ -410,9 +373,14 @@ function SettingsPage() {
     value: boolean,
   ) {
     try {
-      await supabase.functions.invoke("google-drive-status", {
-        body: { action: "update_settings", [key]: value },
-      });
+      const updateData: Record<string, boolean> = { [key]: value };
+      if (key === "daily_backup_enabled") {
+        updateData["daily_backup"] = value;
+      }
+      const { error } = await (supabase.from("drive_connection") as any)
+        .update(updateData)
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
       toast.success("Drive preference updated");
     } catch {
