@@ -1,28 +1,56 @@
 import { createClient } from "@supabase/supabase-js";
 
-function getEnv(key: string, env?: unknown): string {
+function getEnv(key: string, env?: unknown, request?: Request): string {
+  // 1. Direct env object
   if (env && typeof env === "object" && key in env) {
     const val = (env as Record<string, unknown>)[key];
-    if (typeof val === "string") return val;
+    if (typeof val === "string" && val.length > 0) return val;
   }
-  return process.env[key] || "";
+
+  // 2. Request runtime from Cloudflare / Nitro
+  if (request) {
+    const cfEnv = (request as any)?.runtime?.cloudflare?.env;
+    if (cfEnv && typeof cfEnv === "object" && key in cfEnv) {
+      const val = cfEnv[key];
+      if (typeof val === "string" && val.length > 0) return val;
+    }
+    const directEnv = (request as any)?.env;
+    if (directEnv && typeof directEnv === "object" && key in directEnv) {
+      const val = directEnv[key];
+      if (typeof val === "string" && val.length > 0) return val;
+    }
+  }
+
+  // 3. Node/Cloudflare process.env
+  if (typeof process !== "undefined" && process?.env && process.env[key]) {
+    return process.env[key]!;
+  }
+
+  // 4. Global runtime storage
+  const g = globalThis as any;
+  if (g?.__env__?.[key]) return g.__env__[key];
+  if (g?.env?.[key]) return g.env[key];
+
+  return "";
 }
 
-async function getCredentials(env?: unknown) {
+async function getCredentials(env?: unknown, request?: Request) {
   let clientId =
-    getEnv("GOOGLE_CLIENT_ID", env) ||
-    getEnv("VITE_GOOGLE_CLIENT_ID", env) ||
+    getEnv("GOOGLE_CLIENT_ID", env, request) ||
+    getEnv("VITE_GOOGLE_CLIENT_ID", env, request) ||
     "";
-  let clientSecret = getEnv("GOOGLE_CLIENT_SECRET", env) || "";
+  let clientSecret =
+    getEnv("GOOGLE_CLIENT_SECRET", env, request) ||
+    "";
 
   const supabaseUrl =
-    getEnv("SUPABASE_URL", env) ||
-    getEnv("VITE_SUPABASE_URL", env) ||
+    getEnv("SUPABASE_URL", env, request) ||
+    getEnv("VITE_SUPABASE_URL", env, request) ||
     "https://mnnecoyqofhrivxufhqm.supabase.co";
 
   const serviceRoleKey =
-    getEnv("SUPABASE_SERVICE_ROLE_KEY", env) ||
-    getEnv("SUPABASE_SECRET_KEY", env) ||
+    getEnv("SUPABASE_SERVICE_ROLE_KEY", env, request) ||
+    getEnv("SUPABASE_SECRET_KEY", env, request) ||
     "";
 
   if ((!clientId || !clientSecret) && serviceRoleKey) {
@@ -485,7 +513,7 @@ export async function handleGoogleDriveDailyBackup(
     }
   }
 
-  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
+  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env, request);
   if (!serviceRoleKey) {
     return new Response(
       JSON.stringify({ success: false, error: "Missing server database credentials" }),
@@ -689,7 +717,7 @@ export async function handleGoogleDriveUpload(
     );
   }
 
-  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
+  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env, request);
   if (!serviceRoleKey) {
     return new Response(
       JSON.stringify({ success: false, error: "Missing server database credentials" }),
@@ -841,7 +869,7 @@ export async function handleGoogleDriveAuthStart(
 ): Promise<Response> {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("return_to") || `${url.origin}/settings`;
-  const { clientId } = await getCredentials(env);
+  const { clientId } = await getCredentials(env, request);
 
   if (!clientId) {
     const errorUrl = new URL(returnTo, url.origin);
@@ -906,7 +934,7 @@ export async function handleGoogleDriveOAuthCallback(
   }
 
   try {
-    const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
+    const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env, request);
     if (!clientId || !clientSecret) {
       throw new Error("Missing Google OAuth credentials (client ID or secret)");
     }
