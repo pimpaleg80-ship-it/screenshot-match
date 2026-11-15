@@ -168,35 +168,42 @@ function SettingsPage() {
     }
   }, [settingsData, session.organizationName]);
 
+interface DriveStatusInfo {
+  connected: boolean;
+  revoked?: boolean;
+  email?: string | null;
+  auto_backup_on_pdf?: boolean;
+  daily_backup_enabled?: boolean;
+  last_backup_at?: string | null;
+}
+
   // Fetch Google Drive Status
-  const { data: driveStatus, isLoading: driveStatusLoading } = useQuery({
+  const { data: driveStatus, isLoading: driveStatusLoading } = useQuery<DriveStatusInfo>({
     queryKey: ["google-drive-status"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("google-drive-status");
-        if (error) {
-          // Fallback to direct table check
-          const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-          return conn
-            ? {
-              connected: true,
-              email: conn.google_email,
-              auto_backup_on_pdf: conn.auto_backup_on_pdf,
-              daily_backup_enabled: conn.daily_backup,
-            }
-            : { connected: false };
-        }
-        return data;
-      } catch {
         const { data: conn } = await supabase.from("drive_connection").select("*").maybeSingle();
-        return conn
-          ? {
-            connected: true,
-            email: conn.google_email,
-            auto_backup_on_pdf: conn.auto_backup_on_pdf,
-            daily_backup_enabled: conn.daily_backup,
-          }
-          : { connected: false };
+        if (!conn) return { connected: false };
+
+        const { data: lastBackup } = await supabase
+          .from("drive_backups")
+          .select("created_at")
+          .eq("status", "success")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const connAny = conn as any;
+        return {
+          connected: true,
+          revoked: false,
+          email: conn.google_email,
+          auto_backup_on_pdf: conn.auto_backup_on_pdf ?? true,
+          daily_backup_enabled: connAny.daily_backup_enabled ?? conn.daily_backup ?? true,
+          last_backup_at: lastBackup?.created_at || null,
+        };
+      } catch {
+        return { connected: false };
       }
     },
   });
@@ -290,24 +297,11 @@ function SettingsPage() {
     },
   });
 
-  // Drive Connect Action
-  async function handleConnectDrive() {
-    try {
-      setDriveConnecting(true);
-      const { data, error } = await supabase.functions.invoke("google-drive-auth-start", {
-        headers: { Accept: "application/json" },
-      });
-
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No authorization URL returned");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to initiate Google Drive authentication");
-      setDriveConnecting(false);
-    }
+  // Drive Connect Action - Direct OAuth via Server
+  function handleConnectDrive() {
+    setDriveConnecting(true);
+    const returnUrl = encodeURIComponent(window.location.origin + "/settings");
+    window.location.href = `/api/integrations/google-drive/auth?return_to=${returnUrl}`;
   }
 
   // Drive Disconnect Action
@@ -320,9 +314,10 @@ function SettingsPage() {
       return;
     }
     try {
-      const { error } = await supabase.functions.invoke("google-drive-status", {
-        body: { action: "disconnect" },
-      });
+      const { error } = await supabase
+        .from("drive_connection")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
       if (error) throw error;
       toast.success("Google Drive disconnected");
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
@@ -336,16 +331,18 @@ function SettingsPage() {
     try {
       setDriveBackingUp(true);
       toast.info("Starting instant daily attendance backup...");
-      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
-      if (error) throw error;
-
-      if (data?.success) {
-        toast.success(`Backup completed: ${data.file_name}`, {
-          description: "Saved in FaceAttendance Backups on Google Drive",
-        });
-      } else {
-        toast.error(data?.error || "Backup failed");
+      const res = await fetch("/api/integrations/google-drive/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Backup failed");
       }
+
+      toast.success(`Backup completed: ${data.file_name}`, {
+        description: "Saved in FaceAttendance Backups on Google Drive",
+      });
       queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
     } catch (err: any) {
@@ -360,8 +357,15 @@ function SettingsPage() {
     try {
       setRetryingId(backupId);
       toast.info("Retrying backup to Google Drive...");
-      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
-      if (error) throw error;
+      const res = await fetch("/api/integrations/google-drive/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backup_id: backupId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Retry failed");
+      }
 
       toast.success("Retry completed successfully");
       queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
@@ -378,9 +382,14 @@ function SettingsPage() {
     value: boolean,
   ) {
     try {
-      await supabase.functions.invoke("google-drive-status", {
-        body: { action: "update_settings", [key]: value },
-      });
+      const updateData: Record<string, boolean> = { [key]: value };
+      if (key === "daily_backup_enabled") {
+        updateData["daily_backup"] = value;
+      }
+      const { error } = await (supabase.from("drive_connection") as any)
+        .update(updateData)
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
       toast.success("Drive preference updated");
     } catch {
@@ -741,14 +750,31 @@ function SettingsPage() {
                       size="sm"
                       onClick={handleConnectDrive}
                       disabled={driveConnecting}
-                      className="gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs"
+                      className="gap-2 bg-background hover:bg-muted text-foreground border border-input shadow-sm font-medium text-xs h-9 px-3.5 transition-all"
                     >
                       {driveConnecting ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : (
-                        <HardDrive className="h-3.5 w-3.5" />
+                        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
                       )}
-                      Connect Google Drive
+                      <span>Sign in with Google to Connect Drive</span>
                     </Button>
                   )}
                 </div>
@@ -819,9 +845,19 @@ function SettingsPage() {
                 <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p>
                   <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal
-                  personnel data. The application uses restricted secure cloud permissions (can only
-                  access files it creates). Please ensure your Google Drive folder remains private
-                  and is not shared publicly.
+                  personnel data. Flowpeople uses restricted scope (<code className="px-1 py-0.5 rounded bg-muted/60">drive.file</code>) and adheres to the Google API Limited Use Policy. Review our{" "}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                    Privacy Policy
+                  </a>{" "}
+                  and{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                    Terms & Conditions
+                  </a>
+                  , or contact{" "}
+                  <a href="mailto:hqfluxora@gmail.com" className="text-primary font-medium underline">
+                    hqfluxora@gmail.com
+                  </a>
+                  .
                 </p>
               </div>
 

@@ -19,16 +19,23 @@ serve(async (req) => {
     }
   }
 
+  const getRedirectUrl = (baseReturnTo: string) => {
+    const appBaseUrl = Deno.env.get("APP_URL") || "http://localhost:8080";
+    return baseReturnTo.startsWith("http://") || baseReturnTo.startsWith("https://")
+      ? new URL(baseReturnTo)
+      : new URL(baseReturnTo, appBaseUrl);
+  };
+
   // Handle Google OAuth error
   if (errorParam) {
     console.error("Google OAuth error:", errorParam);
-    const redirectUrl = new URL(returnTo, url.origin);
+    const redirectUrl = getRedirectUrl(returnTo);
     redirectUrl.searchParams.set("drive_error", errorParam);
     return Response.redirect(redirectUrl.toString(), 302);
   }
 
   if (!code) {
-    const redirectUrl = new URL(returnTo, url.origin);
+    const redirectUrl = getRedirectUrl(returnTo);
     redirectUrl.searchParams.set("drive_error", "missing_code");
     return Response.redirect(redirectUrl.toString(), 302);
   }
@@ -127,13 +134,13 @@ serve(async (req) => {
     });
 
     // Redirect user back to settings with success param
-    const redirectUrl = new URL(returnTo, url.origin);
+    const redirectUrl = getRedirectUrl(returnTo);
     redirectUrl.searchParams.set("drive_connected", "true");
     redirectUrl.searchParams.set("drive_email", googleEmail);
     return Response.redirect(redirectUrl.toString(), 302);
   } catch (err: any) {
     console.error("Callback error:", err);
-    const redirectUrl = new URL(returnTo, url.origin);
+    const redirectUrl = getRedirectUrl(returnTo);
     redirectUrl.searchParams.set("drive_error", encodeURIComponent(err.message || "Unknown error"));
     return Response.redirect(redirectUrl.toString(), 302);
   }

@@ -2,6 +2,12 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import {
+  handleGoogleDriveAuthStart,
+  handleGoogleDriveOAuthCallback,
+  handleGoogleDriveDailyBackup,
+  handleGoogleDriveUpload,
+} from "./lib/server-google-drive";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -48,6 +54,37 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     // 1. Cloudflare Pages Native Geolocation Endpoint
     const url = new URL(request.url);
+
+    // Google Drive Cloud Backup OAuth Handlers
+    if (
+      url.pathname === "/api/integrations/google-drive/auth" ||
+      url.pathname === "/api/google-drive/auth"
+    ) {
+      return await handleGoogleDriveAuthStart(request, env);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/callback" ||
+      url.pathname === "/api/google-drive/callback" ||
+      url.pathname === "/api/auth/google-drive/callback"
+    ) {
+      return await handleGoogleDriveOAuthCallback(request, env);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/backup" ||
+      url.pathname === "/api/google-drive/backup"
+    ) {
+      return await handleGoogleDriveDailyBackup(request, env);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/upload" ||
+      url.pathname === "/api/google-drive/upload"
+    ) {
+      return await handleGoogleDriveUpload(request, env);
+    }
+
     if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
       const cfLat = request.headers.get("cf-iplatitude");
       const cfLon = request.headers.get("cf-iplongitude");
