@@ -845,9 +845,19 @@ interface DriveStatusInfo {
                 <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p>
                   <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal
-                  personnel data. The application uses restricted secure cloud permissions (can only
-                  access files it creates). Please ensure your Google Drive folder remains private
-                  and is not shared publicly.
+                  personnel data. Flowpeople uses restricted scope (<code className="px-1 py-0.5 rounded bg-muted/60">drive.file</code>) and adheres to the Google API Limited Use Policy. Review our{" "}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                    Privacy Policy
+                  </a>{" "}
+                  and{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                    Terms & Conditions
+                  </a>
+                  , or contact{" "}
+                  <a href="mailto:hqfluxora@gmail.com" className="text-primary font-medium underline">
+                    hqfluxora@gmail.com
+                  </a>
+                  .
                 </p>
               </div>
 

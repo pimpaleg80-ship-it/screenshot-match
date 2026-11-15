@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -63,6 +63,20 @@ function AuthPage() {
         <p className="mt-6 text-center text-xs text-muted-foreground">
           Protected by enterprise-grade security and encrypted access controls.
         </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Link to="/privacy-policy" className="hover:underline text-muted-foreground hover:text-foreground">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link to="/terms" className="hover:underline text-muted-foreground hover:text-foreground">
+            Terms & Conditions
+          </Link>
+          <span>•</span>
+          <a href="mailto:hqfluxora@gmail.com" className="hover:underline text-muted-foreground hover:text-foreground">
+            Contact: hqfluxora@gmail.com
+          </a>
+        </div>
       </div>
     </div>
   );
