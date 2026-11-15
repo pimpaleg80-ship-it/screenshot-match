@@ -275,9 +275,14 @@ export async function handleGoogleDriveOAuthCallback(
     }
 
     if (existing?.id) {
-      await supabase.from("drive_connection").update(recordData).eq("id", existing.id);
+      const { error: updateErr } = await supabase
+        .from("drive_connection")
+        .update(recordData)
+        .eq("id", existing.id);
+      if (updateErr) throw new Error(updateErr.message || "Failed to update drive connection");
     } else {
-      await supabase.from("drive_connection").insert(recordData);
+      const { error: insertErr } = await supabase.from("drive_connection").insert(recordData);
+      if (insertErr) throw new Error(insertErr.message || "Failed to save drive connection");
     }
 
     // Audit log
