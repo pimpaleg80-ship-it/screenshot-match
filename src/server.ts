@@ -5,6 +5,8 @@ import { renderErrorPage } from "./lib/error-page";
 import {
   handleGoogleDriveAuthStart,
   handleGoogleDriveOAuthCallback,
+  handleGoogleDriveDailyBackup,
+  handleGoogleDriveUpload,
 } from "./lib/server-google-drive";
 
 type ServerEntry = {
@@ -67,6 +69,20 @@ export default {
       url.pathname === "/api/auth/google-drive/callback"
     ) {
       return await handleGoogleDriveOAuthCallback(request, env);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/backup" ||
+      url.pathname === "/api/google-drive/backup"
+    ) {
+      return await handleGoogleDriveDailyBackup(request, env);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/upload" ||
+      url.pathname === "/api/google-drive/upload"
+    ) {
+      return await handleGoogleDriveUpload(request, env);
     }
 
     if (url.pathname === "/api/location" || url.pathname === "/api/geo") {

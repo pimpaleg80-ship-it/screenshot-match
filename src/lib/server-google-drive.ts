@@ -70,6 +70,73 @@ export async function encryptToken(plainText: string, secret: string): Promise<s
   return `${ivB64}:${ctB64}`;
 }
 
+export async function decryptToken(
+  encryptedString: string,
+  secret: string,
+  env?: unknown,
+): Promise<string> {
+  const [ivB64, ctB64] = encryptedString.split(":");
+  if (!ivB64 || !ctB64) {
+    throw new Error("Invalid encrypted token format");
+  }
+
+  const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
+  const ct = Uint8Array.from(atob(ctB64), (c) => c.charCodeAt(0));
+
+  const candidates = [
+    secret,
+    "face-attendance-drive-secret-fallback-key-32b",
+    getEnv("DRIVE_ENCRYPTION_KEY", env),
+    getEnv("SUPABASE_SERVICE_ROLE_KEY", env),
+    getEnv("SUPABASE_SECRET_KEY", env),
+  ].filter(Boolean);
+
+  let lastError: unknown;
+  for (const cand of candidates) {
+    try {
+      const key = await getEncryptionKey(cand);
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+      return new TextDecoder().decode(decrypted);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  throw lastError || new Error("Failed to decrypt token with secret key");
+}
+
+export async function refreshAccessToken(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<string> {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  const data = (await res.json()) as {
+    access_token?: string;
+    error?: string;
+    error_description?: string;
+  };
+
+  if (!res.ok || !data.access_token) {
+    if (data.error === "invalid_grant") {
+      throw new Error("REVOKED: Google Drive access was revoked or expired. Please reconnect Google Drive.");
+    }
+    throw new Error(`Failed to refresh Google token: ${data.error_description || data.error || res.statusText}`);
+  }
+
+  return data.access_token;
+}
+
 export async function getOrCreateFolder(
   accessToken: string,
   folderName: string,
@@ -120,6 +187,652 @@ export async function getOrCreateFolder(
 
   const folderData = (await createRes.json()) as { id: string };
   return folderData.id;
+}
+
+export async function resolveTargetFolder(
+  accessToken: string,
+  fileType: "attendance" | "report",
+  savedRootFolderId?: string | null,
+  date: Date = new Date(),
+): Promise<{ rootFolderId: string; targetFolderId: string }> {
+  let rootFolderId = savedRootFolderId;
+  if (!rootFolderId) {
+    rootFolderId = await getOrCreateFolder(accessToken, "FaceAttendance Backups");
+  }
+
+  const subCategory = fileType === "report" ? "Reports" : "Attendance";
+  const categoryFolderId = await getOrCreateFolder(accessToken, subCategory, rootFolderId);
+
+  const yearStr = String(date.getFullYear());
+  const yearFolderId = await getOrCreateFolder(accessToken, yearStr, categoryFolderId);
+
+  const monthStr = String(date.getMonth() + 1).padStart(2, "0");
+  const monthFolderId = await getOrCreateFolder(accessToken, monthStr, yearFolderId);
+
+  return { rootFolderId, targetFolderId: monthFolderId };
+}
+
+export async function findExistingFile(
+  accessToken: string,
+  fileName: string,
+  folderId: string,
+): Promise<{ id: string; webViewLink?: string } | null> {
+  const query = `name = '${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
+    query,
+  )}&fields=files(id,name,webViewLink)&spaces=drive`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) return null;
+  const data = (await res.json()) as { files?: { id: string; webViewLink?: string }[] };
+  return data.files && data.files.length > 0 ? data.files[0]! : null;
+}
+
+async function uploadMultipart(
+  accessToken: string,
+  targetFolderId: string,
+  fileName: string,
+  pdfBytes: Uint8Array,
+  existingFileId?: string | null,
+): Promise<{ id: string; name: string; webViewLink?: string }> {
+  const isUpdate = !!existingFileId;
+  const boundary = `-------314159265358979323846`;
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+
+  const metadata: Record<string, unknown> = {
+    name: fileName,
+    mimeType: "application/pdf",
+  };
+  if (!isUpdate) {
+    metadata["parents"] = [targetFolderId];
+  }
+
+  const endpoint = isUpdate
+    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,name,webViewLink`
+    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink`;
+
+  const method = isUpdate ? "PATCH" : "POST";
+
+  const enc = new TextEncoder();
+  const header = `${delimiter}Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(
+    metadata,
+  )}${delimiter}Content-Type: application/pdf\r\n\r\n`;
+
+  const headerBytes = enc.encode(header);
+  const footerBytes = enc.encode(closeDelimiter);
+
+  const totalLength = headerBytes.length + pdfBytes.length + footerBytes.length;
+  const body = new Uint8Array(totalLength);
+  body.set(headerBytes, 0);
+  body.set(pdfBytes, headerBytes.length);
+  body.set(footerBytes, headerBytes.length + pdfBytes.length);
+
+  const res = await fetch(endpoint, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+      "Content-Length": String(totalLength),
+    },
+    body,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Drive multipart upload failed: ${err}`);
+  }
+
+  return (await res.json()) as { id: string; name: string; webViewLink?: string };
+}
+
+async function uploadResumable(
+  accessToken: string,
+  targetFolderId: string,
+  fileName: string,
+  pdfBytes: Uint8Array,
+  existingFileId?: string | null,
+): Promise<{ id: string; name: string; webViewLink?: string }> {
+  const isUpdate = !!existingFileId;
+  const initUrl = isUpdate
+    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=resumable&fields=id,name,webViewLink`
+    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,webViewLink`;
+
+  const method = isUpdate ? "PATCH" : "POST";
+
+  const metadata: Record<string, unknown> = {
+    name: fileName,
+    mimeType: "application/pdf",
+  };
+  if (!isUpdate) {
+    metadata["parents"] = [targetFolderId];
+  }
+
+  const initRes = await fetch(initUrl, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Type": "application/pdf",
+      "X-Upload-Content-Length": String(pdfBytes.length),
+    },
+    body: JSON.stringify(metadata),
+  });
+
+  if (!initRes.ok) {
+    const err = await initRes.text();
+    throw new Error(`Failed initiating resumable upload: ${err}`);
+  }
+
+  const uploadLocation = initRes.headers.get("Location");
+  if (!uploadLocation) {
+    throw new Error("No Location header returned for resumable upload");
+  }
+
+  const uploadRes = await fetch(uploadLocation, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Length": String(pdfBytes.length),
+    },
+    body: pdfBytes as unknown as BodyInit,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`Resumable upload body transfer failed: ${err}`);
+  }
+
+  return (await uploadRes.json()) as { id: string; name: string; webViewLink?: string };
+}
+
+export async function uploadPdfWithRetry(
+  accessToken: string,
+  targetFolderId: string,
+  fileName: string,
+  pdfBytes: Uint8Array,
+  existingFileId?: string | null,
+): Promise<{ id: string; name: string; webViewLink?: string }> {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      if (pdfBytes.length > 5 * 1024 * 1024) {
+        return await uploadResumable(
+          accessToken,
+          targetFolderId,
+          fileName,
+          pdfBytes,
+          existingFileId,
+        );
+      } else {
+        return await uploadMultipart(
+          accessToken,
+          targetFolderId,
+          fileName,
+          pdfBytes,
+          existingFileId,
+        );
+      }
+    } catch (err) {
+      lastError = err;
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      }
+    }
+  }
+
+  throw lastError || new Error("Upload failed after 3 attempts");
+}
+
+function getTodayDateKey(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function generateAttendancePdfText(
+  dateStr: string,
+  records: Array<{
+    people?: { person_code?: string; name?: string; department?: string } | null;
+    check_in?: string | null;
+    check_out?: string | null;
+    status?: string | null;
+  }>,
+  orgName: string,
+): Uint8Array {
+  const lines: string[] = [];
+  lines.push(`%PDF-1.4`);
+  lines.push(`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`);
+  lines.push(`2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`);
+  lines.push(
+    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj`,
+  );
+
+  let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${orgName} - Daily Attendance Report) Tj\n`;
+  textStream += `/F1 11 Tf\n0 -22 Td\n(Date: ${dateStr}   |   Generated: ${new Date().toLocaleTimeString()}) Tj\n`;
+  textStream += `/F1 10 Tf\n0 -30 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
+  textStream += `0 -18 Td\n(ID          NAME                           DEPARTMENT      CHECK-IN   CHECK-OUT   STATUS) Tj\n`;
+  textStream += `0 -12 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
+
+  let yOffset = -18;
+  if (records.length === 0) {
+    textStream += `0 ${yOffset} Td\n(No attendance records logged for today.) Tj\n`;
+  } else {
+    for (const r of records.slice(0, 32)) {
+      const code = (r.people?.person_code || "N/A").padEnd(10);
+      const name = (r.people?.name || "Unknown").slice(0, 28).padEnd(30);
+      const dept = (r.people?.department || "General").slice(0, 14).padEnd(16);
+      const inTime = r.check_in
+        ? new Date(r.check_in)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            .padEnd(11)
+        : "—          ";
+      const outTime = r.check_out
+        ? new Date(r.check_out)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            .padEnd(12)
+        : "—           ";
+      const status = (r.status || "present").toUpperCase();
+
+      const line = `${code} ${name} ${dept} ${inTime} ${outTime} ${status}`;
+      textStream += `0 ${yOffset} Td\n(${line.replace(/[()]/g, "")}) Tj\n`;
+      yOffset = -16;
+    }
+  }
+
+  textStream += `ET`;
+
+  const streamBytes = new TextEncoder().encode(textStream);
+  lines.push(
+    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj`,
+  );
+  lines.push(`5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`);
+  lines.push(
+    `xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000${244 + streamBytes.length + 50} 00000 n \n`,
+  );
+  lines.push(`trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${350 + streamBytes.length}\n%%EOF`);
+
+  return new TextEncoder().encode(lines.join("\n"));
+}
+
+export async function handleGoogleDriveDailyBackup(
+  request: Request,
+  env?: unknown,
+): Promise<Response> {
+  const jsonHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: jsonHeaders });
+  }
+
+  let backupId: string | null = null;
+  if (request.method === "POST") {
+    try {
+      const body = (await request.json()) as { backup_id?: string };
+      if (body?.backup_id) backupId = body.backup_id;
+    } catch {
+      // Body may be empty
+    }
+  }
+
+  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
+  if (!serviceRoleKey) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Missing server database credentials" }),
+      { status: 500, headers: jsonHeaders },
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  try {
+    // 1. Fetch connection
+    const { data: connection } = await supabase
+      .from("drive_connection")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+
+    if (!connection) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Google Drive is not connected. Please connect Google Drive in Settings first.",
+        }),
+        { status: 400, headers: jsonHeaders },
+      );
+    }
+
+    const todayStr = getTodayDateKey();
+    const fileName = `attendance_${todayStr}.pdf`;
+
+    // 2. Fetch org settings & today's attendance
+    const [{ data: settings }, { data: records }] = await Promise.all([
+      supabase.from("settings").select("org_name").eq("id", 1).maybeSingle(),
+      supabase
+        .from("attendance")
+        .select("*, people!inner(*)")
+        .eq("date", todayStr)
+        .order("check_in", { ascending: true }),
+    ]);
+
+    const orgName = settings?.org_name || "FaceTime Attendance";
+    const pdfBytes = generateAttendancePdfText(todayStr, (records as any[]) ?? [], orgName);
+
+    // 3. Register or reuse pending backup record
+    let currentBackupId = backupId;
+    if (currentBackupId) {
+      await supabase
+        .from("drive_backups")
+        .update({ status: "pending", error_message: null, updated_at: new Date().toISOString() })
+        .eq("id", currentBackupId);
+    } else {
+      const { data: backupRecord } = await supabase
+        .from("drive_backups")
+        .insert({
+          file_type: "attendance",
+          file_name: fileName,
+          period_start: todayStr,
+          period_end: todayStr,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      currentBackupId = backupRecord?.id || null;
+    }
+
+    // 4. Decrypt token & refresh
+    const refreshToken = await decryptToken(connection.refresh_token_encrypted, serviceRoleKey, env);
+    const accessToken = await refreshAccessToken(refreshToken, clientId, clientSecret);
+
+    // 5. Target folder
+    const { rootFolderId, targetFolderId } = await resolveTargetFolder(
+      accessToken,
+      "attendance",
+      connection.root_folder_id,
+      new Date(),
+    );
+
+    // Update root folder id if missing
+    if (!connection.root_folder_id && rootFolderId) {
+      await supabase
+        .from("drive_connection")
+        .update({ root_folder_id: rootFolderId, updated_at: new Date().toISOString() })
+        .eq("id", connection.id);
+    }
+
+    const existingFile = await findExistingFile(accessToken, fileName, targetFolderId);
+
+    // 6. Upload
+    const result = await uploadPdfWithRetry(
+      accessToken,
+      targetFolderId,
+      fileName,
+      pdfBytes,
+      existingFile?.id || null,
+    );
+
+    const driveLink =
+      result.webViewLink || `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
+
+    if (currentBackupId) {
+      await supabase
+        .from("drive_backups")
+        .update({
+          status: "success",
+          drive_file_id: result.id,
+          drive_link: driveLink,
+          updated_at: new Date().toISOString(),
+          error_message: null,
+        })
+        .eq("id", currentBackupId);
+    }
+
+    await supabase.from("audit_logs").insert({
+      action: "google_drive_backup_created",
+      details: {
+        file_name: fileName,
+        file_id: result.id,
+        drive_link: driveLink,
+        status: "success",
+      },
+    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        file_name: fileName,
+        file_id: result.id,
+        drive_link: driveLink,
+      }),
+      { status: 200, headers: jsonHeaders },
+    );
+  } catch (err: any) {
+    const errorMsg = err?.message || "Daily backup failed";
+    console.error("Daily backup failed:", errorMsg);
+
+    if (backupId) {
+      const { data: bRec } = await supabase
+        .from("drive_backups")
+        .select("retry_count")
+        .eq("id", backupId)
+        .single();
+      await supabase
+        .from("drive_backups")
+        .update({
+          status: "failed",
+          error_message: errorMsg,
+          retry_count: (bRec?.retry_count || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", backupId);
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, error: errorMsg }),
+      { status: 500, headers: jsonHeaders },
+    );
+  }
+}
+
+export async function handleGoogleDriveUpload(
+  request: Request,
+  env?: unknown,
+): Promise<Response> {
+  const jsonHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: jsonHeaders });
+  }
+
+  let payload: {
+    file_type?: "report" | "attendance";
+    file_name?: string;
+    pdf_base64?: string;
+    period_start?: string;
+    period_end?: string;
+    backup_id?: string;
+  };
+
+  try {
+    payload = (await request.json()) as typeof payload;
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: "Invalid JSON request body" }),
+      { status: 400, headers: jsonHeaders },
+    );
+  }
+
+  const { file_type, file_name, pdf_base64, period_start, period_end, backup_id } = payload;
+  if (!file_type || !file_name || !pdf_base64) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Missing required fields: file_type, file_name, pdf_base64",
+      }),
+      { status: 400, headers: jsonHeaders },
+    );
+  }
+
+  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env);
+  if (!serviceRoleKey) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Missing server database credentials" }),
+      { status: 500, headers: jsonHeaders },
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // 1. Check drive connection
+  const { data: connection } = await supabase
+    .from("drive_connection")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+
+  if (!connection) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Google Drive is not connected",
+      }),
+      { status: 400, headers: jsonHeaders },
+    );
+  }
+
+  // 2. Track backup in DB
+  let currentBackupId = backup_id;
+  if (!currentBackupId) {
+    const { data: inserted, error: insertErr } = await supabase
+      .from("drive_backups")
+      .insert({
+        file_type,
+        file_name,
+        period_start: period_start || null,
+        period_end: period_end || null,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (!insertErr && inserted?.id) {
+      currentBackupId = inserted.id;
+    }
+  } else {
+    await supabase
+      .from("drive_backups")
+      .update({ status: "pending", error_message: null, updated_at: new Date().toISOString() })
+      .eq("id", currentBackupId);
+  }
+
+  try {
+    // 3. Decode base64 to binary
+    const binaryStr = atob(pdf_base64);
+    const pdfBytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      pdfBytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    // 4. Decrypt token & refresh
+    const refreshToken = await decryptToken(connection.refresh_token_encrypted, serviceRoleKey, env);
+    const accessToken = await refreshAccessToken(refreshToken, clientId, clientSecret);
+
+    // 5. Target folder
+    const dateForFolder = period_start ? new Date(period_start) : new Date();
+    const { rootFolderId, targetFolderId } = await resolveTargetFolder(
+      accessToken,
+      file_type,
+      connection.root_folder_id,
+      dateForFolder,
+    );
+
+    if (!connection.root_folder_id && rootFolderId) {
+      await supabase
+        .from("drive_connection")
+        .update({ root_folder_id: rootFolderId, updated_at: new Date().toISOString() })
+        .eq("id", connection.id);
+    }
+
+    // 6. Check existing file
+    const existingFile = await findExistingFile(accessToken, file_name, targetFolderId);
+
+    // 7. Upload PDF
+    const result = await uploadPdfWithRetry(
+      accessToken,
+      targetFolderId,
+      file_name,
+      pdfBytes,
+      existingFile?.id || null,
+    );
+
+    const driveLink =
+      result.webViewLink || `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
+
+    if (currentBackupId) {
+      await supabase
+        .from("drive_backups")
+        .update({
+          status: "success",
+          drive_file_id: result.id,
+          drive_link: driveLink,
+          updated_at: new Date().toISOString(),
+          error_message: null,
+        })
+        .eq("id", currentBackupId);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        file_id: result.id,
+        drive_link: driveLink,
+        file_name,
+        is_update: !!existingFile,
+      }),
+      { status: 200, headers: jsonHeaders },
+    );
+  } catch (err: any) {
+    const errorMsg = err?.message || "Upload failed";
+    console.error("Upload to Google Drive failed:", errorMsg);
+
+    if (currentBackupId) {
+      const { data: bRec } = await supabase
+        .from("drive_backups")
+        .select("retry_count")
+        .eq("id", currentBackupId)
+        .single();
+      await supabase
+        .from("drive_backups")
+        .update({
+          status: "failed",
+          error_message: errorMsg,
+          retry_count: (bRec?.retry_count || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentBackupId);
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, error: errorMsg }),
+      { status: 500, headers: jsonHeaders },
+    );
+  }
 }
 
 export async function handleGoogleDriveAuthStart(

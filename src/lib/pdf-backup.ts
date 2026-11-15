@@ -255,19 +255,23 @@ async function backupPdfToDrive({
     const base64Data = pdfDataUri.split(",")[1];
     if (!base64Data) return;
 
-    // Invoke google-drive-upload edge function
-    const { data, error } = await supabase.functions.invoke("google-drive-upload", {
-      body: {
+    // Invoke google-drive-upload API
+    const res = await fetch("/api/integrations/google-drive/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         file_type: fileType,
         file_name: fileName,
         pdf_base64: base64Data,
         period_start: periodStart || toDateKey(),
         period_end: periodEnd || toDateKey(),
-      },
+      }),
     });
 
-    if (error) {
-      console.warn("Drive backup error:", error.message);
+    const data = await res.json();
+
+    if (!res.ok || !data?.success) {
+      console.warn("Drive backup error:", data?.error || res.statusText);
       return;
     }
 

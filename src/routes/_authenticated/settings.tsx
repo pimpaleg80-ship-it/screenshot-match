@@ -331,16 +331,18 @@ interface DriveStatusInfo {
     try {
       setDriveBackingUp(true);
       toast.info("Starting instant daily attendance backup...");
-      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
-      if (error) throw error;
-
-      if (data?.success) {
-        toast.success(`Backup completed: ${data.file_name}`, {
-          description: "Saved in FaceAttendance Backups on Google Drive",
-        });
-      } else {
-        toast.error(data?.error || "Backup failed");
+      const res = await fetch("/api/integrations/google-drive/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Backup failed");
       }
+
+      toast.success(`Backup completed: ${data.file_name}`, {
+        description: "Saved in FaceAttendance Backups on Google Drive",
+      });
       queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
       queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
     } catch (err: any) {
@@ -355,8 +357,15 @@ interface DriveStatusInfo {
     try {
       setRetryingId(backupId);
       toast.info("Retrying backup to Google Drive...");
-      const { data, error } = await supabase.functions.invoke("google-drive-daily-backup");
-      if (error) throw error;
+      const res = await fetch("/api/integrations/google-drive/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backup_id: backupId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Retry failed");
+      }
 
       toast.success("Retry completed successfully");
       queryClient.invalidateQueries({ queryKey: ["google-drive-backups-history"] });
