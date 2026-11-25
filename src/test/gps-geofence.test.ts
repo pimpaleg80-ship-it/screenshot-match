@@ -126,19 +126,18 @@ describe("GPS Geofence & Location Intelligence Suite", () => {
     expect(rejected.label).toBe("Accuracy Too Low");
   });
 
-  it("handles multi-tier coordinate sources gracefully", () => {
+  it("handles multi-tier GPS sensor sources gracefully", () => {
     const testTiers: Coordinates[] = [
       { latitude: 18.5204, longitude: 73.8567, accuracy: 10, timestamp: Date.now(), source: "native_gps" },
       { latitude: 18.5204, longitude: 73.8567, accuracy: 25, timestamp: Date.now(), source: "browser_gps" },
       { latitude: 18.5204, longitude: 73.8567, accuracy: 65, timestamp: Date.now(), source: "browser_network" },
-      { latitude: 18.5204, longitude: 73.8567, accuracy: 75, timestamp: Date.now(), source: "edge_cloudflare" },
     ];
 
     testTiers.forEach((coord) => {
       expect(coord.latitude).toBeCloseTo(18.5204, 4);
       expect(coord.longitude).toBeCloseTo(73.8567, 4);
       expect(coord.accuracy).toBeLessThanOrEqual(150);
-      expect(["native_gps", "browser_gps", "browser_network", "edge_cloudflare"]).toContain(coord.source);
+      expect(["native_gps", "browser_gps", "browser_network"]).toContain(coord.source);
     });
   });
 });

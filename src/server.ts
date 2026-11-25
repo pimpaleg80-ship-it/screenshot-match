@@ -103,11 +103,11 @@ export default {
           JSON.stringify({
             latitude: parseFloat(cfLat),
             longitude: parseFloat(cfLon),
-            accuracy: 5,
+            accuracy: 5000,
             city: cfCity || undefined,
             region: cfRegion || undefined,
             country: cfCountry || undefined,
-            source: "cloudflare_edge_headers",
+            source: "ip_geolocation",
             timestamp: Date.now(),
           }),
           {
@@ -140,11 +140,11 @@ export default {
               JSON.stringify({
                 latitude: parseFloat(geo.latitude),
                 longitude: parseFloat(geo.longitude),
-                accuracy: 5,
+                accuracy: 5000,
                 city: geo.cityName || undefined,
                 region: geo.regionName || undefined,
                 country: geo.countryName || undefined,
-                source: "cloudflare_ip_network_fallback",
+                source: "ip_geolocation",
                 timestamp: Date.now(),
               }),
               {
@@ -159,21 +159,17 @@ export default {
           }
         }
       } catch {
-        // Fallback below
+        // Return error cleanly below without hardcoded fallback coordinates
       }
 
       return new Response(
         JSON.stringify({
-          latitude: 18.5204,
-          longitude: 73.8567,
-          accuracy: 5,
-          city: "Pune",
-          country: "India",
-          source: "cloudflare_default_fallback",
+          error: "Location unavailable",
+          source: "ip_geolocation",
           timestamp: Date.now(),
         }),
         {
-          status: 200,
+          status: 503,
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",

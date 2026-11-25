@@ -2594,6 +2594,7 @@ export type Database = {
           longitude: number | null;
           radius_meters: number;
           is_active: boolean;
+          created_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -2606,6 +2607,7 @@ export type Database = {
           longitude?: number | null;
           radius_meters?: number;
           is_active?: boolean;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -2618,6 +2620,7 @@ export type Database = {
           longitude?: number | null;
           radius_meters?: number;
           is_active?: boolean;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -4795,12 +4798,21 @@ export type Database = {
         };
         Returns: number;
       };
-      record_geofence_punch: {
+      save_office_location: {
         Args: {
-          p_latitude: number;
-          p_longitude: number;
-          p_work_location_id?: string | null;
-          p_accuracy?: number | null;
+          p_id?: string | null;
+          p_name?: string | null;
+          p_address?: string | null;
+          p_lat?: number | null;
+          p_lon?: number | null;
+          p_radius?: number | null;
+          p_is_active?: boolean | null;
+        };
+        Returns: Json;
+      };
+      delete_office_location: {
+        Args: {
+          p_id: string;
         };
         Returns: Json;
       };

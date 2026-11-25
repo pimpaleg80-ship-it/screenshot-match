@@ -27,6 +27,7 @@ import { useSession } from "@/hooks/use-session";
 import {
   getCurrentDevicePosition,
   validateCoordinates,
+  validateRadiusMeters,
   formatCoordinates,
   getAccuracyCategory,
   type Coordinates,
@@ -78,13 +79,13 @@ export function AdminLocationStudio() {
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Form Editor State
+  // Form Editor State (never hardcode default office coordinates)
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [lat, setLat] = useState<number>(18.5204);
-  const [lng, setLng] = useState<number>(73.8567);
-  const [latStr, setLatStr] = useState<string>("18.520400");
-  const [lngStr, setLngStr] = useState<string>("73.856700");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [latStr, setLatStr] = useState<string>("");
+  const [lngStr, setLngStr] = useState<string>("");
   const [radius, setRadius] = useState<number>(150);
   const [isActive, setIsActive] = useState<boolean>(true);
   const [isDirty, setIsDirty] = useState(false);
@@ -106,11 +107,11 @@ export function AdminLocationStudio() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [locToDelete, setLocToDelete] = useState<WorkLocationEntity | null>(null);
 
-  const updateCoords = useCallback((newLat: number, newLng: number) => {
+  const updateCoords = useCallback((newLat: number | null, newLng: number | null) => {
     setLat(newLat);
     setLng(newLng);
-    setLatStr(newLat.toFixed(6));
-    setLngStr(newLng.toFixed(6));
+    setLatStr(newLat !== null && Number.isFinite(newLat) ? newLat.toFixed(6) : "");
+    setLngStr(newLng !== null && Number.isFinite(newLng) ? newLng.toFixed(6) : "");
   }, []);
 
   const handleLatInputChange = (value: string) => {
@@ -137,19 +138,25 @@ export function AdminLocationStudio() {
     }
     setLatStr(value);
     setIsDirty(true);
-    const parsed = parseFloat(value);
-    if (!isNaN(parsed) && parsed >= -90 && parsed <= 90) {
-      setLat(parsed);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setLat(null);
+      return;
     }
+    const parsed = Number(trimmed);
+    setLat(Number.isFinite(parsed) ? parsed : Number.NaN);
   };
 
   const handleLngInputChange = (value: string) => {
     setLngStr(value);
     setIsDirty(true);
-    const parsed = parseFloat(value);
-    if (!isNaN(parsed) && parsed >= -180 && parsed <= 180) {
-      setLng(parsed);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setLng(null);
+      return;
     }
+    const parsed = Number(trimmed);
+    setLng(Number.isFinite(parsed) ? parsed : Number.NaN);
   };
 
   // 1. Fetch work locations from base table
@@ -247,18 +254,13 @@ export function AdminLocationStudio() {
     setCapturedGps(null);
   }, [updateCoords]);
 
-  // Start new office creation
+  // Start new office creation (always require explicit admin coordinate entry or GPS capture)
   const handleStartCreateNew = () => {
     setIsCreatingNew(true);
     setSelectedLocId(null);
     setName("");
     setAddress("");
-    const firstLoc = locations[0];
-    if (firstLoc) {
-      updateCoords(firstLoc.latitude, firstLoc.longitude);
-    } else {
-      updateCoords(18.5204, 73.8567);
-    }
+    updateCoords(null, null);
     setRadius(150);
     setIsActive(true);
     setIsDirty(false);
@@ -286,85 +288,55 @@ export function AdminLocationStudio() {
   // Validation
   const validationError = useMemo(() => {
     if (!name.trim()) return "Office name is required.";
+    if (lat === null || lng === null) {
+      return "Latitude and Longitude are required.";
+    }
     const coordVal = validateCoordinates(lat, lng);
-    if (!coordVal.valid) return coordVal.reason;
-    if (radius < 10 || radius > 5000) return "Radius must be between 10m and 5000m.";
+    if (!coordVal.valid) return coordVal.reason ?? "Invalid coordinates.";
+    const radiusVal = validateRadiusMeters(radius);
+    if (!radiusVal.valid) return radiusVal.reason ?? "Radius must be positive.";
     return null;
   }, [name, lat, lng, radius]);
 
-  // Save Mutation with RPC + direct table fallback
+  // Save or Update Mutation via hardened save_office_location RPC (with override flag for quick status toggle)
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrideActive?: boolean) => {
       if (validationError) throw new Error(validationError);
+      if (lat === null || lng === null) {
+        throw new Error("Latitude and Longitude are required.");
+      }
 
+      const nextActive = overrideActive !== undefined ? overrideActive : isActive;
       const targetId = isCreatingNew ? null : selectedLocId;
 
-      // 1. Try secure save_office_location RPC
-      try {
-        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
-          "save_office_location",
-          {
-            p_id: targetId || undefined,
-            p_name: name.trim(),
-            p_address: address.trim() || undefined,
-            p_lat: lat,
-            p_lon: lng,
-            p_radius: radius,
-            p_is_active: isActive,
-          },
-        );
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "save_office_location",
+        {
+          p_id: targetId,
+          p_name: name.trim(),
+          p_address: address.trim() || null,
+          p_lat: lat,
+          p_lon: lng,
+          p_radius: radius,
+          p_is_active: nextActive,
+        },
+      );
 
-        if (!rpcError && rpcData?.id) {
-          return rpcData as WorkLocationEntity;
-        }
-        if (rpcError) {
-          console.warn("[save_office_location RPC warn, using direct table fallback]", rpcError);
-        }
-      } catch (rpcEx) {
-        console.warn("[save_office_location RPC catch, using direct table fallback]", rpcEx);
+      if (rpcError) {
+        throw new Error(rpcError.message || "Failed to save office geofence configuration.");
+      }
+      if (!rpcData || typeof rpcData !== "object" || !("id" in rpcData)) {
+        throw new Error("Unexpected response from save_office_location.");
       }
 
-      // 2. Direct table fallback if RPC fails
-      const orgId = session.organizationId || "00000000-0000-0000-0000-000000000001";
-      const payload = {
-        organization_id: orgId,
-        name: name.trim(),
-        address: address.trim() || null,
-        latitude: lat,
-        longitude: lng,
-        radius_meters: radius,
-        is_active: isActive,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (isCreatingNew || !selectedLocId) {
-        const { data, error } = await supabase
-          .from("work_locations")
-          .insert({
-            ...payload,
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-        if (error) throw new Error(error.message || "Failed to save location");
-        return data as WorkLocationEntity;
-      } else {
-        const { data, error } = await supabase
-          .from("work_locations")
-          .update(payload)
-          .eq("id", selectedLocId)
-          .select()
-          .single();
-        if (error) throw new Error(error.message || "Failed to update location");
-        return data as WorkLocationEntity;
-      }
+      return rpcData as unknown as WorkLocationEntity;
     },
-    onSuccess: (savedLoc: any) => {
-      const locId = savedLoc?.id || selectedLocId;
+    onSuccess: (savedLoc: WorkLocationEntity) => {
+      const locId = savedLoc.id || selectedLocId;
       toast.success(
         isCreatingNew
-          ? `Created office location "${savedLoc.name}" with ${savedLoc.radius_meters}m geofence.`
-          : `Updated office location "${savedLoc.name}".`,
+          ? `Saved office "${savedLoc.name}" (${savedLoc.radius_meters}m radius).`
+          : `Updated office "${savedLoc.name}" (${savedLoc.is_active ? "Active" : "Inactive"}).`,
       );
       setIsDirty(false);
       setConfirmSaveOpen(false);
@@ -372,8 +344,8 @@ export function AdminLocationStudio() {
       setCapturedGps(null);
 
       const normalized: WorkLocationEntity = {
-        id: locId,
-        organization_id: savedLoc.organization_id || session.organizationId || "00000000-0000-0000-0000-000000000001",
+        id: locId as string,
+        organization_id: savedLoc.organization_id || session.organizationId || "",
         name: savedLoc.name || name.trim(),
         address: savedLoc.address ?? (address.trim() || null),
         latitude: Number(savedLoc.latitude ?? lat),
@@ -381,7 +353,7 @@ export function AdminLocationStudio() {
         radius_meters: Number(savedLoc.radius_meters ?? radius),
         is_active: Boolean(savedLoc.is_active ?? isActive),
         created_at: savedLoc.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        updated_at: savedLoc.updated_at || new Date().toISOString(),
       };
 
       setSelectedLocId(locId);
@@ -411,26 +383,19 @@ export function AdminLocationStudio() {
     },
   });
 
-  // Delete Mutation with RPC + direct fallback
+  // Delete Mutation via hardened delete_office_location RPC
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      try {
-        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
-          "delete_office_location",
-          { p_id: id },
-        );
-        if (!rpcError && rpcData?.success) {
-          return id;
-        }
-        if (rpcError) {
-          console.warn("[delete_office_location RPC warn, using direct delete fallback]", rpcError);
-        }
-      } catch (rpcEx) {
-        console.warn("[delete_office_location RPC catch, using direct delete fallback]", rpcEx);
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "delete_office_location",
+        { p_id: id },
+      );
+      if (rpcError) {
+        throw new Error(rpcError.message || "Failed to delete office location.");
       }
-
-      const { error } = await supabase.from("work_locations").delete().eq("id", id);
-      if (error) throw error;
+      if (!rpcData || typeof rpcData !== "object" || !(rpcData as { success?: boolean }).success) {
+        throw new Error("Delete office location did not complete.");
+      }
       return id;
     },
     onSuccess: (deletedId) => {
@@ -665,21 +630,33 @@ export function AdminLocationStudio() {
                   </CardDescription>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                   {!isCreatingNew && selectedLocId && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const cur = locations.find((l) => l.id === selectedLocId);
-                        setLocToDelete(cur || null);
-                        setDeleteConfirmOpen(true);
-                      }}
-                      className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Delete
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveMutation.mutate(!isActive)}
+                        disabled={saveMutation.isPending || !!validationError}
+                        className="h-8 text-xs"
+                      >
+                        {isActive ? "Deactivate" : "Reactivate"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const cur = locations.find((l) => l.id === selectedLocId);
+                          setLocToDelete(cur || null);
+                          setDeleteConfirmOpen(true);
+                        }}
+                        className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
+                      </Button>
+                    </>
                   )}
 
                   <Button
@@ -693,7 +670,9 @@ export function AdminLocationStudio() {
                     ) : (
                       <Save className="h-3.5 w-3.5" />
                     )}
-                    <span>Save Location</span>
+                    <span>
+                      {isCreatingNew || !selectedLocId ? "Save Location" : "Update Location"}
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -781,7 +760,7 @@ export function AdminLocationStudio() {
                     <Input
                       type="text"
                       inputMode="decimal"
-                      placeholder="e.g. 18.520430"
+                      placeholder="e.g. 19.0948"
                       value={latStr}
                       onChange={(e) => handleLatInputChange(e.target.value)}
                       className="text-xs font-mono"
@@ -796,7 +775,7 @@ export function AdminLocationStudio() {
                     <Input
                       type="text"
                       inputMode="decimal"
-                      placeholder="e.g. 73.856743"
+                      placeholder="e.g. 74.7480"
                       value={lngStr}
                       onChange={(e) => handleLngInputChange(e.target.value)}
                       className="text-xs font-mono"
@@ -805,9 +784,11 @@ export function AdminLocationStudio() {
                 </div>
 
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
-                  <span>Formatted Coordinates:</span>
+                  <span>Saved / Active Coordinates:</span>
                   <strong className="font-mono text-foreground">
-                    {formatCoordinates(lat, lng)}
+                    {lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng)
+                      ? formatCoordinates(lat, lng)
+                      : "Enter coordinates or capture GPS"}
                   </strong>
                 </div>
               </div>
@@ -821,20 +802,20 @@ export function AdminLocationStudio() {
                       Geofence Radius ({radius} meters)
                     </Label>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Allowed circular perimeter around the office coordinates. Employees must be inside to punch.
+                      Allowed circular perimeter around the office coordinates. Employees must be inside to Check In.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      min={10}
-                      max={5000}
+                      min={1}
+                      max={50000}
                       step={10}
                       value={radius}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         if (!isNaN(val)) {
-                          setRadius(Math.min(5000, Math.max(0, val)));
+                          setRadius(Math.min(50000, Math.max(0, val)));
                           setIsDirty(true);
                         } else if (e.target.value === "") {
                           setRadius(0);
@@ -954,11 +935,15 @@ export function AdminLocationStudio() {
               </div>
               <div className="flex justify-between py-0.5 border-b border-border/40">
                 <span className="text-muted-foreground">Latitude:</span>
-                <span className="font-mono font-bold text-foreground">{lat.toFixed(6)}°</span>
+                <span className="font-mono font-bold text-foreground">
+                  {lat !== null && Number.isFinite(lat) ? `${lat.toFixed(6)}°` : "--"}
+                </span>
               </div>
               <div className="flex justify-between py-0.5 border-b border-border/40">
                 <span className="text-muted-foreground">Longitude:</span>
-                <span className="font-mono font-bold text-foreground">{lng.toFixed(6)}°</span>
+                <span className="font-mono font-bold text-foreground">
+                  {lng !== null && Number.isFinite(lng) ? `${lng.toFixed(6)}°` : "--"}
+                </span>
               </div>
               <div className="flex justify-between py-0.5 border-b border-border/40">
                 <span className="text-muted-foreground">Geofence Radius:</span>
@@ -992,12 +977,12 @@ export function AdminLocationStudio() {
             </Button>
             <Button
               type="button"
-              onClick={() => saveMutation.mutate()}
+              onClick={() => saveMutation.mutate(undefined)}
               disabled={saveMutation.isPending}
               className="gap-1.5"
             >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Confirm & Save
+              {isCreatingNew || !selectedLocId ? "Confirm & Save Location" : "Confirm & Update Location"}
             </Button>
           </DialogFooter>
         </DialogContent>
