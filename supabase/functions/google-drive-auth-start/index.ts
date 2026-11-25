@@ -11,10 +11,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
 
     if (!clientId) {
-      return new Response(
-        JSON.stringify({ error: "Missing GOOGLE_CLIENT_ID secret" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing GOOGLE_CLIENT_ID secret" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Determine redirect URI
@@ -24,9 +24,26 @@ serve(async (req) => {
       explicitRedirect ||
       `${supabaseUrl?.replace(/\/+$/, "")}/functions/v1/google-drive-auth-callback`;
 
-    // Parse state from request if present (app return URL or admin user ID)
+    // Parse return_to from request body, query params, or headers
     const url = new URL(req.url);
-    const returnUrl = url.searchParams.get("return_to") || req.headers.get("referer") || "/settings";
+    let bodyReturnTo: string | undefined;
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        if (body && typeof body.return_to === "string") {
+          bodyReturnTo = body.return_to;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const returnUrl =
+      bodyReturnTo ||
+      url.searchParams.get("return_to") ||
+      req.headers.get("referer") ||
+      Deno.env.get("APP_URL") ||
+      "/settings";
     const state = btoa(JSON.stringify({ return_to: returnUrl }));
 
     const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -35,18 +52,19 @@ serve(async (req) => {
     googleAuthUrl.searchParams.set("response_type", "code");
     googleAuthUrl.searchParams.set(
       "scope",
-      "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email"
+      "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
     );
     googleAuthUrl.searchParams.set("access_type", "offline");
     googleAuthUrl.searchParams.set("prompt", "consent");
     googleAuthUrl.searchParams.set("state", state);
 
     // If client requested JSON via Accept header or POST
-    const acceptsJson = req.headers.get("accept")?.includes("application/json") || req.method === "POST";
+    const acceptsJson =
+      req.headers.get("accept")?.includes("application/json") || req.method === "POST";
     if (acceptsJson) {
       return new Response(
         JSON.stringify({ url: googleAuthUrl.toString(), redirect_uri: redirectUri }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -55,8 +73,7 @@ serve(async (req) => {
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: err.message || "Failed to start Google Drive auth" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
-

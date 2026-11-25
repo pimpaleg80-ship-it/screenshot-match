@@ -50,7 +50,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
 export async function getOrCreateFolder(
   accessToken: string,
   folderName: string,
-  parentFolderId?: string
+  parentFolderId?: string,
 ): Promise<string> {
   let query = `mimeType = 'application/vnd.google-apps.folder' and name = '${folderName.replace(/'/g, "\\'")}' and trashed = false`;
   if (parentFolderId) {
@@ -58,7 +58,7 @@ export async function getOrCreateFolder(
   }
 
   const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
-    query
+    query,
   )}&fields=files(id,name)&spaces=drive`;
 
   const searchRes = await fetch(searchUrl, {
@@ -110,7 +110,7 @@ export async function resolveTargetFolder(
   accessToken: string,
   fileType: "report" | "attendance",
   savedRootFolderId?: string | null,
-  date: Date = new Date()
+  date: Date = new Date(),
 ): Promise<{ rootFolderId: string; targetFolderId: string }> {
   // 1. Root folder: FaceAttendance Backups
   let rootFolderId = savedRootFolderId;
@@ -137,11 +137,11 @@ export async function resolveTargetFolder(
 export async function findExistingFile(
   accessToken: string,
   fileName: string,
-  folderId: string
+  folderId: string,
 ): Promise<{ id: string; webViewLink?: string } | null> {
   const query = `name = '${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
-    query
+    query,
   )}&fields=files(id,name,webViewLink)&spaces=drive`;
 
   const res = await fetch(url, {
@@ -163,16 +163,28 @@ export async function uploadPdfWithRetry(
   targetFolderId: string,
   fileName: string,
   pdfBytes: Uint8Array,
-  existingFileId?: string | null
+  existingFileId?: string | null,
 ): Promise<DriveFileResult> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       if (pdfBytes.length > 5 * 1024 * 1024) {
-        return await uploadResumable(accessToken, targetFolderId, fileName, pdfBytes, existingFileId);
+        return await uploadResumable(
+          accessToken,
+          targetFolderId,
+          fileName,
+          pdfBytes,
+          existingFileId,
+        );
       } else {
-        return await uploadMultipart(accessToken, targetFolderId, fileName, pdfBytes, existingFileId);
+        return await uploadMultipart(
+          accessToken,
+          targetFolderId,
+          fileName,
+          pdfBytes,
+          existingFileId,
+        );
       }
     } catch (err: any) {
       lastError = err;
@@ -192,7 +204,7 @@ async function uploadMultipart(
   targetFolderId: string,
   fileName: string,
   pdfBytes: Uint8Array,
-  existingFileId?: string | null
+  existingFileId?: string | null,
 ): Promise<DriveFileResult> {
   const isUpdate = !!existingFileId;
   const boundary = `-------314159265358979323846`;
@@ -215,7 +227,7 @@ async function uploadMultipart(
 
   const enc = new TextEncoder();
   const header = `${delimiter}Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(
-    metadata
+    metadata,
   )}${delimiter}Content-Type: application/pdf\r\n\r\n`;
 
   const headerBytes = enc.encode(header);
@@ -251,7 +263,7 @@ async function uploadResumable(
   targetFolderId: string,
   fileName: string,
   pdfBytes: Uint8Array,
-  existingFileId?: string | null
+  existingFileId?: string | null,
 ): Promise<DriveFileResult> {
   const isUpdate = !!existingFileId;
   const initUrl = isUpdate
@@ -307,4 +319,3 @@ async function uploadResumable(
 
   return await uploadRes.json();
 }
-

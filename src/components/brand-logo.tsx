@@ -40,7 +40,7 @@ export function BrandLogo({
     <div
       className={cn(
         "relative flex shrink-0 items-center justify-center bg-gradient-to-br from-[#4F46E5] to-[#06B6D4] shadow-sm shadow-[#4F46E5]/20",
-        iconSizes[size]
+        iconSizes[size],
       )}
       aria-hidden="true"
     >
@@ -84,10 +84,7 @@ export function BrandLogo({
         </span>
         {showSubtitle && (
           <span
-            className={cn(
-              "font-bold uppercase text-muted-foreground mt-0.5",
-              subtitleSizes[size]
-            )}
+            className={cn("font-bold uppercase text-muted-foreground mt-0.5", subtitleSizes[size])}
           >
             BY FLUXORA
           </span>
@@ -109,7 +106,7 @@ export function BrandLogo({
             <span
               className={cn(
                 "font-bold uppercase text-muted-foreground mt-0.5",
-                subtitleSizes[size]
+                subtitleSizes[size],
               )}
             >
               BY FLUXORA
@@ -131,10 +128,7 @@ export function BrandLogo({
         </span>
         {showSubtitle && (
           <span
-            className={cn(
-              "font-bold uppercase text-muted-foreground mt-0.5",
-              subtitleSizes[size]
-            )}
+            className={cn("font-bold uppercase text-muted-foreground mt-0.5", subtitleSizes[size])}
           >
             BY FLUXORA
           </span>
@@ -143,4 +137,3 @@ export function BrandLogo({
     </div>
   );
 }
-

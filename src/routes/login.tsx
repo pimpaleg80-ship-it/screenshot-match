@@ -5,4 +5,3 @@ export const Route = createFileRoute("/login")({
     throw redirect({ to: "/auth" });
   },
 });
-

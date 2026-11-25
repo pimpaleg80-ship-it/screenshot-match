@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Clock,
   UserX,
-  ScanFace,
   FileSpreadsheet,
   AlertTriangle,
   TrendingUp,
@@ -68,7 +67,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { AttendanceCameraPunchModal } from "@/components/attendance/AttendanceCameraPunchModal";
 import { AttendanceCalendarView } from "@/components/attendance/AttendanceCalendarView";
 import { AttendanceCorrectionManager } from "@/components/attendance/AttendanceCorrectionManager";
 
@@ -76,8 +74,8 @@ export const Route = createFileRoute("/_authenticated/attendance")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Advanced Attendance & Shifts — Flowpeople by Fluxora" },
-      { name: "description", content: "Biometric face verification, shift calculation, and attendance audits." },
+      { title: "Geofence Attendance & Shifts — Flowpeople by Fluxora" },
+      { name: "description", content: "GPS geofence attendance verification, shift calculation, and attendance audits." },
     ],
   }),
   component: AttendancePage,
@@ -137,7 +135,6 @@ function AttendancePage() {
   const todayKey = toDateKey(new Date());
 
   const [activeTab, setActiveTab] = useState<string>("logs");
-  const [cameraPunchOpen, setCameraPunchOpen] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -310,7 +307,11 @@ function AttendancePage() {
 
       const matchesDept = selectedDept === "all" || r.employees?.departments?.name === selectedDept;
       const matchesStatus = selectedStatus === "all" || r.status === selectedStatus;
-      const matchesMethod = selectedMethod === "all" || r.method === selectedMethod;
+      const matchesMethod =
+        selectedMethod === "all" ||
+        (selectedMethod === "geofence"
+          ? r.method === "geofence" || r.method === "manual_geofence"
+          : r.method === selectedMethod);
       const matchesShift = selectedShiftFilter === "all" || r.shift_id === selectedShiftFilter;
 
       return matchesSearch && matchesDept && matchesStatus && matchesMethod && matchesShift;
@@ -581,8 +582,10 @@ function AttendancePage() {
   const avgWorkHours = total > 0 ? (totalWorkedMinutes / 60 / total).toFixed(1) : "0.0";
   const onTimePercentage = total > 0 ? Math.round(((total - late) / total) * 100) : 100;
 
-  // Face vs Terminal vs Manual count
-  const facePunchCount = filteredRecords.filter((r) => r.method === "face").length;
+  // Geofence vs Terminal vs Manual count
+  const geofencePunchCount = filteredRecords.filter(
+    (r) => r.method === "geofence" || r.method === "manual_geofence"
+  ).length;
   const devicePunchCount = filteredRecords.filter((r) => r.method === "device" || r.method === "fingerprint").length;
   const manualPunchCount = filteredRecords.filter((r) => r.method === "manual").length;
 
@@ -591,13 +594,13 @@ function AttendancePage() {
       {/* Top Header */}
       <PageHeader
         breadcrumbs={[{ label: "Attendance Records" }]}
-        title="Attendance & Shifts"
+        title="Geofence Attendance & Shifts"
         badge={
-          <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20 gap-1 hidden sm:flex">
-            <Sparkles className="h-3 w-3" /> Biometric Sync
+          <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 gap-1 hidden sm:flex">
+            <MapPin className="h-3 w-3" /> Geofence Sync
           </Badge>
         }
-        description="Biometric verification, shift rules, late arrival & overtime tracking, and audit log."
+        description="GPS geofence verification, shift rules, late arrival & overtime tracking, and audit log."
         actions={
           <>
             <Button
@@ -605,16 +608,7 @@ function AttendancePage() {
               className="flex-1 sm:flex-none gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs text-xs h-9"
             >
               <MapPin className="h-4 w-4" />
-              GPS Geofence Punch
-            </Button>
-
-            <Button
-              onClick={() => setCameraPunchOpen(true)}
-              variant="outline"
-              className="flex-1 sm:flex-none gap-2 text-xs h-9"
-            >
-              <ScanFace className="h-4 w-4" />
-              Face Camera
+              GPS Geofence Check-In
             </Button>
 
             {session.isAdmin && (
@@ -624,7 +618,7 @@ function AttendancePage() {
                 className="flex-1 sm:flex-none gap-2 text-xs h-9"
               >
                 <Plus className="h-4 w-4" />
-                Manual Punch
+                Manual Entry
               </Button>
             )}
 
@@ -790,7 +784,7 @@ function AttendancePage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Methods</SelectItem>
-                    <SelectItem value="face">Face Scan</SelectItem>
+                    <SelectItem value="geofence">GPS Geofence</SelectItem>
                     <SelectItem value="device">Terminal / Device</SelectItem>
                     <SelectItem value="manual">Manual Entry</SelectItem>
                   </SelectContent>
@@ -952,10 +946,15 @@ function AttendancePage() {
                             <td className="px-4 py-3.5">
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground capitalize">
-                                  {r.method === "geofence" && <MapPin className="h-3.5 w-3.5 text-emerald-600" />}
-                                  {r.method === "face" && <ScanFace className="h-3.5 w-3.5 text-primary" />}
+                                  {(r.method === "geofence" || r.method === "manual_geofence") && (
+                                    <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                                  )}
                                   {r.method === "device" && <Fingerprint className="h-3.5 w-3.5 text-blue-600" />}
-                                  <span>{r.method === "geofence" ? "GPS Geofence" : (r.method || "manual")}</span>
+                                  <span>
+                                    {r.method === "geofence" || r.method === "manual_geofence"
+                                      ? "GPS Geofence"
+                                      : r.method || "manual"}
+                                  </span>
                                 </div>
                                 {r.check_in_lat != null && (
                                   <span className="text-[10px] text-muted-foreground/75 font-mono block">
@@ -1122,24 +1121,24 @@ function AttendancePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <ScanFace className="h-4 w-4 text-primary" /> Punch Method Verification
+                  <MapPin className="h-4 w-4 text-primary" /> Punch Method Verification
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Proportion of biometric face scans vs authorized hardware devices vs manual HR entries
+                  Proportion of GPS geofence check-ins vs authorized hardware devices vs manual HR entries
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between border p-3 rounded-lg bg-primary/5">
+                  <div className="flex items-center justify-between border p-3 rounded-lg bg-emerald-500/5">
                     <div className="flex items-center gap-2.5">
-                      <ScanFace className="h-5 w-5 text-primary" />
+                      <MapPin className="h-5 w-5 text-emerald-600" />
                       <div>
-                        <p className="font-semibold text-xs text-foreground">Facial Biometric Verification</p>
-                        <p className="text-[11px] text-muted-foreground">Camera match with liveness detection</p>
+                        <p className="font-semibold text-xs text-foreground">GPS Geofence Verification</p>
+                        <p className="text-[11px] text-muted-foreground">Auto-synced workplace perimeter check</p>
                       </div>
                     </div>
                     <Badge variant="secondary" className="font-mono text-xs">
-                      {facePunchCount} logs
+                      {geofencePunchCount} logs
                     </Badge>
                   </div>
 
@@ -1174,15 +1173,6 @@ function AttendancePage() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Camera Face Punch Modal */}
-      <AttendanceCameraPunchModal
-        open={cameraPunchOpen}
-        onOpenChange={setCameraPunchOpen}
-        onPunchSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["attendance-records"] });
-        }}
-      />
 
       {/* Manual Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

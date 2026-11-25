@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -60,6 +60,20 @@ function AuthPage() {
           <p className="text-[11px] text-muted-foreground/80">
             Protected by enterprise encryption and multi-tenant security isolation.
           </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Link to="/privacy-policy" className="hover:underline text-muted-foreground hover:text-foreground">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link to="/terms" className="hover:underline text-muted-foreground hover:text-foreground">
+            Terms & Conditions
+          </Link>
+          <span>•</span>
+          <a href="mailto:hqfluxora@gmail.com" className="hover:underline text-muted-foreground hover:text-foreground">
+            Contact: hqfluxora@gmail.com
+          </a>
+        </div>
         </div>
       </div>
     </div>
@@ -97,7 +111,11 @@ function SignInCard() {
     if (userId) {
       const [{ data: roles }, { data: emp }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase.from("employees").select("is_superadmin" as any).eq("user_id", userId).maybeSingle(),
+        supabase
+          .from("employees")
+          .select("is_superadmin" as any)
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
       isAdmin = roles?.some((r) => r.role === "admin") ?? false;
       isSuper = !!(emp as any)?.is_superadmin;
@@ -122,9 +140,7 @@ function SignInCard() {
     <Card className="card-soft">
       <CardHeader className="pb-3">
         <CardTitle>Enterprise Sign In</CardTitle>
-        <CardDescription>
-          Sign in with your work email and password.
-        </CardDescription>
+        <CardDescription>Sign in with your work email and password.</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSignIn}>
@@ -161,11 +177,7 @@ function SignInCard() {
         </CardContent>
 
         <CardFooter className="flex-col gap-3">
-          <Button
-            type="submit"
-            className="w-full font-semibold"
-            disabled={busy}
-          >
+          <Button type="submit" className="w-full font-semibold" disabled={busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign in
           </Button>

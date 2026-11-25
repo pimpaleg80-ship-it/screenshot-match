@@ -147,14 +147,41 @@ export function GeofencePunchModal({
     );
   }, []);
 
-  // Trigger location check on modal open
+  // Auto-sync live GPS position continuously while modal is open
   useEffect(() => {
-    if (open) {
-      requestLocation();
-    } else {
+    if (!open) {
       setCoords(null);
       setGeoError(null);
+      return;
     }
+
+    requestLocation();
+
+    let watchId: number | null = null;
+    if (typeof navigator !== "undefined" && navigator.geolocation?.watchPosition) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setGeoError(null);
+          setLocating(false);
+          setCoords({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: Math.round(pos.coords.accuracy),
+            timestamp: pos.timestamp,
+          });
+        },
+        () => {
+          // Ignore transient watch errors; requestLocation covers error messaging
+        },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+      );
+    }
+
+    return () => {
+      if (watchId !== null && typeof navigator !== "undefined" && navigator.geolocation?.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, [open, requestLocation]);
 
   // 4. Verify geofence compliance
@@ -381,33 +408,29 @@ export function GeofencePunchModal({
             onClick={() => onOpenChange(false)}
             className="w-full sm:w-auto text-xs h-9"
           >
-            Cancel
+            Close
           </Button>
 
-          <Button
-            onClick={() => punchMutation.mutate()}
-            disabled={
-              locating ||
-              !coords ||
-              !verification.isInside ||
-              punchMutation.isPending ||
-              (isCheckedIn && isCheckedOut)
-            }
-            className={`w-full sm:w-auto text-xs h-9 gap-1.5 font-semibold text-white ${
-              isCheckedIn
-                ? "bg-amber-600 hover:bg-amber-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
-            }`}
-          >
-            {punchMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : isCheckedIn ? (
-              <LogOut className="h-3.5 w-3.5" />
-            ) : (
-              <LogIn className="h-3.5 w-3.5" />
-            )}
-            {isCheckedIn ? "Clock Out with GPS" : "Clock In with GPS"}
-          </Button>
+          {verification.isInside && !(isCheckedIn && isCheckedOut) && (
+            <Button
+              onClick={() => punchMutation.mutate()}
+              disabled={locating || !coords || punchMutation.isPending}
+              className={`w-full sm:w-auto text-xs h-9 gap-1.5 font-semibold text-white ${
+                isCheckedIn
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+            >
+              {punchMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isCheckedIn ? (
+                <LogOut className="h-3.5 w-3.5" />
+              ) : (
+                <LogIn className="h-3.5 w-3.5" />
+              )}
+              {isCheckedIn ? "Check Out with GPS" : "Check In with GPS"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

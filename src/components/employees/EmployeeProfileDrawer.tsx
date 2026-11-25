@@ -16,7 +16,6 @@ import {
   Edit2,
   Save,
   X,
-  ScanFace,
   Download,
   Upload,
   Plus,
@@ -543,19 +542,12 @@ export function EmployeeProfileDrawer({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {onEnrollFace && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs h-8"
-                  onClick={() => onEnrollFace(employee)}
-                >
-                  <ScanFace className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Face Biometrics</span>
-                </Button>
-              )}
-            </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1.5 text-xs border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  <MapPin className="h-3.5 w-3.5" />
+                  GPS Geofence
+                </Badge>
+              </div>
           </div>
         </SheetHeader>
 
@@ -1261,7 +1253,7 @@ export function EmployeeProfileDrawer({
                             {att.status}
                           </Badge>
                         </td>
-                        <td className="p-3 text-muted-foreground capitalize">{att.method || "Kiosk Face"}</td>
+                        <td className="p-3 text-muted-foreground capitalize">{att.method || "GPS Geofence"}</td>
                       </tr>
                     ))}
                     {attendanceLogs.length === 0 && (

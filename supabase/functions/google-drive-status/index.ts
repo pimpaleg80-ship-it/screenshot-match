@@ -49,7 +49,7 @@ serve(async (req) => {
       }
       return new Response(
         JSON.stringify({ connected: false, message: "Google Drive disconnected" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -63,22 +63,17 @@ serve(async (req) => {
         updateData.daily_backup_enabled = body.daily_backup_enabled;
       }
 
-      await supabase
-        .from("drive_connection")
-        .update(updateData)
-        .eq("id", connection.id);
+      await supabase.from("drive_connection").update(updateData).eq("id", connection.id);
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!connection) {
-      return new Response(
-        JSON.stringify({ connected: false }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ connected: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 2. Fetch last backup timestamp
@@ -112,13 +107,12 @@ serve(async (req) => {
         last_backup_at: lastBackup?.created_at || null,
         last_backup_file: lastBackup?.file_name || null,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: err.message || "Failed to check Drive status" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: err.message || "Failed to check Drive status" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
-

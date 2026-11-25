@@ -68,6 +68,8 @@ export type Database = {
           onboarding_status: string | null;
           created_at: string;
           updated_at: string;
+          work_location_id?: string | null;
+          default_shift_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -109,6 +111,8 @@ export type Database = {
           onboarding_status?: string | null;
           created_at?: string;
           updated_at?: string;
+          work_location_id?: string | null;
+          default_shift_id?: string | null;
         };
         Update: {
           id?: string;
@@ -150,6 +154,8 @@ export type Database = {
           onboarding_status?: string | null;
           created_at?: string;
           updated_at?: string;
+          work_location_id?: string | null;
+          default_shift_id?: string | null;
         };
         Relationships: [
           {
@@ -241,6 +247,13 @@ export type Database = {
           device_id: string | null;
           organization_id: string | null;
           created_at: string;
+          work_location_id?: string | null;
+          check_in_lat?: number | null;
+          check_in_lon?: number | null;
+          check_out_lat?: number | null;
+          check_out_lon?: number | null;
+          total_hours?: number | null;
+          updated_at?: string | null;
         };
         Insert: {
           id?: string;
@@ -264,6 +277,13 @@ export type Database = {
           device_id?: string | null;
           organization_id?: string | null;
           created_at?: string;
+          work_location_id?: string | null;
+          check_in_lat?: number | null;
+          check_in_lon?: number | null;
+          check_out_lat?: number | null;
+          check_out_lon?: number | null;
+          total_hours?: number | null;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -287,6 +307,13 @@ export type Database = {
           device_id?: string | null;
           organization_id?: string | null;
           created_at?: string;
+          work_location_id?: string | null;
+          check_in_lat?: number | null;
+          check_in_lon?: number | null;
+          check_out_lat?: number | null;
+          check_out_lon?: number | null;
+          total_hours?: number | null;
+          updated_at?: string | null;
         };
         Relationships: [
           {
@@ -385,6 +412,8 @@ export type Database = {
           total: number;
           used: number;
           remaining: number;
+          organization_id?: string | null;
+          pending?: number;
         };
         Insert: {
           id?: string;
@@ -393,6 +422,8 @@ export type Database = {
           year: number;
           total?: number;
           used?: number;
+          organization_id?: string | null;
+          pending?: number;
         };
         Update: {
           id?: string;
@@ -401,6 +432,8 @@ export type Database = {
           year?: number;
           total?: number;
           used?: number;
+          organization_id?: string | null;
+          pending?: number;
         };
         Relationships: [
           {
@@ -538,6 +571,7 @@ export type Database = {
           created_by: string | null;
           organization_id: string | null;
           created_at: string;
+          work_location_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -549,6 +583,7 @@ export type Database = {
           created_by?: string | null;
           organization_id?: string | null;
           created_at?: string;
+          work_location_id?: string | null;
         };
         Update: {
           id?: string;
@@ -560,6 +595,7 @@ export type Database = {
           created_by?: string | null;
           organization_id?: string | null;
           created_at?: string;
+          work_location_id?: string | null;
         };
         Relationships: [];
       };
@@ -849,6 +885,9 @@ export type Database = {
           action: string;
           details: Json | null;
           created_at: string;
+          user_email?: string | null;
+          target_user_id?: string | null;
+          organization_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -856,6 +895,9 @@ export type Database = {
           action: string;
           details?: Json | null;
           created_at?: string;
+          user_email?: string | null;
+          target_user_id?: string | null;
+          organization_id?: string | null;
         };
         Update: {
           id?: string;
@@ -863,6 +905,9 @@ export type Database = {
           action?: string;
           details?: Json | null;
           created_at?: string;
+          user_email?: string | null;
+          target_user_id?: string | null;
+          organization_id?: string | null;
         };
         Relationships: [];
       };
@@ -4044,6 +4089,422 @@ export type Database = {
         };
         Relationships: [];
       };
+      organizations: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          legal_name: string | null;
+          logo_url: string | null;
+          plan_tier: "starter" | "pro" | "enterprise";
+          max_employees: number;
+          gps_retention_days: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          legal_name?: string | null;
+          logo_url?: string | null;
+          plan_tier?: "starter" | "pro" | "enterprise";
+          max_employees?: number;
+          gps_retention_days?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          legal_name?: string | null;
+          logo_url?: string | null;
+          plan_tier?: "starter" | "pro" | "enterprise";
+          max_employees?: number;
+          gps_retention_days?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      organization_members: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          role: "super_admin" | "org_admin" | "hr_manager" | "employee";
+          status: "active" | "suspended" | "invited";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          role: "super_admin" | "org_admin" | "hr_manager" | "employee";
+          status?: "active" | "suspended" | "invited";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          role?: "super_admin" | "org_admin" | "hr_manager" | "employee";
+          status?: "active" | "suspended" | "invited";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      geofence_zones: {
+        Row: {
+          id: string;
+          location_id: string;
+          name: string;
+          zone_type: "circle" | "polygon";
+          polygon_coordinates: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          location_id: string;
+          name: string;
+          zone_type?: "circle" | "polygon";
+          polygon_coordinates?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          location_id?: string;
+          name?: string;
+          zone_type?: "circle" | "polygon";
+          polygon_coordinates?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      employee_location_assignments: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          location_id: string;
+          is_primary: boolean;
+          assigned_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          employee_id: string;
+          location_id: string;
+          is_primary?: boolean;
+          assigned_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          employee_id?: string;
+          location_id?: string;
+          is_primary?: boolean;
+          assigned_at?: string;
+        };
+        Relationships: [];
+      };
+      registered_devices: {
+        Row: {
+          id: string;
+          employee_id: string;
+          device_uuid: string;
+          device_model: string | null;
+          operating_system: string | null;
+          is_active: boolean;
+          registered_at: string;
+        };
+        Insert: {
+          id?: string;
+          employee_id: string;
+          device_uuid: string;
+          device_model?: string | null;
+          operating_system?: string | null;
+          is_active?: boolean;
+          registered_at?: string;
+        };
+        Update: {
+          id?: string;
+          employee_id?: string;
+          device_uuid?: string;
+          device_model?: string | null;
+          operating_system?: string | null;
+          is_active?: boolean;
+          registered_at?: string;
+        };
+        Relationships: [];
+      };
+      geofence_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          location_id: string | null;
+          event_type: "ENTER" | "EXIT" | "DWELL";
+          latitude: number | null;
+          longitude: number | null;
+          accuracy_meters: number | null;
+          is_mock: boolean;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          employee_id: string;
+          location_id?: string | null;
+          event_type: "ENTER" | "EXIT" | "DWELL";
+          latitude?: number | null;
+          longitude?: number | null;
+          accuracy_meters?: number | null;
+          is_mock?: boolean;
+          recorded_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          employee_id?: string;
+          location_id?: string | null;
+          event_type?: "ENTER" | "EXIT" | "DWELL";
+          latitude?: number | null;
+          longitude?: number | null;
+          accuracy_meters?: number | null;
+          is_mock?: boolean;
+          recorded_at?: string;
+        };
+        Relationships: [];
+      };
+      attendance_exceptions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          session_id: string | null;
+          exception_type:
+            "MISSED_CHECKOUT" | "OUTSIDE_GEOFENCE" | "LATE_ARRIVAL" | "EARLY_DEPARTURE";
+          reason: string;
+          regularization_status: "pending" | "approved" | "rejected";
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          employee_id: string;
+          session_id?: string | null;
+          exception_type:
+            "MISSED_CHECKOUT" | "OUTSIDE_GEOFENCE" | "LATE_ARRIVAL" | "EARLY_DEPARTURE";
+          reason: string;
+          regularization_status?: "pending" | "approved" | "rejected";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          employee_id?: string;
+          session_id?: string | null;
+          exception_type?:
+            "MISSED_CHECKOUT" | "OUTSIDE_GEOFENCE" | "LATE_ARRIVAL" | "EARLY_DEPARTURE";
+          reason?: string;
+          regularization_status?: "pending" | "approved" | "rejected";
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      attendance_monthly_summaries: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          year: number;
+          month: number;
+          total_working_days: number;
+          days_present: number;
+          days_late: number;
+          days_half_day: number;
+          days_absent: number;
+          days_on_leave: number;
+          total_hours_worked: number;
+          is_locked: boolean;
+          pdf_archive_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          employee_id: string;
+          year: number;
+          month: number;
+          total_working_days: number;
+          days_present?: number;
+          days_late?: number;
+          days_half_day?: number;
+          days_absent?: number;
+          days_on_leave?: number;
+          total_hours_worked?: number;
+          is_locked?: boolean;
+          pdf_archive_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          employee_id?: string;
+          year?: number;
+          month?: number;
+          total_working_days?: number;
+          days_present?: number;
+          days_late?: number;
+          days_half_day?: number;
+          days_absent?: number;
+          days_on_leave?: number;
+          total_hours_worked?: number;
+          is_locked?: boolean;
+          pdf_archive_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      attendance_archives: {
+        Row: {
+          id: string;
+          organization_id: string;
+          google_email: string;
+          refresh_token_encrypted: string | null;
+          root_folder_id: string | null;
+          auto_backup_enabled: boolean;
+          last_archive_run_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          google_email: string;
+          refresh_token_encrypted?: string | null;
+          root_folder_id?: string | null;
+          auto_backup_enabled?: boolean;
+          last_archive_run_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          google_email?: string;
+          refresh_token_encrypted?: string | null;
+          root_folder_id?: string | null;
+          auto_backup_enabled?: boolean;
+          last_archive_run_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      archive_jobs: {
+        Row: {
+          id: string;
+          organization_id: string;
+          year: number;
+          month: number;
+          status: "pending" | "processing" | "completed" | "failed";
+          total_files_expected: number;
+          total_files_uploaded: number;
+          manifest_sha256: string | null;
+          error_message: string | null;
+          completed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          year: number;
+          month: number;
+          status?: "pending" | "processing" | "completed" | "failed";
+          total_files_expected?: number;
+          total_files_uploaded?: number;
+          manifest_sha256?: string | null;
+          error_message?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          year?: number;
+          month?: number;
+          status?: "pending" | "processing" | "completed" | "failed";
+          total_files_expected?: number;
+          total_files_uploaded?: number;
+          manifest_sha256?: string | null;
+          error_message?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      archive_files: {
+        Row: {
+          id: string;
+          job_id: string;
+          organization_id: string;
+          employee_id: string | null;
+          file_name: string;
+          file_type: "master_summary" | "employee_report";
+          drive_file_id: string;
+          drive_web_link: string | null;
+          sha256_hash: string;
+          file_size_bytes: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          organization_id: string;
+          employee_id?: string | null;
+          file_name: string;
+          file_type: "master_summary" | "employee_report";
+          drive_file_id: string;
+          drive_web_link?: string | null;
+          sha256_hash: string;
+          file_size_bytes: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          organization_id?: string;
+          employee_id?: string | null;
+          file_name?: string;
+          file_type?: "master_summary" | "employee_report";
+          drive_file_id?: string;
+          drive_web_link?: string | null;
+          sha256_hash?: string;
+          file_size_bytes?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       people: {
@@ -4586,6 +5047,56 @@ export type Database = {
           _employee_id: string;
         };
         Returns: Json;
+      };
+      is_superadmin: {
+        Args: {
+          _user_id?: string;
+        };
+        Returns: boolean;
+      };
+      assign_employees_to_work_location: {
+        Args: {
+          p_location_id: string;
+          p_employee_ids: string[];
+        };
+        Returns: Json;
+      };
+      current_org_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      has_org_role: {
+        Args: {
+          required_role: string;
+        };
+        Returns: boolean;
+      };
+      calculate_haversine_distance: {
+        Args: {
+          lat1: number;
+          lon1: number;
+          lat2: number;
+          lon2: number;
+        };
+        Returns: number;
+      };
+      get_employee_geofence_context: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      verify_and_record_attendance: {
+        Args: {
+          p_action: string;
+          p_lat: number;
+          p_lon: number;
+          p_accuracy?: number;
+          p_device_id?: string;
+        };
+        Returns: Json;
+      };
+      cleanup_expired_gps_logs: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
     };
     Enums: {

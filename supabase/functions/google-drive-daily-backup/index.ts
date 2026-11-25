@@ -24,7 +24,9 @@ function generateAttendancePdfText(dateStr: string, records: any[], orgName: str
   lines.push(`%PDF-1.4`);
   lines.push(`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`);
   lines.push(`2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`);
-  lines.push(`3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj`);
+  lines.push(
+    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj`,
+  );
 
   // Build stream content
   let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${orgName} - Daily Attendance Report) Tj\n`;
@@ -41,8 +43,16 @@ function generateAttendancePdfText(dateStr: string, records: any[], orgName: str
       const code = (r.people?.person_code || "N/A").padEnd(10);
       const name = (r.people?.name || "Unknown").slice(0, 28).padEnd(30);
       const dept = (r.people?.department || "General").slice(0, 14).padEnd(16);
-      const inTime = r.check_in ? new Date(r.check_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).padEnd(11) : "—          ";
-      const outTime = r.check_out ? new Date(r.check_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).padEnd(12) : "—           ";
+      const inTime = r.check_in
+        ? new Date(r.check_in)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            .padEnd(11)
+        : "—          ";
+      const outTime = r.check_out
+        ? new Date(r.check_out)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            .padEnd(12)
+        : "—           ";
       const status = (r.status || "present").toUpperCase();
 
       const line = `${code} ${name} ${dept} ${inTime} ${outTime} ${status}`;
@@ -54,9 +64,13 @@ function generateAttendancePdfText(dateStr: string, records: any[], orgName: str
   textStream += `ET`;
 
   const streamBytes = new TextEncoder().encode(textStream);
-  lines.push(`4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj`);
+  lines.push(
+    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj`,
+  );
   lines.push(`5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`);
-  lines.push(`xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000${244 + streamBytes.length + 50} 00000 n \n`);
+  lines.push(
+    `xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000${244 + streamBytes.length + 50} 00000 n \n`,
+  );
   lines.push(`trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${350 + streamBytes.length}\n%%EOF`);
 
   return new TextEncoder().encode(lines.join("\n"));
@@ -131,7 +145,7 @@ serve(async (req) => {
       accessToken,
       "attendance",
       connection.root_folder_id,
-      new Date()
+      new Date(),
     );
 
     const existingFile = await findExistingFile(accessToken, fileName, targetFolderId);
@@ -141,12 +155,11 @@ serve(async (req) => {
       targetFolderId,
       fileName,
       pdfBytes,
-      existingFile?.id || null
+      existingFile?.id || null,
     );
 
     const driveLink =
-      result.webViewLink ||
-      `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
+      result.webViewLink || `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
 
     if (backupRecord?.id) {
       await supabase
@@ -167,14 +180,13 @@ serve(async (req) => {
         file_id: result.id,
         drive_link: driveLink,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
     console.error("Daily backup failed:", err);
-    return new Response(
-      JSON.stringify({ error: err.message || "Daily backup failed" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: err.message || "Daily backup failed" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
-

@@ -18,10 +18,10 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    return new Response(
-      JSON.stringify({ error: "Missing Supabase server credentials" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Missing Supabase server credentials" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -30,25 +30,18 @@ serve(async (req) => {
   try {
     payload = await req.json();
   } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  const {
-    file_type,
-    file_name,
-    pdf_base64,
-    period_start,
-    period_end,
-    backup_id,
-  } = payload;
+  const { file_type, file_name, pdf_base64, period_start, period_end, backup_id } = payload;
 
   if (!file_type || !file_name || !pdf_base64) {
     return new Response(
       JSON.stringify({ error: "Missing required fields: file_type, file_name, pdf_base64" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -60,10 +53,10 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!connection) {
-    return new Response(
-      JSON.stringify({ error: "Google Drive is not connected" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Google Drive is not connected" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // 2. Track backup record in DB
@@ -111,7 +104,7 @@ serve(async (req) => {
       accessToken,
       file_type,
       connection.root_folder_id,
-      dateForFolder
+      dateForFolder,
     );
 
     // Update root_folder_id on connection if newly set
@@ -131,12 +124,11 @@ serve(async (req) => {
       targetFolderId,
       file_name,
       pdfBytes,
-      existingFile?.id || null
+      existingFile?.id || null,
     );
 
     const driveLink =
-      result.webViewLink ||
-      `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
+      result.webViewLink || `https://drive.google.com/file/d/${result.id}/view?usp=sharing`;
 
     // 8. Update DB backup log on success
     if (currentBackupId) {
@@ -160,7 +152,7 @@ serve(async (req) => {
         file_name,
         is_update: !!existingFile,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (uploadErr: any) {
     console.error("Upload failed:", uploadErr);
@@ -189,8 +181,7 @@ serve(async (req) => {
         error: uploadErr.message || "Upload failed",
         success: false,
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
-

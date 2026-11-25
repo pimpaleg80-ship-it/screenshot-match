@@ -6,6 +6,9 @@ export interface AppSession {
   session: Session | null;
   user: User | null;
   organizationId: string;
+  organizationName: string | null;
+  orgRole: string | null;
+  workLocationId: string | null;
   roles: string[];
   fullName: string;
   departmentId: string | null;
@@ -27,6 +30,9 @@ export interface AppSession {
 interface UserProfile {
   userId: string;
   organizationId: string;
+  organizationName: string | null;
+  orgRole: string | null;
+  workLocationId: string | null;
   roles: string[];
   fullName: string;
   departmentId: string | null;
@@ -37,12 +43,18 @@ interface UserProfile {
   isSuperadmin: boolean;
 }
 
+const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
+
 // Module-level cache to eliminate lag and redundant network waterfall across components
 let globalSession: Session | null = null;
 let globalProfile: UserProfile | null = null;
 let profileInFlight: Promise<UserProfile | null> | null = null;
 
-async function fetchUserProfile(userId: string, email?: string, userMetaName?: string): Promise<UserProfile | null> {
+async function fetchUserProfile(
+  userId: string,
+  email?: string,
+  userMetaName?: string,
+): Promise<UserProfile | null> {
   if (globalProfile && globalProfile.userId === userId) {
     return globalProfile;
   }
@@ -52,13 +64,20 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
 
   profileInFlight = (async () => {
     try {
-      const [empRes, rolesRes] = await Promise.all([
+      const [empRes, rolesRes, orgMemRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, departments(name), organization_id")
+          .select(
+            "id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, work_location_id, departments(name)",
+          )
           .eq("user_id", userId)
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase
+          .from("organization_members")
+          .select("organization_id, role, organizations(name)")
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
 
       const emp = empRes.data as {
@@ -68,14 +87,29 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
         employee_code: string;
         designation: string | null;
         is_superadmin?: boolean | null;
+        organization_id?: string | null;
+        work_location_id?: string | null;
         departments: { name: string } | null;
       } | null;
 
       const userRoles = (rolesRes.data ?? []).map((r) => r.role);
+      const orgMem = orgMemRes.data as {
+        organization_id: string;
+        role: string;
+        organizations: { name: string } | null;
+      } | null;
+
+      const orgId = orgMem?.organization_id || emp?.organization_id || DEFAULT_ORG_ID;
+      const orgName = orgMem?.organizations?.name || "Fluxora Technologies";
+      const orgRole = orgMem?.role || null;
+      const isSuper = !!emp?.is_superadmin || orgRole === "super_admin";
 
       const profile: UserProfile = {
         userId,
-        organizationId: (emp as any)?.organization_id || "00000000-0000-0000-0000-000000000001",
+        organizationId: orgId,
+        organizationName: orgName,
+        orgRole,
+        workLocationId: emp?.work_location_id ?? null,
         roles: userRoles,
         fullName: emp?.full_name || userMetaName || email || "User",
         departmentId: emp?.department_id ?? null,
@@ -83,7 +117,7 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
         employeeId: emp?.id ?? null,
         employeeCode: emp?.employee_code ?? null,
         designation: emp?.designation ?? null,
-        isSuperadmin: !!emp?.is_superadmin,
+        isSuperadmin: isSuper,
       };
 
       globalProfile = profile;
@@ -164,18 +198,22 @@ export function useSession(): AppSession {
   }, []);
 
   const roles = profile?.roles ?? [];
-  const isAdmin = roles.includes("admin");
-  const isSuperadmin = !!profile?.isSuperadmin;
-  const isManager = roles.includes("manager");
-  const isEmployee = roles.includes("employee") || (!isAdmin && !isManager);
+  const orgRole = profile?.orgRole ?? null;
+  const isSuperadmin = !!profile?.isSuperadmin || orgRole === "super_admin";
+  const isAdmin = isSuperadmin || roles.includes("admin") || orgRole === "org_admin";
+  const isManager = !isAdmin && (roles.includes("manager") || orgRole === "hr_manager");
+  const isEmployee = !isAdmin && !isManager;
   const isStaff = isAdmin || isManager;
   const isKiosk = roles.includes("kiosk");
-  const hasAccess = !!session?.user && (roles.length > 0 || isEmployee);
+  const hasAccess = !!session?.user && (roles.length > 0 || isEmployee || !!orgRole);
 
   return {
     session,
     user: session?.user ?? null,
-    organizationId: profile?.organizationId || "00000000-0000-0000-0000-000000000001",
+    organizationId: profile?.organizationId || DEFAULT_ORG_ID,
+    organizationName: profile?.organizationName ?? null,
+    orgRole,
+    workLocationId: profile?.workLocationId ?? null,
     roles,
     fullName: profile?.fullName ?? "",
     departmentId: profile?.departmentId ?? null,

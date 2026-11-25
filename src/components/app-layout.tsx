@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, Outlet, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ScanFace,
   LayoutDashboard,
   Users,
   ClipboardList,
@@ -13,7 +12,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  ScanLine,
   Shield,
   Briefcase,
   UserCheck,
@@ -96,12 +94,10 @@ export function AppLayout() {
         {
           title: "Time & Attendance",
           items: [
-            { to: "/attendance", label: "Attendance Records", icon: ClipboardList },
+            { to: "/attendance", label: "Geofence Attendance", icon: ClipboardList },
             { to: "/shifts", label: "Shift Roster", icon: Clock },
             { to: "/leaves", label: "Leave Requests", icon: CalendarRange },
             { to: "/holidays", label: "Holiday Calendar", icon: CalendarDays },
-            { to: "/enroll", label: "Face Enrollment", icon: ScanFace },
-            { to: "/kiosk", label: "Biometric Kiosk", icon: ScanLine },
           ],
         },
         {

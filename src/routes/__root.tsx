@@ -42,7 +42,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
     const msg = error instanceof Error ? error.message : String(error || "");
-    if (/Failed to fetch dynamically imported module/i.test(msg) || /Importing a module script failed/i.test(msg)) {
+    if (
+      /Failed to fetch dynamically imported module/i.test(msg) ||
+      /Importing a module script failed/i.test(msg)
+    ) {
       const reloaded = sessionStorage.getItem("chunk_reload_attempt");
       if (!reloaded) {
         sessionStorage.setItem("chunk_reload_attempt", "true");
@@ -106,12 +109,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Flowpeople by Fluxora" },
       {
         name: "description",
-        content: "Flowpeople by Fluxora — Next-generation biometric workforce management and attendance suite.",
+        content:
+          "Flowpeople by Fluxora — Next-generation biometric workforce management and attendance suite.",
       },
       { property: "og:title", content: "Flowpeople by Fluxora" },
       {
         property: "og:description",
-        content: "Flowpeople by Fluxora — Next-generation biometric workforce management and attendance suite.",
+        content:
+          "Flowpeople by Fluxora — Next-generation biometric workforce management and attendance suite.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

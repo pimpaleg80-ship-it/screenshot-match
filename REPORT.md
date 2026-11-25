@@ -2,14 +2,16 @@
 
 **Date**: 2026-11-05  
 **Project**: FaceTime Attendance with Google Drive Backup  
-**Workspace**: `f:\New folder (3)`  
+**Workspace**: `f:\New folder (3)`
 
 ---
 
 ## 1. Project Overview & Tech Stack
 
 ### What the Project Does
+
 The project is a full-featured, biometric facial recognition attendance and kiosk management web application. It allows organizations to:
+
 - Authenticate admins, managers, and kiosk devices via Supabase Auth.
 - Enroll personnel ("People") with live camera capture and face descriptor extraction using `@vladmandic/face-api` (128-float biometric vectors stored in Supabase PostgreSQL).
 - Run a touchless attendance Kiosk in full-screen/full-bleed mode with continuous camera face tracking, Euclidean distance face matching, cooldown tracking, and automated check-in/check-out.
@@ -18,6 +20,7 @@ The project is a full-featured, biometric facial recognition attendance and kios
 - Automatically back up generated attendance and report PDFs to Google Drive using Google Drive API v3 (OAuth 2.0 flow with offline refresh tokens and Supabase Edge Functions).
 
 ### Tech Stack
+
 - **Framework & Routing**: [TanStack Start](https://tanstack.com/start) (`@tanstack/react-start`), [TanStack Router](https://tanstack.com/router) (`@tanstack/react-router`) with full file-based routing and SSR via Nitro.
 - **Data Fetching & State**: [TanStack Query](https://tanstack.com/query) (`@tanstack/react-query` v5).
 - **UI & Styling**: [React 19](https://react.dev), [Tailwind CSS v4](https://tailwindcss.com), [Lucide React](https://lucide.dev) icons, Radix UI primitives.
@@ -98,6 +101,7 @@ f:\New folder (3)\
 The following files are not imported anywhere in the application or are only imported by other unused files:
 
 ### Unused UI Components (in `src/components/ui/`)
+
 1. `src/components/ui/accordion.tsx` — Unused Radix accordion component; not referenced anywhere.
 2. `src/components/ui/alert-dialog.tsx` — Unused modal confirmation dialog; not referenced anywhere.
 3. `src/components/ui/alert.tsx` — Unused static banner component; notifications use `sonner`.
@@ -132,9 +136,11 @@ The following files are not imported anywhere in the application or are only imp
 32. `src/components/ui/tooltip.tsx` — Only imported by unused `sidebar.tsx`.
 
 ### Unused Hooks
+
 1. `src/hooks/use-mobile.tsx` — Only imported by unused `src/components/ui/sidebar.tsx`.
 
 ### Temporary Scratch Files
+
 1. `scripts/scan-project.js` — Temporary scan script created during previous inspection.
 
 ---
@@ -142,9 +148,10 @@ The following files are not imported anywhere in the application or are only imp
 ## 4. Unused Components, Functions, Variables, and Imports
 
 ### Unused Imports in Active Files
+
 1. `src/components/app-layout.tsx:13`
    - `import { toast } from "sonner";`
-   - *Reason*: `toast` is imported but never invoked in `AppLayout`.
+   - _Reason_: `toast` is imported but never invoked in `AppLayout`.
 
 ---
 
@@ -152,36 +159,36 @@ The following files are not imported anywhere in the application or are only imp
 
 The following 28 packages are either completely unreferenced across the codebase or are only imported by the unused UI components listed above:
 
-| Package | Reason / Dependency Source | Safe to Remove? |
-| :--- | :--- | :--- |
-| `@hookform/resolvers` | Only used in unused `src/components/ui/form.tsx` | Yes (Safe) |
-| `@radix-ui/react-accordion` | Only used in unused `src/components/ui/accordion.tsx` | Yes (Safe) |
-| `@radix-ui/react-alert-dialog` | Only used in unused `src/components/ui/alert-dialog.tsx` | Yes (Safe) |
-| `@radix-ui/react-aspect-ratio` | Only used in unused `src/components/ui/aspect-ratio.tsx` | Yes (Safe) |
-| `@radix-ui/react-avatar` | Only used in unused `src/components/ui/avatar.tsx` | Yes (Safe) |
-| `@radix-ui/react-collapsible` | Only used in unused `src/components/ui/collapsible.tsx` | Yes (Safe) |
-| `@radix-ui/react-context-menu` | Only used in unused `src/components/ui/context-menu.tsx` | Yes (Safe) |
-| `@radix-ui/react-hover-card` | Only used in unused `src/components/ui/hover-card.tsx` | Yes (Safe) |
-| `@radix-ui/react-menubar` | Only used in unused `src/components/ui/menubar.tsx` | Yes (Safe) |
-| `@radix-ui/react-navigation-menu`| Only used in unused `src/components/ui/navigation-menu.tsx` | Yes (Safe) |
-| `@radix-ui/react-popover` | Only used in unused `src/components/ui/popover.tsx` | Yes (Safe) |
-| `@radix-ui/react-progress` | Only used in unused `src/components/ui/progress.tsx` | Yes (Safe) |
-| `@radix-ui/react-radio-group` | Only used in unused `src/components/ui/radio-group.tsx` | Yes (Safe) |
-| `@radix-ui/react-scroll-area` | Only used in unused `src/components/ui/scroll-area.tsx` | Yes (Safe) |
-| `@radix-ui/react-separator` | Only used in unused `src/components/ui/separator.tsx` | Yes (Safe) |
-| `@radix-ui/react-slider` | Only used in unused `src/components/ui/slider.tsx` | Yes (Safe) |
-| `@radix-ui/react-toggle` | Only used in unused `src/components/ui/toggle.tsx` | Yes (Safe) |
-| `@radix-ui/react-toggle-group` | Only used in unused `src/components/ui/toggle-group.tsx` | Yes (Safe) |
-| `@radix-ui/react-tooltip` | Only used in unused `src/components/ui/tooltip.tsx` | Yes (Safe) |
-| `cmdk` | Only used in unused `src/components/ui/command.tsx` | Yes (Safe) |
-| `date-fns` | Zero imports anywhere in repo (native `Date` methods used) | Yes (Safe) |
-| `embla-carousel-react` | Only used in unused `src/components/ui/carousel.tsx` | Yes (Safe) |
-| `input-otp` | Only used in unused `src/components/ui/input-otp.tsx` | Yes (Safe) |
-| `react-day-picker` | Only used in unused `src/components/ui/calendar.tsx` | Yes (Safe) |
-| `react-hook-form` | Only used in unused `src/components/ui/form.tsx` | Yes (Safe) |
-| `react-resizable-panels` | Only used in unused `src/components/ui/resizable.tsx` | Yes (Safe) |
-| `vaul` | Only used in unused `src/components/ui/drawer.tsx` | Yes (Safe) |
-| `zod` | Zero imports anywhere in repo | Yes (Safe) |
+| Package                           | Reason / Dependency Source                                  | Safe to Remove? |
+| :-------------------------------- | :---------------------------------------------------------- | :-------------- |
+| `@hookform/resolvers`             | Only used in unused `src/components/ui/form.tsx`            | Yes (Safe)      |
+| `@radix-ui/react-accordion`       | Only used in unused `src/components/ui/accordion.tsx`       | Yes (Safe)      |
+| `@radix-ui/react-alert-dialog`    | Only used in unused `src/components/ui/alert-dialog.tsx`    | Yes (Safe)      |
+| `@radix-ui/react-aspect-ratio`    | Only used in unused `src/components/ui/aspect-ratio.tsx`    | Yes (Safe)      |
+| `@radix-ui/react-avatar`          | Only used in unused `src/components/ui/avatar.tsx`          | Yes (Safe)      |
+| `@radix-ui/react-collapsible`     | Only used in unused `src/components/ui/collapsible.tsx`     | Yes (Safe)      |
+| `@radix-ui/react-context-menu`    | Only used in unused `src/components/ui/context-menu.tsx`    | Yes (Safe)      |
+| `@radix-ui/react-hover-card`      | Only used in unused `src/components/ui/hover-card.tsx`      | Yes (Safe)      |
+| `@radix-ui/react-menubar`         | Only used in unused `src/components/ui/menubar.tsx`         | Yes (Safe)      |
+| `@radix-ui/react-navigation-menu` | Only used in unused `src/components/ui/navigation-menu.tsx` | Yes (Safe)      |
+| `@radix-ui/react-popover`         | Only used in unused `src/components/ui/popover.tsx`         | Yes (Safe)      |
+| `@radix-ui/react-progress`        | Only used in unused `src/components/ui/progress.tsx`        | Yes (Safe)      |
+| `@radix-ui/react-radio-group`     | Only used in unused `src/components/ui/radio-group.tsx`     | Yes (Safe)      |
+| `@radix-ui/react-scroll-area`     | Only used in unused `src/components/ui/scroll-area.tsx`     | Yes (Safe)      |
+| `@radix-ui/react-separator`       | Only used in unused `src/components/ui/separator.tsx`       | Yes (Safe)      |
+| `@radix-ui/react-slider`          | Only used in unused `src/components/ui/slider.tsx`          | Yes (Safe)      |
+| `@radix-ui/react-toggle`          | Only used in unused `src/components/ui/toggle.tsx`          | Yes (Safe)      |
+| `@radix-ui/react-toggle-group`    | Only used in unused `src/components/ui/toggle-group.tsx`    | Yes (Safe)      |
+| `@radix-ui/react-tooltip`         | Only used in unused `src/components/ui/tooltip.tsx`         | Yes (Safe)      |
+| `cmdk`                            | Only used in unused `src/components/ui/command.tsx`         | Yes (Safe)      |
+| `date-fns`                        | Zero imports anywhere in repo (native `Date` methods used)  | Yes (Safe)      |
+| `embla-carousel-react`            | Only used in unused `src/components/ui/carousel.tsx`        | Yes (Safe)      |
+| `input-otp`                       | Only used in unused `src/components/ui/input-otp.tsx`       | Yes (Safe)      |
+| `react-day-picker`                | Only used in unused `src/components/ui/calendar.tsx`        | Yes (Safe)      |
+| `react-hook-form`                 | Only used in unused `src/components/ui/form.tsx`            | Yes (Safe)      |
+| `react-resizable-panels`          | Only used in unused `src/components/ui/resizable.tsx`       | Yes (Safe)      |
+| `vaul`                            | Only used in unused `src/components/ui/drawer.tsx`          | Yes (Safe)      |
+| `zod`                             | Zero imports anywhere in repo                               | Yes (Safe)      |
 
 ---
 
@@ -219,6 +226,7 @@ The following 28 packages are either completely unreferenced across the codebase
 ## 9. "Needs My Review" (Kept for Safety)
 
 The following files are not currently imported by client route code, but are **retained** because they are generated integration files or toolchain configs:
+
 1. `src/integrations/supabase/auth-middleware.ts` — Lovable-generated SSR authentication middleware. Kept so server functions can authenticate users if added.
 2. `src/integrations/supabase/client.server.ts` — Lovable-generated service role admin client. Kept for secure server-side execution.
 3. `src/integrations/supabase/cron-auth.ts` — Lovable-generated cron authentication helper.

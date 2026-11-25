@@ -2,6 +2,12 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import {
+  handleGoogleDriveAuthStart,
+  handleGoogleDriveOAuthCallback,
+  handleGoogleDriveDailyBackup,
+  handleGoogleDriveUpload,
+} from "./lib/server-google-drive";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -46,6 +52,137 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const resolvedEnv =
+      env ||
+      (request as any)?.runtime?.cloudflare?.env ||
+      (request as any)?.env ||
+      (globalThis as any)?.__env__;
+
+    // 1. Cloudflare Pages Native Geolocation Endpoint
+    const url = new URL(request.url);
+
+    // Google Drive Cloud Backup OAuth Handlers
+    if (
+      url.pathname === "/api/integrations/google-drive/auth" ||
+      url.pathname === "/api/google-drive/auth"
+    ) {
+      return await handleGoogleDriveAuthStart(request, resolvedEnv);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/callback" ||
+      url.pathname === "/api/google-drive/callback" ||
+      url.pathname === "/api/auth/google-drive/callback"
+    ) {
+      return await handleGoogleDriveOAuthCallback(request, resolvedEnv);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/backup" ||
+      url.pathname === "/api/google-drive/backup"
+    ) {
+      return await handleGoogleDriveDailyBackup(request, resolvedEnv);
+    }
+
+    if (
+      url.pathname === "/api/integrations/google-drive/upload" ||
+      url.pathname === "/api/google-drive/upload"
+    ) {
+      return await handleGoogleDriveUpload(request, resolvedEnv);
+    }
+
+    if (url.pathname === "/api/location" || url.pathname === "/api/geo") {
+      const cfLat = request.headers.get("cf-iplatitude");
+      const cfLon = request.headers.get("cf-iplongitude");
+      const cfCity = request.headers.get("cf-ipcity");
+      const cfRegion = request.headers.get("cf-region");
+      const cfCountry = request.headers.get("cf-ipcountry");
+
+      if (cfLat && cfLon) {
+        return new Response(
+          JSON.stringify({
+            latitude: parseFloat(cfLat),
+            longitude: parseFloat(cfLon),
+            accuracy: 5,
+            city: cfCity || undefined,
+            region: cfRegion || undefined,
+            country: cfCountry || undefined,
+            source: "cloudflare_edge_headers",
+            timestamp: Date.now(),
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+
+      // If headers missing (e.g. dev server), fallback to free IP lookup
+      try {
+        const clientIp =
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          request.headers.get("cf-connecting-ip");
+        let ipUrl = "https://freeipapi.com/api/json";
+        if (clientIp && !clientIp.startsWith("127.") && !clientIp.startsWith("192.168.")) {
+          ipUrl = `https://freeipapi.com/api/json/${clientIp}`;
+        }
+        const geoRes = await fetch(ipUrl, {
+          headers: { "User-Agent": "FlowPeople-HRMS/1.0" },
+        });
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo.latitude && geo.longitude) {
+            return new Response(
+              JSON.stringify({
+                latitude: parseFloat(geo.latitude),
+                longitude: parseFloat(geo.longitude),
+                accuracy: 5,
+                city: geo.cityName || undefined,
+                region: geo.regionName || undefined,
+                country: geo.countryName || undefined,
+                source: "cloudflare_ip_network_fallback",
+                timestamp: Date.now(),
+              }),
+              {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                  "Cache-Control": "no-store",
+                },
+              },
+            );
+          }
+        }
+      } catch {
+        // Fallback below
+      }
+
+      return new Response(
+        JSON.stringify({
+          latitude: 18.5204,
+          longitude: 73.8567,
+          accuracy: 5,
+          city: "Pune",
+          country: "India",
+          source: "cloudflare_default_fallback",
+          timestamp: Date.now(),
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

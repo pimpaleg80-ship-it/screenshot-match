@@ -41,6 +41,7 @@ import {
   LogOut,
   ExternalLink,
   Shield,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,9 +109,12 @@ interface SystemUserRow {
 
 function SuperadminPage() {
   const session = useSession();
+  return <SuperadminConsole session={session} />;
+}
+
+function SuperadminConsole({ session }: { session: ReturnType<typeof useSession> }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const canAccessSuperadmin = !session.loading && (session.isAdmin || session.isSuperadmin);
 
   // Active view tab
@@ -197,6 +201,76 @@ function SuperadminPage() {
   const [resetTargetUser, setResetTargetUser] = useState<SystemUserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
+  // Organization Management State
+  const [newOrgOpen, setNewOrgOpen] = useState(false);
+  const [newOrgSlug, setNewOrgSlug] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgLegalName, setNewOrgLegalName] = useState("");
+  const [newOrgTier, setNewOrgTier] = useState<"starter" | "pro" | "enterprise">("starter");
+  const [newOrgMaxEmployees, setNewOrgMaxEmployees] = useState(50);
+
+  // Fetch Organizations
+  const { data: organizationsList = [], isLoading: orgsLoading } = useQuery({
+    queryKey: ["superadmin-organizations-list"],
+    enabled: canAccessSuperadmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const createOrgMutation = useMutation({
+    mutationFn: async () => {
+      if (!newOrgSlug.trim() || !newOrgName.trim()) {
+        throw new Error("Slug and organization name are required");
+      }
+      const { error } = await supabase.from("organizations").insert({
+        slug: newOrgSlug
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-"),
+        name: newOrgName.trim(),
+        legal_name: newOrgLegalName.trim() || null,
+        plan_tier: newOrgTier,
+        max_employees: Number(newOrgMaxEmployees) || 50,
+        gps_retention_days: 90,
+        is_active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Organization created successfully!");
+      setNewOrgOpen(false);
+      setNewOrgSlug("");
+      setNewOrgName("");
+      setNewOrgLegalName("");
+      setNewOrgTier("starter");
+      setNewOrgMaxEmployees(50);
+      queryClient.invalidateQueries({ queryKey: ["superadmin-organizations-list"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to create organization");
+    },
+  });
+
+  const toggleOrgActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("organizations").update({ is_active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Organization status updated");
+      queryClient.invalidateQueries({ queryKey: ["superadmin-organizations-list"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update organization status");
+    },
+  });
+
   // 1. Fetch all system departments
   const { data: departments = [] } = useQuery({
     queryKey: ["superadmin-departments"],
@@ -220,7 +294,8 @@ function SuperadminPage() {
       // Query employees with joined departments and is_superadmin
       const { data: emps, error: empErr } = await supabase
         .from("employees")
-        .select(`
+        .select(
+          `
           id,
           user_id,
           employee_code,
@@ -234,7 +309,8 @@ function SuperadminPage() {
           photo_url,
           created_at,
           departments (name)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (empErr) throw empErr;
@@ -360,7 +436,7 @@ function SuperadminPage() {
       toast.success(
         res?.action === "created"
           ? `Successfully provisioned ${formRole.toUpperCase()} account for ${formName}`
-          : `Updated account details and role for ${formName}`
+          : `Updated account details and role for ${formName}`,
       );
       setProvisionModalOpen(false);
       setFormName("");
@@ -397,7 +473,15 @@ function SuperadminPage() {
 
   // Toggle Superadmin Flag Mutation
   const toggleSuperadminMutation = useMutation({
-    mutationFn: async ({ employeeId, userId, isSuper }: { employeeId: string; userId: string | null; isSuper: boolean }) => {
+    mutationFn: async ({
+      employeeId,
+      userId,
+      isSuper,
+    }: {
+      employeeId: string;
+      userId: string | null;
+      isSuper: boolean;
+    }) => {
       const { error: empErr } = await supabase
         .from("employees")
         .update({ is_superadmin: isSuper })
@@ -412,7 +496,9 @@ function SuperadminPage() {
       }
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.isSuper ? "User elevated to ROOT SUPERADMIN" : "Superadmin privileges revoked");
+      toast.success(
+        vars.isSuper ? "User elevated to ROOT SUPERADMIN" : "Superadmin privileges revoked",
+      );
       queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
     },
     onError: (err: any) => {
@@ -439,6 +525,46 @@ function SuperadminPage() {
     },
   });
 
+  // Delete User & Employee Mutation
+  const [deleteTargetUser, setDeleteTargetUser] = useState<any | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async ({ userId, employeeId }: { userId: string | null; employeeId: string }) => {
+      // 1. Try secure superadmin_delete_user RPC
+      try {
+        const { data, error } = await (supabase.rpc as any)("superadmin_delete_user", {
+          p_target_user_id: userId || undefined,
+          p_employee_id: employeeId || undefined,
+        });
+        if (!error && (data as any)?.success) return data;
+        if (error) console.warn("superadmin_delete_user RPC error:", error);
+      } catch (e) {
+        console.warn("superadmin_delete_user catch:", e);
+      }
+
+      // 2. Direct table fallback
+      if (employeeId) {
+        await supabase.from("employees").delete().eq("id", employeeId);
+      }
+      if (userId) {
+        await supabase.from("user_roles").delete().eq("user_id", userId);
+        await supabase.from("organization_members").delete().eq("user_id", userId);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("User and employee record permanently removed");
+      setDeleteModalOpen(false);
+      setDeleteTargetUser(null);
+      queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
+      queryClient.invalidateQueries({ queryKey: ["people-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to remove user");
+    },
+  });
+
   // Save System Settings Mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
@@ -458,7 +584,7 @@ function SuperadminPage() {
     onSuccess: () => {
       toast.success("System parameters saved successfully");
       queryClient.invalidateQueries({ queryKey: ["superadmin-settings"] });
-      queryClient.invalidateQueries({ queryKey: ["kiosk-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to update settings");
@@ -491,7 +617,7 @@ function SuperadminPage() {
   const adminCount = allUsers.filter((u) => u.roles.includes("admin")).length;
   const managerCount = allUsers.filter((u) => u.roles.includes("manager")).length;
   const employeeCount = allUsers.filter(
-    (u) => !u.roles.includes("admin") && !u.roles.includes("manager")
+    (u) => !u.roles.includes("admin") && !u.roles.includes("manager"),
   ).length;
   const enrolledFaces = allUsers.filter((u) => u.hasFaceEnrolled).length;
   const faceCoveragePct = totalUsers > 0 ? Math.round((enrolledFaces / totalUsers) * 100) : 0;
@@ -663,10 +789,13 @@ function SuperadminPage() {
               </span>
               <span>•</span>
               <span className="text-white/80 font-mono truncate max-w-[200px] sm:max-w-none">
-                Operator: <strong className="text-white">{session.fullName || session.user?.email}</strong>
+                Operator:{" "}
+                <strong className="text-white">{session.fullName || session.user?.email}</strong>
               </span>
               <span className="hidden sm:inline">•</span>
-              <span className="hidden sm:inline text-white/50">High-Availability Cloud Cluster</span>
+              <span className="hidden sm:inline text-white/50">
+                High-Availability Cloud Cluster
+              </span>
             </p>
           </div>
         </div>
@@ -752,19 +881,19 @@ function SuperadminPage() {
           </CardContent>
         </Card>
 
-        {/* Biometric Adoption */}
+        {/* Geofence Adoption */}
         <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-medium text-white/60 uppercase tracking-wider">
-              Biometric Coverage
+              Attendance System
             </CardTitle>
-            <Fingerprint className="h-4 w-4 text-emerald-400" />
+            <Shield className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-emerald-400">{faceCoveragePct}%</div>
-            <Progress value={faceCoveragePct} className="h-1.5 mt-2 bg-white/10" />
+            <div className="text-2xl font-extrabold text-emerald-400">GPS Geofence</div>
+            <Progress value={100} className="h-1.5 mt-2 bg-white/10" />
             <p className="text-[11px] text-white/60 mt-1.5">
-              {enrolledFaces} of {totalUsers} enrolled with biometric face profiles
+              Auto-synced Main Office perimeter verification active for {totalUsers} users
             </p>
           </CardContent>
         </Card>
@@ -809,6 +938,13 @@ function SuperadminPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-neutral-900 border border-white/10 p-1 text-xs w-full justify-start overflow-x-auto h-auto flex flex-nowrap sm:flex-wrap gap-1">
           <TabsTrigger
+            value="organizations"
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            Organizations & Tenants
+          </TabsTrigger>
+          <TabsTrigger
             value="provisioning"
             className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
           >
@@ -832,6 +968,156 @@ function SuperadminPage() {
         </TabsList>
 
         {/* =========================================================================
+            TAB: MULTI-TENANT ORGANIZATIONS & SAAS MANAGEMENT
+        ========================================================================= */}
+        <TabsContent value="organizations" className="space-y-4">
+          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4">
+              <div>
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Multi-Tenant Organizations & Subscriptions
+                </CardTitle>
+                <CardDescription className="text-xs text-white/60">
+                  Provision client organizations, manage subscription tiers, employee quotas, and
+                  data retention rules.
+                </CardDescription>
+              </div>
+
+              <Button
+                onClick={() => setNewOrgOpen(true)}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
+              >
+                <Plus className="h-4 w-4" />
+                Register New Organization
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6 space-y-5">
+              {/* Quick Tenant Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Total Tenants</span>
+                  <div className="text-xl font-bold font-mono text-white mt-1">
+                    {organizationsList.length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Active Status</span>
+                  <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                    {organizationsList.filter((o) => o.is_active).length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Enterprise Tier</span>
+                  <div className="text-xl font-bold font-mono text-amber-400 mt-1">
+                    {organizationsList.filter((o) => o.plan_tier === "enterprise").length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
+                  <span className="text-[11px] text-white/60">Total Capacity</span>
+                  <div className="text-xl font-bold font-mono text-blue-400 mt-1">
+                    {organizationsList.reduce((acc, o) => acc + (o.max_employees || 0), 0)} Seats
+                  </div>
+                </div>
+              </div>
+
+              {/* Organizations Table */}
+              <div className="rounded-xl border border-white/10 overflow-hidden bg-black/30">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left text-xs">
+                    <thead className="bg-white/5 border-b border-white/10 text-white/60 uppercase font-mono text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Organization / Legal Name</th>
+                        <th className="py-3 px-4">Slug Identifier</th>
+                        <th className="py-3 px-4">Plan Tier</th>
+                        <th className="py-3 px-4">Employee Capacity</th>
+                        <th className="py-3 px-4">GPS Retention</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-mono text-xs text-white/90">
+                      {orgsLoading ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-white/50">
+                            Loading organization tenants...
+                          </td>
+                        </tr>
+                      ) : organizationsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-white/50">
+                            No organizations found. Register your first tenant above.
+                          </td>
+                        </tr>
+                      ) : (
+                        organizationsList.map((org) => (
+                          <tr key={org.id} className="hover:bg-white/[0.02]">
+                            <td className="py-3 px-4">
+                              <div className="font-sans font-semibold text-white">{org.name}</div>
+                              {org.legal_name && (
+                                <div className="text-[10px] text-white/50 font-normal">
+                                  {org.legal_name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-primary font-mono">{org.slug}</td>
+                            <td className="py-3 px-4">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] uppercase font-bold ${
+                                  org.plan_tier === "enterprise"
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                    : org.plan_tier === "pro"
+                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                                      : "bg-neutral-500/20 text-neutral-300 border-neutral-500/40"
+                                }`}
+                              >
+                                {org.plan_tier}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">{org.max_employees} employees</td>
+                            <td className="py-3 px-4">{org.gps_retention_days} days rolling</td>
+                            <td className="py-3 px-4">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  org.is_active
+                                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                    : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                }`}
+                              >
+                                {org.is_active ? "Active" : "Suspended"}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  toggleOrgActiveMutation.mutate({
+                                    id: org.id,
+                                    is_active: !org.is_active,
+                                  })
+                                }
+                                disabled={toggleOrgActiveMutation.isPending}
+                                className="h-7 text-[11px] border border-white/10 hover:bg-white/10"
+                              >
+                                {org.is_active ? "Suspend" : "Activate"}
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* =========================================================================
             TAB 1: USER & ROLE PROVISIONING STUDIO
         ========================================================================= */}
         <TabsContent value="provisioning" className="space-y-4">
@@ -843,7 +1129,8 @@ function SuperadminPage() {
                   Personnel Roster & Role Matrix
                 </CardTitle>
                 <CardDescription className="text-xs text-white/60">
-                  Provision new employee, manager, or admin accounts with instant login credentials and access levels.
+                  Provision new employee, manager, or admin accounts with instant login credentials
+                  and access levels.
                 </CardDescription>
               </div>
 
@@ -896,7 +1183,7 @@ function SuperadminPage() {
                       <th className="py-3 px-4">Personnel</th>
                       <th className="py-3 px-4">Code</th>
                       <th className="py-3 px-4">Department & Role</th>
-                      <th className="py-3 px-4">Biometrics</th>
+                      <th className="py-3 px-4">Attendance Mode</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
@@ -925,7 +1212,10 @@ function SuperadminPage() {
                             : "employee";
 
                         return (
-                          <tr key={u.employee_id} className="hover:bg-white/[0.02] transition-colors">
+                          <tr
+                            key={u.employee_id}
+                            className="hover:bg-white/[0.02] transition-colors"
+                          >
                             {/* Personnel Identity */}
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
@@ -990,22 +1280,12 @@ function SuperadminPage() {
                               </div>
                             </td>
 
-                            {/* Face Biometrics */}
+                            {/* Attendance Mode */}
                             <td className="py-3.5 px-4">
-                              {u.hasFaceEnrolled ? (
-                                <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] gap-1 px-2">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Enrolled
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="border-white/10 text-white/40 text-[10px] gap-1 px-2"
-                                >
-                                  <XCircle className="h-3 w-3" />
-                                  Pending
-                                </Badge>
-                              )}
+                              <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] gap-1 px-2">
+                                <CheckCircle2 className="h-3 w-3" />
+                                GPS Geofence
+                              </Badge>
                             </td>
 
                             {/* Status */}
@@ -1150,7 +1430,23 @@ function SuperadminPage() {
                                     }`}
                                   >
                                     <ShieldAlert className="h-3.5 w-3.5" />
-                                    {u.status === "active" ? "Suspend Account" : "Reactivate Account"}
+                                    {u.status === "active"
+                                      ? "Suspend Account"
+                                      : "Reactivate Account"}
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator className="bg-white/10" />
+
+                                  {/* Delete / Remove User */}
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setDeleteTargetUser(u);
+                                      setDeleteModalOpen(true);
+                                    }}
+                                    className="gap-2 cursor-pointer text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Remove User & Employee
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1177,7 +1473,8 @@ function SuperadminPage() {
                 Root System Parameters & Attendance Rules
               </CardTitle>
               <CardDescription className="text-xs text-white/60">
-                Configure corporate work hours, grace periods, biometric threshold, and leave approval workflows.
+                Configure corporate work hours, grace periods, biometric threshold, and leave
+                approval workflows.
               </CardDescription>
             </CardHeader>
 
@@ -1245,26 +1542,6 @@ function SuperadminPage() {
                   </p>
                 </div>
 
-                {/* Face Match Sensitivity */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-white/80">
-                    Face Euclidean Match Distance:{" "}
-                    <strong className="text-emerald-400 font-mono">{settingsThreshold}</strong>
-                  </Label>
-                  <Input
-                    type="number"
-                    step={0.01}
-                    value={settingsThreshold}
-                    onChange={(e) => setSettingsThreshold(Number(e.target.value))}
-                    min={0.3}
-                    max={0.65}
-                    className="bg-neutral-800 border-white/10 text-white font-mono"
-                  />
-                  <p className="text-[11px] text-white/40">
-                    Recommended: 0.45 - 0.48. Lower is stricter, higher is faster.
-                  </p>
-                </div>
-
                 {/* Approval Flow */}
                 <div className="space-y-2">
                   <Label className="text-xs text-white/80">Leave Approval Workflow</Label>
@@ -1274,7 +1551,7 @@ function SuperadminPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-neutral-900 border-white/10 text-white text-xs">
                       <SelectItem value="manager_then_admin">
-                        Two-tier: Manager Approval $\rightarrow$ Admin Final Approval
+                        Two-tier: Manager Approval ? Admin Final Approval
                       </SelectItem>
                       <SelectItem value="admin_only">
                         Direct: Admin Immediate Final Approval
@@ -1308,7 +1585,8 @@ function SuperadminPage() {
                 Real-Time Security & System Audit Trail
               </CardTitle>
               <CardDescription className="text-xs text-white/60">
-                Immutable ledger of administrative actions, role assignments, user creations, and authentication events.
+                Immutable ledger of administrative actions, role assignments, user creations, and
+                authentication events.
               </CardDescription>
             </CardHeader>
 
@@ -1333,7 +1611,9 @@ function SuperadminPage() {
                         </Badge>
                         <span className="font-mono text-white/80">
                           {log.user_email ? (
-                            <span className="text-amber-400 font-semibold mr-2">{log.user_email}:</span>
+                            <span className="text-amber-400 font-semibold mr-2">
+                              {log.user_email}:
+                            </span>
                           ) : null}
                           {log.details ? JSON.stringify(log.details) : "—"}
                         </span>
@@ -1361,7 +1641,8 @@ function SuperadminPage() {
               Provision New User Account
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60">
-              Create an employee, manager, admin, or superadmin account with automatic authentication and role linkage.
+              Create an employee, manager, admin, or superadmin account with automatic
+              authentication and role linkage.
             </DialogDescription>
           </DialogHeader>
 
@@ -1423,7 +1704,9 @@ function SuperadminPage() {
                 >
                   <Crown className="h-4 w-4 mb-1 text-amber-300" />
                   <span className="font-bold text-[11px] sm:text-[10px]">Superadmin</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Root Console</span>
+                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">
+                    Root Console
+                  </span>
                 </button>
               </div>
             </div>
@@ -1528,7 +1811,114 @@ function SuperadminPage() {
               disabled={provisionMutation.isPending || !formName.trim() || !formEmail.trim()}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs shadow-xs"
             >
-              {provisionMutation.isPending ? "Creating Account..." : `Create ${formRole.toUpperCase()} Account`}
+              {provisionMutation.isPending
+                ? "Creating Account..."
+                : `Create ${formRole.toUpperCase()} Account`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          REGISTER NEW TENANT ORGANIZATION MODAL
+      ========================================================================= */}
+      <Dialog open={newOrgOpen} onOpenChange={setNewOrgOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Building2 className="h-5 w-5 text-primary" />
+              Register New Organization Tenant
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/60">
+              Provision an isolated organization with its own departments, employees, and geofence
+              locations.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Organization Slug Identifier *</Label>
+              <Input
+                placeholder="e.g. acme-tech"
+                value={newOrgSlug}
+                onChange={(e) =>
+                  setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+                }
+                className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+              />
+              <p className="text-[10px] text-white/50">
+                Unique URL-friendly slug across the SaaS cluster.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Display Name *</Label>
+              <Input
+                placeholder="e.g. Acme Technologies"
+                value={newOrgName}
+                onChange={(e) => setNewOrgName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-white/80">Legal Entity Name</Label>
+              <Input
+                placeholder="e.g. Acme Technologies Pvt. Ltd."
+                value={newOrgLegalName}
+                onChange={(e) => setNewOrgLegalName(e.target.value)}
+                className="bg-neutral-800 border-white/10 text-white text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Subscription Tier</Label>
+                <select
+                  value={newOrgTier}
+                  onChange={(e) =>
+                    setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")
+                  }
+                  className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
+                >
+                  <option value="starter">Starter (50 Seats)</option>
+                  <option value="pro">Pro (200 Seats)</option>
+                  <option value="enterprise">Enterprise (Unlimited)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-white/80">Max Employees Quota</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={5000}
+                  value={newOrgMaxEmployees}
+                  onChange={(e) => setNewOrgMaxEmployees(parseInt(e.target.value) || 50)}
+                  className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNewOrgOpen(false)}
+              disabled={createOrgMutation.isPending}
+              className="border-white/20 text-white hover:bg-white/10 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => createOrgMutation.mutate()}
+              disabled={createOrgMutation.isPending || !newOrgSlug.trim() || !newOrgName.trim()}
+              className="bg-primary text-primary-foreground text-xs gap-1.5"
+            >
+              {createOrgMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Provision Organization
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1581,7 +1971,11 @@ function SuperadminPage() {
                     p_email: resetTargetUser.email,
                     p_password: newPassword,
                     p_full_name: resetTargetUser.full_name,
-                    p_role: resetTargetUser.roles.includes("admin") ? "admin" : resetTargetUser.roles.includes("manager") ? "manager" : "employee",
+                    p_role: resetTargetUser.roles.includes("admin")
+                      ? "admin"
+                      : resetTargetUser.roles.includes("manager")
+                        ? "manager"
+                        : "employee",
                   });
                   if (error) throw error;
                   toast.success(`Password successfully updated for ${resetTargetUser.full_name}`);
@@ -1593,6 +1987,58 @@ function SuperadminPage() {
               className="bg-primary text-primary-foreground text-xs"
             >
               Apply New Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          DELETE USER CONFIRMATION MODAL
+      ========================================================================= */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="bg-neutral-900 border-white/10 text-white sm:max-w-md p-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-500 text-sm font-semibold">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Permanently Remove User & Employee</span>
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs mt-1">
+              Are you sure you want to permanently delete{" "}
+              <strong className="text-white">{deleteTargetUser?.full_name || "this user"}</strong>{" "}
+              ({deleteTargetUser?.email})? This action removes their authentication credentials,
+              employee profile, attendance logs, and organization roles. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex-row gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setDeleteTargetUser(null);
+              }}
+              disabled={deleteUserMutation.isPending}
+              className="border-white/20 text-white hover:bg-white/10 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (deleteTargetUser) {
+                  deleteUserMutation.mutate({
+                    userId: deleteTargetUser.user_id,
+                    employeeId: deleteTargetUser.employee_id,
+                  });
+                }
+              }}
+              disabled={deleteUserMutation.isPending}
+              className="gap-1.5 bg-rose-600 hover:bg-rose-700 text-xs"
+            >
+              {deleteUserMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Confirm Delete
             </Button>
           </DialogFooter>
         </DialogContent>

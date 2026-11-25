@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Clock,
   UserX,
-  ScanLine,
   UserPlus,
   ClipboardCheck,
   ArrowUpRight,
@@ -29,7 +28,7 @@ import {
   Loader2,
   MapPin,
 } from "lucide-react";
-import { GeofencePunchModal } from "@/components/attendance/GeofencePunchModal";
+import { GeofenceAttendanceCard } from "@/components/geofence-attendance-card";
 import {
   ResponsiveContainer,
   BarChart,
@@ -296,16 +295,16 @@ function AdminDashboardView() {
       <PageHeader
         breadcrumbs={[{ label: "Executive Dashboard" }]}
         title="Executive Dashboard"
-        description="Real-time biometric attendance metrics, leave queue, and corporate trends."
+        description="Real-time GPS geofence attendance metrics, leave queue, and corporate trends."
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary text-xs h-9">
-              <ScanLine className="h-3.5 w-3.5" />
-              Launch Kiosk
+            <Button size="sm" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 bg-primary text-xs h-9">
+              <MapPin className="h-3.5 w-3.5" />
+              Main Office Geofence
             </Button>
           </>
         }
@@ -1039,24 +1038,6 @@ function EmployeeDashboardView() {
   const session = useSession();
   const navigate = useNavigate();
   const todayKey = toDateKey(new Date());
-  const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
-
-  // Query Today's Attendance for Employee
-  const { data: todayRecord, isLoading: todayLoading } = useQuery({
-    queryKey: ["employee-today-status", todayKey, session.employeeId],
-    queryFn: async () => {
-      if (!session.employeeId) return null;
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("employee_id", session.employeeId)
-        .eq("date", todayKey)
-        .maybeSingle();
-      if (error && error.code !== "PGRST116") throw error;
-      return data;
-    },
-    enabled: !!session.employeeId,
-  });
 
   // Query Leave Balances
   const { data: balances = [], isLoading: balLoading } = useQuery({
@@ -1139,9 +1120,6 @@ function EmployeeDashboardView() {
     },
   });
 
-  const isCheckedIn = !!todayRecord?.check_in;
-  const isCheckedOut = !!todayRecord?.check_out;
-
   return (
     <PageContainer>
       {/* Header */}
@@ -1150,72 +1128,20 @@ function EmployeeDashboardView() {
         title={`Welcome back, ${session.fullName.split(" ")[0]}!`}
         description={`${session.designation || "Staff Member"} • ${session.departmentName || "Engineering"}`}
         actions={
-          <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 text-xs h-9">
-            <Palmtree className="h-4 w-4" />
-            Apply for Leave
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="text-xs h-9">
+              View My Report
+            </Button>
+            <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 text-xs h-9">
+              <Palmtree className="h-4 w-4" />
+              Apply for Leave
+            </Button>
+          </div>
         }
       />
 
-      {/* Today's Status Banner */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
-              }`}>
-              {isCheckedIn ? <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" /> : <Clock className="h-6 w-6 sm:h-7 sm:w-7" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={isCheckedIn ? "default" : "outline"}
-                  className={`text-[10px] sm:text-xs ${isCheckedOut ? "bg-emerald-600 text-white" : isCheckedIn ? "bg-blue-600 text-white" : ""}`}
-                >
-                  {isCheckedOut ? "Work Day Completed" : isCheckedIn ? "Checked In (Active)" : "Not Checked In Yet"}
-                </Badge>
-              </div>
-              <div className="mt-2 space-y-1">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm font-medium">
-                  <span>
-                    Check-in: <strong className="text-foreground font-mono">{isCheckedIn ? formatTime(todayRecord.check_in!) : "--:--"}</strong>
-                  </span>
-                  <span>
-                    Check-out: <strong className="text-foreground font-mono">{isCheckedOut ? formatTime(todayRecord.check_out!) : isCheckedIn ? "On Site" : "--:--"}</strong>
-                  </span>
-                </div>
-                {isCheckedIn && isCheckedOut && (
-                  <p className="text-xs text-muted-foreground">
-                    Total Time Logged: <strong className="text-foreground font-mono">{formatHours(totalHours(todayRecord.check_in!, todayRecord.check_out!))}</strong>
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
-            <Button
-              size="sm"
-              onClick={() => setGeofenceModalOpen(true)}
-              disabled={isCheckedIn && isCheckedOut}
-              className={`w-full sm:w-auto text-xs h-9 gap-1.5 font-semibold shadow-xs ${
-                isCheckedIn && !isCheckedOut
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              {isCheckedIn
-                ? isCheckedOut
-                  ? "Workday Complete"
-                  : "Clock Out (GPS)"
-                : "Clock In with GPS"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="w-full sm:w-auto text-xs h-9">
-              View My Report
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Live Auto-Synced GPS Geofence Attendance (Check-In/Out button appears ONLY inside selected HR office zone) */}
+      {session.employeeId && <GeofenceAttendanceCard employeeId={session.employeeId} />}
 
       {/* Leave Balances Grid */}
       <div className="space-y-3">
@@ -1320,12 +1246,6 @@ function EmployeeDashboardView() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Geofence GPS Punch Modal for Employee */}
-      <GeofencePunchModal
-        open={geofenceModalOpen}
-        onOpenChange={setGeofenceModalOpen}
-      />
     </PageContainer>
   );
 }

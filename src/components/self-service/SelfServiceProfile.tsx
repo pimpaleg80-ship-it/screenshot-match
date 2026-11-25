@@ -11,7 +11,6 @@ import {
   Save,
   Lock,
   Loader2,
-  ScanFace,
   CheckCircle2,
   AlertCircle,
   MapPin,
@@ -255,20 +254,14 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
             </div>
 
             {/* Quick Status Pill */}
-            <div className="flex flex-col gap-2 rounded-lg border bg-background/80 p-3 sm:w-56 text-xs">
+            <div className="flex flex-col gap-2 rounded-lg border border-border/40 bg-background/80 p-3 sm:w-56 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-1.5">
-                  <ScanFace className="h-4 w-4 text-primary" /> Face AI Biometrics
+                  <MapPin className="h-4 w-4 text-primary" /> Attendance Mode
                 </span>
-                {faceEnrolled ? (
-                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Enrolled
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-600 dark:text-amber-400 text-[10px] gap-1">
-                    <AlertCircle className="h-3 w-3" /> Not Enrolled
-                  </Badge>
-                )}
+                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> GPS Geofence
+                </Badge>
               </div>
               <div className="flex items-center justify-between pt-1 border-t">
                 <span className="text-muted-foreground flex items-center gap-1.5">

@@ -1,16 +1,16 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute } from "@tanstack/react-router";
+import { HomePage } from "@/components/homepage/HomePage";
 
 export const Route = createFileRoute("/")({
-  ssr: false,
-  beforeLoad: async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.user) {
-      throw redirect({ to: "/dashboard" });
-    } else {
-      throw redirect({ to: "/auth" });
-    }
-  },
+  head: () => ({
+    meta: [
+      { title: "Flowpeople by Fluxora — Biometric Attendance & Workforce HRMS" },
+      {
+        name: "description",
+        content:
+          "Enterprise facial biometric attendance, exact GPS geofencing, shift and leave management, and automated Google Drive cloud archiving.",
+      },
+    ],
+  }),
+  component: HomePage,
 });

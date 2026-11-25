@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Calendar,
   Hourglass,
-  ScanFace,
   Filter,
   PlusCircle,
   Fingerprint,
@@ -15,7 +14,7 @@ import {
   Sparkles,
   MapPin,
 } from "lucide-react";
-import { GeofencePunchModal } from "@/components/attendance/GeofencePunchModal";
+import { GeofenceAttendanceCard } from "@/components/geofence-attendance-card";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +64,6 @@ interface AttendanceItem {
 export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps) {
   const [filterPeriod, setFilterPeriod] = useState<"this_month" | "last_30" | "last_90" | "all">("this_month");
   const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false);
-  const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
   const [selectedRecordForCorrection, setSelectedRecordForCorrection] = useState<{
     id?: string;
     date?: string;
@@ -168,15 +166,6 @@ export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <Button
-            onClick={() => setGeofenceModalOpen(true)}
-            size="sm"
-            className="gap-1.5 text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
-          >
-            <MapPin className="h-4 w-4" />
-            Geofence Clock In / Out
-          </Button>
-
-          <Button
             onClick={() => handleOpenCorrection()}
             variant="outline"
             size="sm"
@@ -187,6 +176,9 @@ export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps
           </Button>
         </div>
       </div>
+
+      {/* Live Auto-Synced GPS Geofence Attendance Card */}
+      <GeofenceAttendanceCard employeeId={employeeId} />
 
       {/* Metrics Row */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -254,7 +246,7 @@ export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps
                 <ClipboardList className="h-4 w-4 text-primary" /> My Attendance History
               </CardTitle>
               <CardDescription className="text-xs">
-                Detailed clock-in, clock-out, work duration, shift rules, and biometric verification logs.
+                Detailed clock-in, clock-out, work duration, shift rules, and GPS geofence verification logs.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -371,13 +363,9 @@ export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps
                         </td>
 
                         <td className="py-2.5 px-3 whitespace-nowrap">
-                          {r.method === "geofence" ? (
+                          {r.method === "geofence" || r.method === "manual_geofence" ? (
                             <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/20 text-emerald-600 bg-emerald-500/10">
                               <MapPin className="h-3 w-3" /> Geofence
-                            </Badge>
-                          ) : r.method === "face" ? (
-                            <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary">
-                              <ScanFace className="h-3 w-3" /> Face
                             </Badge>
                           ) : r.method === "device" ? (
                             <Badge variant="outline" className="text-[10px] gap-1 border-blue-400 text-blue-600">
@@ -425,12 +413,6 @@ export function SelfServiceAttendance({ employeeId }: SelfServiceAttendanceProps
         employeeId={employeeId}
         defaultDate={selectedRecordForCorrection?.date}
         attendanceId={selectedRecordForCorrection?.id}
-      />
-
-      {/* Geofence GPS Attendance Modal */}
-      <GeofencePunchModal
-        open={geofenceModalOpen}
-        onOpenChange={setGeofenceModalOpen}
       />
     </div>
   );
