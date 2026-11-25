@@ -16,10 +16,10 @@ export function BrandLogo({
 }: BrandLogoProps) {
   // Dimensions - scaled up by ~25-30% for improved prominence and clarity
   const iconSizes = {
-    sm: "h-9 w-9 rounded-xl",
-    md: "h-11 w-11 rounded-xl",
-    lg: "h-14 w-14 rounded-2xl",
-    xl: "h-16 w-16 sm:h-18 sm:w-18 rounded-2xl",
+    sm: "h-9 w-9 rounded-lg",
+    md: "h-11 w-11 rounded-lg",
+    lg: "h-14 w-14 rounded-lg",
+    xl: "h-16 w-16 sm:h-18 sm:w-18 rounded-lg",
   };
 
   const textSizes = {

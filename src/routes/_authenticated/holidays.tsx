@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
+import { PageContainer, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,7 +158,7 @@ function HolidaysPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
+    <PageContainer maxWidth="wide">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -179,7 +180,7 @@ function HolidaysPage() {
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+              <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div>
@@ -258,7 +259,7 @@ function HolidaysPage() {
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                <Skeleton key={i} className="h-16 w-full rounded-lg" />
               ))}
             </div>
           ) : filteredHolidays.length === 0 ? (
@@ -280,7 +281,7 @@ function HolidaysPage() {
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl text-xs font-semibold ${isPast
+                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg text-xs font-semibold ${isPast
                           ? "bg-muted text-muted-foreground"
                           : isNext
                             ? "bg-primary text-primary-foreground shadow-sm"
@@ -401,7 +402,6 @@ function HolidaysPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
-

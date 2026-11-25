@@ -20,6 +20,14 @@ import {
   Upload,
   RefreshCw,
   Lock,
+  LayoutGrid,
+  List,
+  Eye,
+  Briefcase,
+  MapPin,
+  Calendar,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,27 +37,12 @@ import {
   detectOptions,
   averageDescriptors,
 } from "@/lib/face";
-import {
-  formatDate,
-  formatTime,
-  formatHours,
-  totalHours,
-  STATUS_COLORS,
-  STATUS_LABELS,
-} from "@/lib/attendance";
+import { PageContainer, PageHeader, TableContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,8 +50,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -67,19 +58,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { EmployeeRegistrationDialog } from "@/components/employees/EmployeeRegistrationDialog";
+import { EmployeeProfileDrawer } from "@/components/employees/EmployeeProfileDrawer";
+import { CsvImportExport, CsvEmployeeRecord } from "@/components/employees/CsvImportExport";
 
 export const Route = createFileRoute("/_authenticated/people")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Employees & Face Enrollment — Flowpeople by Fluxora" },
-      { name: "description", content: "Manage employee roster and biometric face profiles." },
+      { title: "Employee Management — Flowpeople by Fluxora" },
+      { name: "description", content: "Manage employee roster, detailed 9-tab profiles, and face biometrics." },
     ],
   }),
   component: PeoplePage,
@@ -90,10 +85,15 @@ interface PersonRow {
   name: string;
   person_code: string;
   department: string;
+  designation?: string | null;
   email: string | null;
   phone: string | null;
   consent: boolean;
   active: boolean;
+  status?: string;
+  employment_type?: string | null;
+  work_location?: string | null;
+  joining_date?: string | null;
   photo_url: string | null;
   created_at: string;
 }
@@ -111,30 +111,22 @@ function PeoplePage() {
 
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedFaceStatus, setSelectedFaceStatus] = useState("all");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  // Add / Edit Modal state
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<PersonRow | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    person_code: "",
-    department: "General",
-    email: "",
-    password: "",
-    phone: "",
-    consent: true,
-    active: true,
-  });
+  // Registration Dialog State
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+
+  // 9-Tab Profile Drawer State
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
   // Face Enrollment Modal state
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
   const [enrollingPerson, setEnrollingPerson] = useState<PersonRow | null>(null);
 
-  // History Sheet state
-  const [historyPerson, setHistoryPerson] = useState<PersonRow | null>(null);
-
-  // Query People
+  // Query People / Employees
   const { data: people = [], isLoading: peopleLoading } = useQuery({
     queryKey: ["people-list", session.department],
     queryFn: async () => {
@@ -160,10 +152,23 @@ function PeoplePage() {
     },
   });
 
+  // Query Shifts
+  const { data: shifts = [] } = useQuery({
+    queryKey: ["shifts-list"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from as any)("shifts").select("id, name");
+      if (error) return [];
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
+
   const descriptorMap = new Map(descriptors.map((d) => [d.person_id, d]));
 
-  // Departments list
+  // Unique departments list
   const departments = Array.from(new Set(people.map((p) => p.department || "General"))).sort();
+
+  // Existing employees list for manager dropdown
+  const existingEmployeesList = people.map((p) => ({ id: p.id, name: `${p.name} (${p.person_code})` }));
 
   // Filtered people
   const filteredPeople = people.filter((p) => {
@@ -173,9 +178,21 @@ function PeoplePage() {
       p.name.toLowerCase().includes(q) ||
       p.person_code.toLowerCase().includes(q) ||
       (p.email && p.email.toLowerCase().includes(q)) ||
-      p.department.toLowerCase().includes(q);
+      (p.designation && p.designation.toLowerCase().includes(q)) ||
+      p.department.toLowerCase().includes(q) ||
+      (p.phone && p.phone.includes(q));
 
     const matchesDept = selectedDept === "all" || p.department === selectedDept;
+
+    const matchesType =
+      selectedType === "all" ||
+      (p.employment_type && p.employment_type.toLowerCase() === selectedType.toLowerCase());
+
+    const matchesStatus =
+      selectedStatus === "all" ||
+      (selectedStatus === "active" && (p.status === "active" || p.active)) ||
+      (selectedStatus === "inactive" && (p.status === "inactive" || !p.active)) ||
+      (selectedStatus === "on_leave" && p.status === "on_leave");
 
     const hasFace = descriptorMap.has(p.id);
     const matchesFace =
@@ -183,56 +200,38 @@ function PeoplePage() {
       (selectedFaceStatus === "enrolled" && hasFace) ||
       (selectedFaceStatus === "missing" && !hasFace);
 
-    return matchesSearch && matchesDept && matchesFace;
+    return matchesSearch && matchesDept && matchesType && matchesStatus && matchesFace;
   });
 
-  // Save Person Mutation
-  const savePersonMutation = useMutation({
-    mutationFn: async () => {
-      if (!formData.name.trim()) throw new Error("Name is required");
+  // Bulk CSV Import Function
+  async function handleBulkImport(records: CsvEmployeeRecord[]): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
 
-      if (editingPerson) {
-        const { error } = await supabase
-          .from("people")
-          .update({
-            name: formData.name.trim(),
-            person_code: formData.person_code.trim(),
-            department: formData.department,
-            email: formData.email.trim() || null,
-            phone: formData.phone.trim() || null,
-            consent: formData.consent,
-            active: formData.active,
-          })
-          .eq("id", editingPerson.id);
-        if (error) throw error;
-      } else {
-        if (!formData.email.trim()) throw new Error("Email address is required for employee account");
-        if (!formData.password || formData.password.trim().length < 6) {
-          throw new Error("Password must be at least 6 characters for employee login");
-        }
-
-        const { data, error } = await supabase.rpc("admin_create_employee", {
-          p_email: formData.email.trim().toLowerCase(),
-          p_password: formData.password.trim(),
-          p_full_name: formData.name.trim(),
-          p_department: formData.department.trim() || "General",
-          p_phone: formData.phone.trim() || null,
-          p_person_code: formData.person_code.trim() || null,
+    for (const rec of records) {
+      try {
+        const password = (rec as any).password || (Math.random().toString(36).slice(-8) + "Aa1!");
+        const { error } = await (supabase.rpc as any)("admin_create_employee", {
+          p_email: rec.email.trim().toLowerCase(),
+          p_password: password,
+          p_full_name: rec.full_name.trim(),
+          p_department: rec.department || "General",
+          p_phone: rec.phone || null,
+          p_person_code: rec.employee_code || null,
         });
-        if (error) throw error;
-        return data;
+
+        if (error) {
+          errors.push(`${rec.full_name} (${rec.email}): ${error.message}`);
+        } else {
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`${rec.full_name}: ${err.message}`);
       }
-    },
-    onSuccess: () => {
-      toast.success(editingPerson ? "Person updated" : `Personnel ${formData.name} added with login credentials`);
-      setEditModalOpen(false);
-      setEditingPerson(null);
-      queryClient.invalidateQueries({ queryKey: ["people-list"] });
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Failed to save person");
-    },
-  });
+    }
+
+    return { imported, errors };
+  }
 
   // Delete Person Mutation
   const deletePersonMutation = useMutation({
@@ -241,108 +240,65 @@ function PeoplePage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Person removed");
+      toast.success("Employee removed successfully");
       queryClient.invalidateQueries({ queryKey: ["people-list"] });
       queryClient.invalidateQueries({ queryKey: ["face-descriptors-list"] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to remove person");
+      toast.error(err.message || "Failed to remove employee");
     },
   });
 
-  function getNextPersonCode(peopleList: PersonRow[]): string {
-    let maxNumber = 0;
-    for (const p of peopleList) {
-      const match = p.person_code?.match(/\d+/);
-      if (match) {
-        const val = parseInt(match[0], 10);
-        if (!isNaN(val) && val > maxNumber) {
-          maxNumber = val;
-        }
-      }
-    }
-    return `EMP${String(maxNumber + 1).padStart(3, "0")}`;
-  }
-
-  function openCreateModal() {
-    setEditingPerson(null);
-    setFormData({
-      name: "",
-      person_code: "",
-      department: session.department || "General",
-      email: "",
-      password: "",
-      phone: "",
-      consent: true,
-      active: true,
-    });
-    setEditModalOpen(true);
-  }
-
-  function openEditModal(person: PersonRow) {
-    setEditingPerson(person);
-    setFormData({
-      name: person.name,
-      person_code: person.person_code,
-      department: person.department,
-      email: person.email || "",
-      password: "",
-      phone: person.phone || "",
-      consent: person.consent,
-      active: person.active,
-    });
-    setEditModalOpen(true);
-  }
-
-  if (!session.loading && !session.isStaff) {
-    return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center p-6 text-center">
-        <ShieldAlert className="h-12 w-12 text-destructive mb-3" />
-        <h2 className="text-xl font-bold">Access Restricted</h2>
-        <p className="text-sm text-muted-foreground mt-1 max-w-md">
-          Personnel directory and biometric face enrollment is restricted to administrative and management staff.
-        </p>
-        <Button className="mt-4" onClick={() => navigate({ to: "/dashboard" })}>
-          Return to Dashboard
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Personnel & Faces</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Manage employee rosters, facial biometric profiles, and consent.
-          </p>
-        </div>
+    <PageContainer maxWidth="wide">
+      {/* Header Banner */}
+      <PageHeader
+        breadcrumbs={[{ label: "Employees Directory" }]}
+        title="Employee Management"
+        badge={
+          <Badge variant="outline" className="font-mono text-xs">
+            {filteredPeople.length} {filteredPeople.length === 1 ? "Employee" : "Employees"}
+          </Badge>
+        }
+        description="Complete employee roster, 9-tab detailed profiles, CSV import/export, and face biometrics."
+        actions={
+          session.isStaff && (
+            <>
+              <CsvImportExport
+                employees={people}
+                onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ["people-list"] })}
+                importFunction={handleBulkImport}
+              />
 
-        {session.isStaff && (
-          <Button onClick={openCreateModal} className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9">
-            <UserPlus className="h-4 w-4" />
-            Add Person
-          </Button>
-        )}
-      </div>
+              <Button
+                onClick={() => setRegisterModalOpen(true)}
+                className="gap-2 shadow-sm h-9 text-xs font-semibold"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Register Employee</span>
+              </Button>
+            </>
+          )
+        }
+      />
 
-      {/* Filters Bar */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, ID code, department, email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
+      {/* Filter and Search Controls */}
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Search */}
+          <div className="relative sm:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, ID, email, role, or phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Department Filter */}
           <Select value={selectedDept} onValueChange={setSelectedDept}>
-            <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs">
               <SelectValue placeholder="Department" />
             </SelectTrigger>
             <SelectContent>
@@ -355,44 +311,254 @@ function PeoplePage() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedFaceStatus} onValueChange={setSelectedFaceStatus}>
-            <SelectTrigger className="w-full sm:w-[160px] h-9 text-xs">
-              <SelectValue placeholder="Face Status" />
+          {/* Status Filter */}
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Face Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="on_leave">On Leave</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Face Status Filter */}
+          <Select value={selectedFaceStatus} onValueChange={setSelectedFaceStatus}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Face Biometrics" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Biometrics</SelectItem>
               <SelectItem value="enrolled">Face Enrolled</SelectItem>
               <SelectItem value="missing">Missing Face</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Second Row: View Mode Toggle & Active Filter Badges */}
+        <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Showing {filteredPeople.length} of {people.length} records</span>
+            {(search || selectedDept !== "all" || selectedStatus !== "all" || selectedFaceStatus !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-primary"
+                onClick={() => {
+                  setSearch("");
+                  setSelectedDept("all");
+                  setSelectedStatus("all");
+                  setSelectedFaceStatus("all");
+                }}
+              >
+                Reset Filters
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-muted/30">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-xs gap-1.5"
+              onClick={() => setViewMode("table")}
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Table</span>
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 text-xs gap-1.5"
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Personnel Grid */}
+      {/* Main Roster Display */}
       {peopleLoading || descLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 rounded-2xl" />
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
           ))}
         </div>
       ) : filteredPeople.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-          <Users className="h-10 w-10 text-muted-foreground/60" />
-          <h3 className="mt-3 text-base font-semibold">No personnel found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center bg-card">
+          <Users className="h-10 w-10 text-muted-foreground/50" />
+          <h3 className="mt-3 text-base font-semibold">No employees match criteria</h3>
+          <p className="mt-1 text-xs text-muted-foreground max-w-sm">
             {search || selectedDept !== "all" || selectedFaceStatus !== "all"
-              ? "Try adjusting your filters or search term."
-              : "Get started by adding your first employee or student."}
+              ? "Try adjusting your filters or search terms."
+              : "Get started by registering your first employee."}
           </p>
           {session.isStaff && (
-            <Button onClick={openCreateModal} className="mt-4 gap-2">
+            <Button onClick={() => setRegisterModalOpen(true)} className="mt-4 gap-2 text-xs">
               <UserPlus className="h-4 w-4" />
-              Add Person
+              Register Employee
             </Button>
           )}
         </div>
+      ) : viewMode === "table" ? (
+        /* TABLE VIEW */
+        <TableContainer>
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/50 text-muted-foreground font-semibold border-b">
+                <tr>
+                  <th className="p-3.5 pl-4">Employee</th>
+                  <th className="p-3.5">Department & Role</th>
+                  <th className="p-3.5">Contact</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5">Face Biometric</th>
+                  <th className="p-3.5 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredPeople.map((person) => {
+                  const faceDesc = descriptorMap.get(person.id);
+                  const isEnrolled = !!faceDesc;
+                  const initials = person.name
+                    .split(" ")
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
+
+                  return (
+                    <tr
+                      key={person.id}
+                      className="hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => setSelectedProfileId(person.id)}
+                    >
+                      {/* Name & ID */}
+                      <td className="p-3.5 pl-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shrink-0 overflow-hidden text-sm">
+                            {person.photo_url ? (
+                              <img src={person.photo_url} alt={person.name} className="h-full w-full object-cover" />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-foreground hover:text-primary transition-colors">
+                              {person.name}
+                            </p>
+                            <p className="text-[11px] font-mono text-muted-foreground">{person.person_code}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Department & Designation */}
+                      <td className="p-3.5">
+                        <p className="font-semibold">{person.designation || "Employee"}</p>
+                        <Badge variant="outline" className="text-[10px] mt-0.5">
+                          {person.department || "General"}
+                        </Badge>
+                      </td>
+
+                      {/* Contact */}
+                      <td className="p-3.5 space-y-0.5">
+                        <p className="text-muted-foreground truncate max-w-[180px]">{person.email || "—"}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">{person.phone || "—"}</p>
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-3.5">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] capitalize ${
+                            person.status === "active" || person.active
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-200"
+                              : person.status === "on_leave"
+                              ? "bg-amber-500/10 text-amber-600 border-amber-200"
+                              : "bg-rose-500/10 text-rose-600 border-rose-200"
+                          }`}
+                        >
+                          {person.status || (person.active ? "Active" : "Inactive")}
+                        </Badge>
+                      </td>
+
+                      {/* Face Biometric */}
+                      <td className="p-3.5">
+                        {isEnrolled ? (
+                          <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px]">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Enrolled ({faceDesc.samples} samples)
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700 text-[10px]">
+                            <XCircle className="h-3 w-3" />
+                            Missing
+                          </Badge>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-3.5 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1 text-xs"
+                            onClick={() => setSelectedProfileId(person.id)}
+                          >
+                            <Eye className="h-3.5 w-3.5 text-primary" />
+                            <span className="hidden md:inline">Profile</span>
+                          </Button>
+
+                          {session.isStaff && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setSelectedProfileId(person.id)}>
+                                  <Eye className="mr-2 h-4 w-4 text-primary" />
+                                  View 9-Tab Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEnrollingPerson(person);
+                                    setEnrollModalOpen(true);
+                                  }}
+                                >
+                                  <ScanFace className="mr-2 h-4 w-4 text-primary" />
+                                  Enroll Face Biometrics
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete ${person.name} from FlowPeople?`)) {
+                                      deletePersonMutation.mutate(person.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Employee
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+        </TableContainer>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        /* CARD GRID VIEW */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredPeople.map((person) => {
             const faceDesc = descriptorMap.get(person.id);
             const isEnrolled = !!faceDesc;
@@ -406,109 +572,80 @@ function PeoplePage() {
             return (
               <Card
                 key={person.id}
-                className="card-soft flex flex-col justify-between border-border/80 transition-all hover:border-primary/40"
+                className="flex flex-col justify-between hover:border-primary/50 transition-all cursor-pointer shadow-sm"
+                onClick={() => setSelectedProfileId(person.id)}
               >
-                <CardHeader className="pb-3">
+                <CardHeader className="p-4 pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      {person.photo_url ? (
-                        <img
-                          src={person.photo_url}
-                          alt={person.name}
-                          className="h-12 w-12 rounded-2xl object-cover border"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-base font-bold text-primary">
-                          {initials}
-                        </div>
-                      )}
+                      <div className="h-11 w-11 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm overflow-hidden shrink-0">
+                        {person.photo_url ? (
+                          <img src={person.photo_url} alt={person.name} className="h-full w-full object-cover" />
+                        ) : (
+                          initials
+                        )}
+                      </div>
                       <div className="min-w-0">
-                        <CardTitle className="truncate text-base font-semibold">
-                          {person.name}
-                        </CardTitle>
-                        <CardDescription className="truncate text-xs font-mono">
-                          {person.person_code} • {person.department}
-                        </CardDescription>
+                        <CardTitle className="text-sm font-bold truncate">{person.name}</CardTitle>
+                        <CardDescription className="text-xs font-mono">{person.person_code}</CardDescription>
                       </div>
                     </div>
 
-                    {session.isStaff && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEnrollingPerson(person);
-                              setEnrollModalOpen(true);
-                            }}
-                          >
-                            <ScanFace className="mr-2 h-4 w-4 text-primary" />
-                            Enroll Face
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setHistoryPerson(person)}>
-                            <History className="mr-2 h-4 w-4" />
-                            Attendance History
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditModal(person)}>
-                            <Edit2 className="mr-2 h-4 w-4" />
-                            Edit Details
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => {
-                              if (confirm(`Remove ${person.name} from the system?`)) {
-                                deletePersonMutation.mutate(person.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] capitalize ${
+                        person.status === "active" || person.active
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-200"
+                          : "bg-amber-500/10 text-amber-600 border-amber-200"
+                      }`}
+                    >
+                      {person.status || (person.active ? "Active" : "Inactive")}
+                    </Badge>
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3 pt-0">
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    {person.email && <p className="truncate">✉️ {person.email}</p>}
-                    {person.phone && <p className="truncate">📞 {person.phone}</p>}
+                <CardContent className="p-4 pt-1 space-y-3">
+                  <div className="text-xs space-y-1 text-muted-foreground border-y py-2.5">
+                    <p className="flex items-center gap-1.5 truncate">
+                      <Briefcase className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span>{person.designation || "Employee"} • {person.department}</span>
+                    </p>
+                    <p className="flex items-center gap-1.5 truncate">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span>{person.email || "No email"}</span>
+                    </p>
+                    {person.phone && (
+                      <p className="flex items-center gap-1.5 truncate">
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="font-mono">{person.phone}</span>
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-                    {/* Face status badge */}
+                  <div className="flex items-center justify-between pt-1">
                     {isEnrolled ? (
-                      <Badge variant="outline" className="gap-1 border-success/30 bg-success/10 text-success text-[11px]">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3" />
                         Face Enrolled
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="gap-1 border-warning/30 bg-warning/10 text-warning-foreground text-[11px]">
-                        <XCircle className="h-3.5 w-3.5" />
-                        Not Enrolled
+                      <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700 text-[10px]">
+                        <XCircle className="h-3 w-3" />
+                        Missing Face
                       </Badge>
                     )}
 
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 text-xs gap-1.5"
-                        onClick={() => {
-                          setEnrollingPerson(person);
-                          setEnrollModalOpen(true);
-                        }}
-                      >
-                        <ScanFace className="h-3.5 w-3.5 text-primary" />
-                        {isEnrolled ? "Re-scan" : "Enroll"}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-primary font-semibold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedProfileId(person.id);
+                      }}
+                    >
+                      View Profile →
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -517,114 +654,33 @@ function PeoplePage() {
         </div>
       )}
 
-      {/* Add / Edit Person Dialog */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[460px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>{editingPerson ? "Edit Personnel" : "Add Personnel"}</DialogTitle>
-            <DialogDescription>
-              Enter individual details for attendance roster and biometric profile.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Employee Registration Dialog */}
+      <EmployeeRegistrationDialog
+        open={registerModalOpen}
+        onOpenChange={setRegisterModalOpen}
+        departments={departments}
+        existingEmployees={existingEmployeesList}
+        shifts={shifts}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["people-list"] })}
+      />
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Full Name *</Label>
-              <Input
-                placeholder="e.g. Diya Patel"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
+      {/* 9-Tab Employee Profile Drawer */}
+      <EmployeeProfileDrawer
+        employeeId={selectedProfileId}
+        open={!!selectedProfileId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedProfileId(null);
+        }}
+        onEnrollFace={(emp) => {
+          setEnrollingPerson(emp);
+          setEnrollModalOpen(true);
+        }}
+        onProfileUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ["people-list"] });
+        }}
+      />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="space-y-1.5">
-                <Label>Personnel Code / ID {editingPerson ? "*" : "(Optional)"}</Label>
-                <Input
-                  placeholder={editingPerson ? "e.g. EMP002" : `Auto (e.g. ${getNextPersonCode(people)})`}
-                  value={formData.person_code}
-                  onChange={(e) => setFormData({ ...formData, person_code: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Department</Label>
-                <Input
-                  placeholder="e.g. Engineering"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="space-y-1.5">
-                <Label>{editingPerson ? "Email" : "Login Email *"}</Label>
-                <Input
-                  type="email"
-                  placeholder="diya@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required={!editingPerson}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Phone</Label>
-                <Input
-                  placeholder="+91 98100 00000"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {!editingPerson && (
-              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Lock className="h-3.5 w-3.5 text-primary" />
-                  <span>Portal Login Account Credentials</span>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Password * (min 6 characters)</Label>
-                  <Input
-                    type="password"
-                    placeholder="Enter password for employee portal"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    The employee will sign in at /auth using this email & password to access their dedicated self-service portal.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-2 pt-1">
-              <Checkbox
-                id="consent"
-                checked={formData.consent}
-                onCheckedChange={(c) => setFormData({ ...formData, consent: !!c })}
-              />
-              <label htmlFor="consent" className="text-xs text-muted-foreground leading-none">
-                Biometric Consent: Person agrees to face recognition for attendance purposes.
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => savePersonMutation.mutate()} disabled={savePersonMutation.isPending}>
-              {savePersonMutation.isPending ? "Saving..." : "Save Personnel"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Face Enrollment Dialog */}
+      {/* Preserved Face Enrollment Dialog */}
       {enrollingPerson && (
         <FaceEnrollmentDialog
           person={enrollingPerson}
@@ -639,23 +695,12 @@ function PeoplePage() {
           }}
         />
       )}
-
-      {/* Person Attendance History Sheet */}
-      {historyPerson && (
-        <PersonHistorySheet
-          person={historyPerson}
-          open={!!historyPerson}
-          onOpenChange={(open) => {
-            if (!open) setHistoryPerson(null);
-          }}
-        />
-      )}
-    </div>
+    </PageContainer>
   );
 }
 
 // ----------------------------------------------------------------------------
-// Face Enrollment Dialog Component
+// Preserved Face Enrollment Dialog Component
 // ----------------------------------------------------------------------------
 function FaceEnrollmentDialog({
   person,
@@ -678,7 +723,6 @@ function FaceEnrollmentDialog({
   const [faceDetected, setFaceDetected] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Initialize face-api and camera
   useEffect(() => {
     let stream: MediaStream | null = null;
     let animId: number;
@@ -689,7 +733,6 @@ function FaceEnrollmentDialog({
         const faceapi = await loadFaceApi();
         setModelLoading(false);
 
-        // Start video stream
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
           audio: false,
@@ -700,7 +743,6 @@ function FaceEnrollmentDialog({
           await videoRef.current.play();
           setStreamActive(true);
 
-          // Detection loop
           const options = detectOptions(faceapi);
           const loop = async () => {
             if (videoRef.current && canvasRef.current && !videoRef.current.paused) {
@@ -711,7 +753,6 @@ function FaceEnrollmentDialog({
 
               if (result) {
                 setFaceDetected(true);
-                // Draw detection overlay
                 const displaySize = {
                   width: videoRef.current.videoWidth || 480,
                   height: videoRef.current.videoHeight || 360,
@@ -750,87 +791,77 @@ function FaceEnrollmentDialog({
     };
   }, [open]);
 
-  // Capture face sample
   async function captureSample() {
-    if (!videoRef.current || detecting) return;
+    if (!videoRef.current || detecting || saving) return;
+    setDetecting(true);
+
     try {
-      setDetecting(true);
       const faceapi = await loadFaceApi();
       const options = detectOptions(faceapi);
-      const result = await faceapi
+      const detection = await faceapi
         .detectSingleFace(videoRef.current, options)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (!result) {
-        toast.warning("No face detected! Center your face in the camera frame.");
-        setDetecting(false);
+      if (!detection) {
+        toast.error("No face detected. Center your face and ensure good lighting.");
         return;
       }
 
-      // Capture snapshot thumbnail
-      const snapCanvas = document.createElement("canvas");
-      snapCanvas.width = videoRef.current.videoWidth || 320;
-      snapCanvas.height = videoRef.current.videoHeight || 240;
-      const snapCtx = snapCanvas.getContext("2d");
-      if (snapCtx) {
-        snapCtx.drawImage(videoRef.current, 0, 0, snapCanvas.width, snapCanvas.height);
-        setCapturedThumb(snapCanvas.toDataURL("image/jpeg", 0.8));
+      const descriptorArray = Array.from(detection.descriptor);
+      setSamples((prev) => [...prev, descriptorArray]);
+
+      if (!capturedThumb && videoRef.current) {
+        const snapCanvas = document.createElement("canvas");
+        snapCanvas.width = 160;
+        snapCanvas.height = 160;
+        const snapCtx = snapCanvas.getContext("2d");
+        if (snapCtx) {
+          snapCtx.drawImage(videoRef.current, 0, 0, 160, 160);
+          setCapturedThumb(snapCanvas.toDataURL("image/jpeg", 0.7));
+        }
       }
 
-      const descriptorArr = Array.from(result.descriptor);
-      setSamples((prev) => [...prev, descriptorArr]);
-      toast.success(`Sample ${samples.length + 1} captured!`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to capture face sample");
+      toast.success(`Sample ${samples.length + 1} captured!`, {
+        description: samples.length + 1 >= 3 ? "Ready to save biometric profile." : "Take at least 3 samples.",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to capture face descriptor");
     } finally {
       setDetecting(false);
     }
   }
 
-  // Save averaged descriptors
-  async function handleSave() {
-    if (samples.length === 0) {
-      toast.error("Capture at least one face sample before saving.");
+  async function handleSaveBiometrics() {
+    if (samples.length < 3) {
+      toast.error("Please capture at least 3 facial samples for accurate recognition.");
       return;
     }
 
+    setSaving(true);
     try {
-      setSaving(true);
-      const avgDesc = averageDescriptors(samples);
+      const averaged = averageDescriptors(samples);
 
-      // Save to face_descriptors table
-      const { error: descError } = await supabase.from("face_descriptors").upsert({
-        person_id: person.id,
-        descriptor: avgDesc,
-        samples: samples.length,
-        updated_at: new Date().toISOString(),
-      });
-      if (descError) console.warn("face_descriptors upsert error:", descError);
+      const { error: descErr } = await supabase.from("face_descriptors").upsert(
+        {
+          person_id: person.id,
+          descriptor: averaged as any,
+          samples: samples.length,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "person_id" }
+      );
 
-      // Also save to face_data table for kiosk compatibility
-      try {
-        await supabase.from("face_data").upsert(
-          {
-            employee_id: person.id,
-            descriptor: avgDesc,
-          },
-          { onConflict: "employee_id" },
-        );
-      } catch (e) {
-        // Fallback
-      }
+      if (descErr) throw descErr;
 
-      // Update photo thumbnail if captured in both people and employees
       if (capturedThumb) {
-        await Promise.all([
-          supabase.from("people").update({ photo_url: capturedThumb }).eq("id", person.id),
-          supabase.from("employees").update({ photo_url: capturedThumb }).eq("id", person.id),
-        ]);
+        await supabase
+          .from("people")
+          .update({ photo_url: capturedThumb })
+          .eq("id", person.id);
       }
 
-      toast.success(`Face enrolled successfully for ${person.name}!`);
+      toast.success(`Face profile enrolled for ${person.name}!`);
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
@@ -842,217 +873,108 @@ function FaceEnrollmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[540px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-md p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <ScanFace className="h-5 w-5 text-primary" />
-            Biometric Face Enrollment — {person.name}
+            Face Biometrics Enrollment
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Look directly into the camera. Capture 1 to 3 face samples to build an accurate profile.
+            Enrolling biometric face template for{" "}
+            <span className="font-semibold text-foreground">{person.name}</span> ({person.person_code}).
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Camera Viewport */}
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
+        <div className="space-y-4 pt-2">
+          {/* Video Feed */}
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black shadow-inner">
             <video
               ref={videoRef}
-              muted
               playsInline
-              className="h-full w-full object-cover scale-x-[-1]"
+              muted
+              className="h-full w-full object-cover -scale-x-100"
             />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 pointer-events-none scale-x-[-1]"
-            />
+            <canvas ref={canvasRef} className="absolute inset-0 h-full w-full pointer-events-none -scale-x-100" />
 
             {modelLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="mt-2 text-xs">Loading AI Face Models...</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-white text-xs">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p>Loading AI Face Recognition Models...</p>
               </div>
             )}
 
             {!modelLoading && (
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                 <Badge
                   variant="outline"
-                  className={`backdrop-blur text-xs ${
+                  className={`text-[10px] backdrop-blur-md ${
                     faceDetected
-                      ? "bg-success/20 text-success border-success/40"
-                      : "bg-warning/20 text-warning-foreground border-warning/40"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-rose-500/20 text-rose-300 border-rose-500/40"
                   }`}
                 >
                   {faceDetected ? "Face Detected" : "Align Face in Center"}
                 </Badge>
-
-                <Badge variant="secondary" className="backdrop-blur text-xs">
-                  {samples.length} / 3 Samples
+                <Badge variant="outline" className="text-[10px] bg-black/50 text-white backdrop-blur-md border-white/20">
+                  {samples.length} / 5 Samples
                 </Badge>
               </div>
             )}
           </div>
 
-          {/* Sample Thumbnails Preview */}
-          {samples.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto py-1">
-              <span className="text-xs text-muted-foreground font-medium">Samples:</span>
-              {samples.map((_, i) => (
-                <div
-                  key={i}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-xs font-bold text-primary"
-                >
-                  #{i + 1}
-                </div>
-              ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => setSamples([])}
-              >
-                Clear
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-
-          <div className="flex items-center gap-2">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between gap-3">
             <Button
               type="button"
-              variant="secondary"
-              onClick={captureSample}
-              disabled={modelLoading || detecting}
-              className="gap-2"
+              variant="outline"
+              size="sm"
+              disabled={samples.length === 0 || saving}
+              onClick={() => {
+                setSamples([]);
+                setCapturedThumb(null);
+              }}
+              className="text-xs"
             >
-              <Camera className="h-4 w-4" />
-              {detecting ? "Scanning..." : "Capture Face"}
+              Reset Samples
             </Button>
 
             <Button
-              onClick={handleSave}
-              disabled={saving || samples.length === 0}
-              className="gap-2 bg-primary shadow-glow"
+              type="button"
+              size="sm"
+              onClick={captureSample}
+              disabled={modelLoading || !faceDetected || detecting || samples.length >= 5}
+              className="gap-1.5 text-xs font-semibold"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              Save Profile
+              {detecting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Capturing...
+                </>
+              ) : (
+                <>
+                  <Camera className="h-3.5 w-3.5" />
+                  Capture Sample
+                </>
+              )}
             </Button>
           </div>
+        </div>
+
+        <DialogFooter className="border-t pt-4 mt-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSaveBiometrics}
+            disabled={samples.length < 3 || saving}
+            className="gap-1.5"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Save Biometric Profile
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
-// ----------------------------------------------------------------------------
-// Person Attendance History Sheet
-// ----------------------------------------------------------------------------
-function PersonHistorySheet({
-  person,
-  open,
-  onOpenChange,
-}: {
-  person: PersonRow;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { data: history = [], isLoading } = useQuery({
-    queryKey: ["person-attendance-history", person.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("person_id", person.id)
-        .order("date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: open,
-  });
-
-  const presentDays = history.filter((h) => h.status === "present").length;
-  const lateDays = history.filter((h) => h.status === "late").length;
-  const totalDays = history.length;
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[95vw] sm:max-w-md overflow-y-auto p-4 sm:p-6">
-        <SheetHeader>
-          <SheetTitle className="text-base sm:text-lg font-bold">{person.name}</SheetTitle>
-          <SheetDescription className="font-mono text-xs">
-            {person.person_code} • {person.department}
-          </SheetDescription>
-        </SheetHeader>
-
-        {/* Stats Summary */}
-        <div className="grid grid-cols-3 gap-2 my-4">
-          <div className="rounded-xl border p-2.5 text-center bg-card">
-            <p className="text-xs text-muted-foreground">Logged</p>
-            <p className="text-lg font-bold">{totalDays}</p>
-          </div>
-          <div className="rounded-xl border p-2.5 text-center bg-card">
-            <p className="text-xs text-muted-foreground">Present</p>
-            <p className="text-lg font-bold text-success">{presentDays}</p>
-          </div>
-          <div className="rounded-xl border p-2.5 text-center bg-card">
-            <p className="text-xs text-muted-foreground">Late</p>
-            <p className="text-lg font-bold text-warning-foreground">{lateDays}</p>
-          </div>
-        </div>
-
-        {/* Records list */}
-        <div className="space-y-2 mt-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent 30 Records
-          </h4>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : history.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted-foreground">No records logged yet.</p>
-          ) : (
-            history.map((record) => (
-              <div
-                key={record.id}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3 text-xs"
-              >
-                <div>
-                  <p className="font-semibold">{formatDate(record.date)}</p>
-                  <p className="text-muted-foreground font-mono">
-                    In: {formatTime(record.check_in)}
-                    {record.check_out && ` • Out: ${formatTime(record.check_out)}`}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] ${STATUS_COLORS[record.status] || ""}`}
-                  >
-                    {STATUS_LABELS[record.status] || record.status}
-                  </Badge>
-                  {record.check_in && record.check_out && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">
-                      {formatHours(totalHours(record.check_in, record.check_out))}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-

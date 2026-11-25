@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface AppSession {
   session: Session | null;
   user: User | null;
+  organizationId: string;
   roles: string[];
   fullName: string;
   departmentId: string | null;
@@ -25,6 +26,7 @@ export interface AppSession {
 
 interface UserProfile {
   userId: string;
+  organizationId: string;
   roles: string[];
   fullName: string;
   departmentId: string | null;
@@ -53,7 +55,7 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
       const [empRes, rolesRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, full_name, department_id, employee_code, designation, is_superadmin, departments(name)")
+          .select("id, full_name, department_id, employee_code, designation, is_superadmin, organization_id, departments(name), organization_id")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
@@ -73,6 +75,7 @@ async function fetchUserProfile(userId: string, email?: string, userMetaName?: s
 
       const profile: UserProfile = {
         userId,
+        organizationId: (emp as any)?.organization_id || "00000000-0000-0000-0000-000000000001",
         roles: userRoles,
         fullName: emp?.full_name || userMetaName || email || "User",
         departmentId: emp?.department_id ?? null,
@@ -172,6 +175,7 @@ export function useSession(): AppSession {
   return {
     session,
     user: session?.user ?? null,
+    organizationId: profile?.organizationId || "00000000-0000-0000-0000-000000000001",
     roles,
     fullName: profile?.fullName ?? "",
     departmentId: profile?.departmentId ?? null,

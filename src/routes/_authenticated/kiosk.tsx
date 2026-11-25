@@ -462,7 +462,7 @@ function KioskPage() {
         }
 
         // Execute Database Mutation: simply record check-in time without rigid shift constraints
-        let finalStatus = "present";
+        const finalStatus = "present";
 
         if (actionType === "in") {
           const { error: upsertErr } = await supabase.from("attendance").upsert(
@@ -909,7 +909,7 @@ function KioskPage() {
 
         {/* Center Target Reticle & Visual Guidance */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
-          <div className="relative h-60 w-60 max-w-[72vw] max-h-[72vw] sm:h-80 sm:w-80 rounded-3xl border border-white/20 shadow-glow transition-all">
+          <div className="relative h-60 w-60 max-w-[72vw] max-h-[72vw] sm:h-80 sm:w-80 rounded-lg border border-white/20 shadow-sm transition-all">
             {/* Corner highlights */}
             <div className="absolute -top-1.5 -left-1.5 h-6 w-6 sm:h-7 sm:w-7 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl" />
             <div className="absolute -top-1.5 -right-1.5 h-6 w-6 sm:h-7 sm:w-7 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl" />
@@ -934,7 +934,7 @@ function KioskPage() {
         {activeNotification && (
           <div className="absolute top-3 sm:top-6 left-3 right-3 sm:left-auto sm:right-auto z-30 flex justify-center animate-in fade-in slide-in-from-top-6 duration-300">
             <div
-              className={`flex items-center gap-3 sm:gap-4 rounded-2xl border px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-2xl shadow-2xl max-w-sm sm:max-w-md w-full ${
+              className={`flex items-center gap-3 sm:gap-4 rounded-lg border px-4 sm:px-6 py-3 sm:py-4 shadow-lg border border-white/10 max-w-sm sm:max-w-md w-full ${
                 activeNotification.type === "in"
                   ? "border-emerald-500/50 bg-black/85"
                   : activeNotification.type === "out"
@@ -944,7 +944,7 @@ function KioskPage() {
             >
               {/* Avatar / Icon */}
               <div
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md ${
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-lg shadow-md ${
                   activeNotification.type === "in"
                     ? "bg-emerald-500 text-white"
                     : activeNotification.type === "out"

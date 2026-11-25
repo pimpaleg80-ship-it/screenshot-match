@@ -9,149 +9,213 @@ import {
   FolderOpen,
   Search,
   Filter,
-  HardDrive,
+  Eye,
+  FileCheck2,
+  ShieldAlert,
+  Calendar,
+  User,
+  Building2,
   ExternalLink,
-  FileCode,
-  FileSpreadsheet,
-  FileCheck,
-  Sparkles,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
+import { PageContainer, PageHeader, TableContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DocumentItem,
+  getExpiryStatus,
+  getVerificationStatusBadge,
+  formatFileSize,
+  getSecureDocumentUrl,
+} from "@/lib/documents";
+import { formatDate } from "@/lib/attendance";
+import { DocumentPreviewModal } from "@/components/documents/DocumentPreviewModal";
+import { DocumentUploadDialog } from "@/components/documents/DocumentUploadDialog";
+import { DocumentVerificationDialog } from "@/components/documents/DocumentVerificationDialog";
+import { DocumentExpiryLedger } from "@/components/documents/DocumentExpiryLedger";
 
 export const Route = createFileRoute("/_authenticated/documents")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Company Documents — Flowpeople by Fluxora" },
-      { name: "description", content: "Corporate policies, employee handbooks, and official forms." },
+      { title: "Document Management — Flowpeople" },
+      {
+        name: "description",
+        content:
+          "Corporate policies, employee identity documents, certificates, contracts, and expiry tracking.",
+      },
     ],
   }),
   component: DocumentsPage,
 });
 
-interface DocumentRow {
-  id: string;
-  title: string;
-  category: string;
-  description: string | null;
-  file_url: string | null;
-  file_size: number | null;
-  mime_type: string | null;
-  drive_file_id: string | null;
-  drive_link: string | null;
-  created_at: string;
-}
-
-const CATEGORIES = [
-  "All",
-  "Policy",
-  "Form",
-  "Handbook",
-  "Guide",
-  "General",
-];
-
 function DocumentsPage() {
   const session = useSession();
   const queryClient = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState<"corporate" | "employee_docs" | "expiry_tracker">("corporate");
   const [search, setSearch] = useState("");
-  const [selectedCat, setSelectedCat] = useState("All");
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [verificationFilter, setVerificationFilter] = useState("all");
 
-  // Form state
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [formData, setFormData] = useState({
-    title: "",
-    category: "Policy",
-    description: "",
-    drive_link: "",
-  });
+  // Modals state
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadMode, setUploadMode] = useState<"corporate" | "employee">("corporate");
+  const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [verifyDoc, setVerifyDoc] = useState<DocumentItem | null>(null);
+  const [verifyOpen, setVerifyOpen] = useState(false);
 
-  const { data: documents = [], isLoading } = useQuery({
-    queryKey: ["documents-list"],
+  const isAdminOrHR =
+    session.isAdmin ||
+    session.isSuperadmin ||
+    session.roles.includes("admin") ||
+    session.roles.includes("hr");
+
+  // Fetch all accessible documents
+  const {
+    data: documents = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["all-documents-list"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documents")
-        .select("*")
+        .select(`
+          *,
+          employees:employee_id (
+            id,
+            full_name,
+            employee_code,
+            department_id,
+            departments:department_id (
+              name
+            )
+          )
+        `)
         .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return (data ?? []) as DocumentRow[];
+      return (data ?? []) as unknown as DocumentItem[];
     },
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      if (!formData.title.trim()) throw new Error("Document title is required");
+  // Separate documents into corporate vs employee documents
+  const corporateDocs = documents.filter(
+    (d) => d.is_company_policy || (!d.employee_id && d.category !== "ID_DOC")
+  );
 
-      let fileUrl = formData.drive_link.trim() || null;
-      let fileSize: number | null = null;
-      let mimeType: string | null = null;
+  const employeeDocs = documents.filter(
+    (d) => Boolean(d.employee_id) || (!d.is_company_policy && d.employee_id)
+  );
 
-      if (uploadFile) {
-        fileSize = uploadFile.size;
-        mimeType = uploadFile.type;
-        const fileExt = uploadFile.name.split(".").pop();
-        const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  // Expired / expiring count for tab badge
+  const expiringCount = documents.filter((d) => {
+    if (!d.expiry_date) return false;
+    const info = getExpiryStatus(d.expiry_date);
+    return info.status === "expired" || info.status === "expiring_soon";
+  }).length;
 
-        const { data: storageData, error: storageErr } = await supabase.storage
-          .from("documents")
-          .upload(filePath, uploadFile);
+  const pendingVerificationCount = documents.filter(
+    (d) => d.verification_status === "pending_verification" && d.employee_id
+  ).length;
 
-        if (storageErr) throw storageErr;
+  // Filter corporate docs
+  const filteredCorporate = corporateDocs.filter((doc) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchTitle = doc.title.toLowerCase().includes(q);
+      const matchDesc = doc.description?.toLowerCase().includes(q);
+      const matchCat = doc.category?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCat) return false;
+    }
+    if (categoryFilter !== "all" && doc.category !== categoryFilter) return false;
+    return true;
+  });
 
-        const { data: publicUrlData } = supabase.storage
-          .from("documents")
-          .getPublicUrl(storageData.path);
+  // Filter employee docs
+  const filteredEmployeeDocs = employeeDocs.filter((doc) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchTitle = doc.title.toLowerCase().includes(q);
+      const matchEmp = doc.employees?.full_name?.toLowerCase().includes(q);
+      const matchCode = doc.employees?.employee_code?.toLowerCase().includes(q);
+      const matchCat = doc.category?.toLowerCase().includes(q);
+      if (!matchTitle && !matchEmp && !matchCode && !matchCat) return false;
+    }
+    if (categoryFilter !== "all" && doc.category !== categoryFilter) return false;
+    if (
+      verificationFilter !== "all" &&
+      doc.verification_status !== verificationFilter
+    )
+      return false;
+    return true;
+  });
 
-        fileUrl = publicUrlData.publicUrl;
+  const handleOpenPreview = (doc: DocumentItem) => {
+    setPreviewDoc(doc);
+    setPreviewOpen(true);
+  };
+
+  const handleOpenVerify = (doc: DocumentItem) => {
+    setVerifyDoc(doc);
+    setVerifyOpen(true);
+  };
+
+  const handleDirectDownload = async (doc: DocumentItem) => {
+    try {
+      const url = await getSecureDocumentUrl(doc.file_url || doc.drive_link || "");
+      if (!url) {
+        toast.error("Document download link unavailable");
+        return;
       }
-
-      const { error } = await supabase.from("documents").insert({
-        title: formData.title.trim(),
-        category: formData.category,
-        description: formData.description.trim() || null,
-        file_url: fileUrl,
-        file_size: fileSize,
-        mime_type: mimeType,
-        drive_link: formData.drive_link.trim() || null,
-        uploaded_by: session.user?.id || null,
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Document uploaded to corporate library");
-      setUploadModalOpen(false);
-      setUploadFile(null);
-      setFormData({
-        title: "",
-        category: "Policy",
-        description: "",
-        drive_link: "",
-      });
-      queryClient.invalidateQueries({ queryKey: ["documents-list"] });
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Failed to upload document");
-    },
-  });
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = doc.file_name || doc.title || "document";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download");
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -160,275 +224,481 @@ function DocumentsPage() {
     },
     onSuccess: () => {
       toast.success("Document deleted");
-      queryClient.invalidateQueries({ queryKey: ["documents-list"] });
+      queryClient.invalidateQueries({ queryKey: ["all-documents-list"] });
     },
-    onError: (err: Error) => {
+    onError: (err: any) => {
       toast.error(err.message || "Failed to delete document");
     },
   });
 
-  const canUpload = session.isAdmin || session.isManager;
-
-  const filteredDocs = documents.filter((d) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      !q ||
-      d.title.toLowerCase().includes(q) ||
-      (d.description && d.description.toLowerCase().includes(q));
-    const matchesCat = selectedCat === "All" || d.category.toLowerCase() === selectedCat.toLowerCase();
-    return matchesSearch && matchesCat;
-  });
-
-  function formatBytes(bytes: number | null) {
-    if (!bytes) return "";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  }
-
-  function formatDate(iso: string) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    } catch {
-      return iso;
-    }
-  }
-
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Documents</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Official repository for corporate policies, leave forms, handbooks, and guidelines.
-          </p>
-        </div>
-        {canUpload && (
-          <Button onClick={() => setUploadModalOpen(true)} className="gap-2 w-full sm:w-auto text-xs h-9">
-            <Upload className="h-4 w-4" />
-            Upload Document
-          </Button>
-        )}
-      </div>
-
-      {/* Categories Tabs & Search */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {CATEGORIES.map((cat) => (
+    <PageContainer maxWidth="wide">
+      <PageHeader
+        breadcrumbs={[{ label: "Document Vault" }]}
+        title="Document Management"
+        description="Central repository for company policies, employee identity documents, contracts, and expiry monitoring."
+        actions={
+          <>
             <Button
-              key={cat}
-              variant={selectedCat === cat ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={() => setSelectedCat(cat)}
-              className="rounded-full text-xs h-8"
+              onClick={() => refetch()}
+              className="gap-1.5 h-9 text-xs"
             >
-              {cat}
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh</span>
             </Button>
-          ))}
-        </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search documents..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
-      </div>
-
-      {/* Documents Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
-          ))}
-        </div>
-      ) : filteredDocs.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FolderOpen className="mx-auto h-12 w-12 text-muted-foreground/30" />
-            <p className="mt-2 text-sm font-medium">No documents found</p>
-            <p className="text-xs text-muted-foreground">
-              Official documents uploaded for your organization will appear here.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {filteredDocs.map((doc) => {
-            const hasDrive = !!doc.drive_link || !!doc.drive_file_id;
-            return (
-              <Card key={doc.id} className="flex flex-col justify-between transition-all hover:shadow-soft">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <Badge variant="secondary" className="text-[11px] capitalize">
-                      {doc.category}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-base line-clamp-1 mt-2">{doc.title}</CardTitle>
-                  {doc.description && (
-                    <CardDescription className="line-clamp-2 text-xs">
-                      {doc.description}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  <div className="flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
-                    <span>{formatDate(doc.created_at)}</span>
-                    {doc.file_size ? <span>{formatBytes(doc.file_size)}</span> : null}
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      {doc.file_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs"
-                          asChild
-                        >
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-3.5 w-3.5" />
-                            Download
-                          </a>
-                        </Button>
-                      )}
-
-                      {hasDrive && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs text-emerald-600 dark:text-emerald-400"
-                          asChild
-                        >
-                          <a
-                            href={doc.drive_link || `https://drive.google.com/file/d/${doc.drive_file_id}/view`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <HardDrive className="h-3.5 w-3.5" />
-                            Drive
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-
-                    {session.isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Delete "${doc.title}"?`)) {
-                            deleteMutation.mutate(doc.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Upload Modal */}
-      <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
-            <DialogDescription>
-              Add a policy, handbook, or official form to the corporate directory.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="doc-title">Document Title</Label>
-              <Input
-                id="doc-title"
-                placeholder="e.g. Employee Code of Conduct 2026"
-                value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <select
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                value={formData.category}
-                onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-              >
-                <option value="Policy">Policy</option>
-                <option value="Form">Form</option>
-                <option value="Handbook">Handbook</option>
-                <option value="Guide">Guide</option>
-                <option value="General">General</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="doc-desc">Description (Optional)</Label>
-              <Input
-                id="doc-desc"
-                placeholder="Brief summary of what this document covers"
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="doc-file">Upload PDF or Document</Label>
-              <Input
-                id="doc-file"
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setUploadFile(file);
+            {isAdminOrHR && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setUploadMode(
+                    activeTab === "corporate" ? "corporate" : "employee"
+                  );
+                  setUploadOpen(true);
                 }}
+                className="gap-1.5 h-9 text-xs font-semibold"
+              >
+                <Upload className="w-4 h-4" />
+                <span>
+                  {activeTab === "corporate"
+                    ? "Upload Corporate Policy"
+                    : "Upload Employee Document"}
+                </span>
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {/* Tabs Navigation */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => setActiveTab(val as any)}
+        className="space-y-6"
+      >
+        <TabsList className="grid grid-cols-3 max-w-xl h-11 bg-muted/60 p-1">
+          <TabsTrigger value="corporate" className="text-xs sm:text-sm gap-2">
+            <Building2 className="w-4 h-4" />
+            <span>Corporate Policies</span>
+          </TabsTrigger>
+
+          <TabsTrigger value="employee_docs" className="text-xs sm:text-sm gap-2 relative">
+            <User className="w-4 h-4" />
+            <span>Employee Docs</span>
+            {pendingVerificationCount > 0 && (
+              <Badge className="ml-1 px-1.5 py-0 text-[10px] bg-amber-500 hover:bg-amber-600 text-white">
+                {pendingVerificationCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+
+          <TabsTrigger value="expiry_tracker" className="text-xs sm:text-sm gap-2 relative">
+            <Calendar className="w-4 h-4" />
+            <span>Expiry Alerts</span>
+            {expiringCount > 0 && (
+              <Badge className="ml-1 px-1.5 py-0 text-[10px] bg-rose-500 hover:bg-rose-600 text-white">
+                {expiringCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: CORPORATE POLICIES & HANDBOOKS */}
+        <TabsContent value="corporate" className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-lg border">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search policies, handbooks, forms..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="doc-drive">Google Drive Link (Optional)</Label>
-              <Input
-                id="doc-drive"
-                placeholder="https://drive.google.com/..."
-                value={formData.drive_link}
-                onChange={(e) => setFormData((prev) => ({ ...prev, drive_link: e.target.value }))}
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-48 h-9 text-xs">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Policy">Policy</SelectItem>
+                  <SelectItem value="Handbook">Handbook</SelectItem>
+                  <SelectItem value="Form">Form / Template</SelectItem>
+                  <SelectItem value="Guide">Guide / Manual</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => uploadMutation.mutate()} disabled={uploadMutation.isPending}>
-              {uploadMutation.isPending ? "Uploading..." : "Save Document"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-44 rounded-lg" />
+              ))}
+            </div>
+          ) : filteredCorporate.length === 0 ? (
+            <Card className="p-12 text-center">
+              <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="font-semibold text-foreground text-base">
+                No corporate documents found
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+                Upload official company handbooks, leave policies, IT usage guides, and benefit structures.
+              </p>
+              {isAdminOrHR && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setUploadMode("corporate");
+                    setUploadOpen(true);
+                  }}
+                  className="mt-4 gap-1.5"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload First Policy
+                </Button>
+              )}
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredCorporate.map((doc) => (
+                <Card
+                  key={doc.id}
+                  className="hover:border-primary/40 transition group flex flex-col justify-between"
+                >
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <Badge variant="outline" className="text-[11px]">
+                        {doc.category || "Policy"}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-base font-semibold leading-snug mt-2 line-clamp-1 group-hover:text-primary transition-colors">
+                      {doc.title}
+                    </CardTitle>
+                    <CardDescription className="text-xs line-clamp-2 mt-1">
+                      {doc.description || "Official company document for organizational reference."}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="p-4 pt-2 border-t mt-auto">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                      <span>{formatDate(doc.created_at)}</span>
+                      <span>{formatFileSize(doc.file_size)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full gap-1.5 text-xs h-8"
+                        onClick={() => handleOpenPreview(doc)}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2.5"
+                        onClick={() => handleDirectDownload(doc)}
+                        title="Download"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </Button>
+                      {isAdminOrHR && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                          onClick={() => {
+                            if (confirm("Are you sure you want to delete this document?")) {
+                              deleteMutation.mutate(doc.id);
+                            }
+                          }}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* TAB 2: EMPLOYEE DOCUMENTS LEDGER */}
+        <TabsContent value="employee_docs" className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-lg border">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search employee name, code, document..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select
+                value={verificationFilter}
+                onValueChange={setVerificationFilter}
+              >
+                <SelectTrigger className="w-full sm:w-44 h-9 text-xs">
+                  <SelectValue placeholder="Verification Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Verification</SelectItem>
+                  <SelectItem value="pending_verification">Pending Only</SelectItem>
+                  <SelectItem value="verified">Verified Only</SelectItem>
+                  <SelectItem value="rejected">Rejected Only</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {isAdminOrHR && (
+                <Button
+                  size="sm"
+                  className="h-9 gap-1.5 text-xs ml-auto"
+                  onClick={() => {
+                    setUploadMode("employee");
+                    setUploadOpen(true);
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Upload Document
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="p-8 space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-14 rounded-lg" />
+                  ))}
+                </div>
+              ) : filteredEmployeeDocs.length === 0 ? (
+                <div className="p-12 text-center space-y-2">
+                  <User className="w-10 h-10 text-muted-foreground mx-auto" />
+                  <h3 className="font-semibold text-foreground">
+                    No employee documents found
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Upload employee IDs, education certificates, contracts, and tax documents.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Document Title</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Verification</TableHead>
+                        <TableHead>Expiry Status</TableHead>
+                        <TableHead>Uploaded On</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEmployeeDocs.map((doc) => {
+                        const verify = getVerificationStatusBadge(
+                          doc.verification_status
+                        );
+                        const expiry = getExpiryStatus(doc.expiry_date);
+
+                        return (
+                          <TableRow key={doc.id} className="hover:bg-muted/40">
+                            {/* Employee */}
+                            <TableCell>
+                              {doc.employees ? (
+                                <div className="space-y-0.5">
+                                  <p className="font-semibold text-foreground text-sm flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                    {doc.employees.full_name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground font-mono">
+                                    {doc.employees.employee_code}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">
+                                  Unassigned
+                                </span>
+                              )}
+                            </TableCell>
+
+                            {/* Document Title */}
+                            <TableCell>
+                              <div className="space-y-0.5">
+                                <p className="font-medium text-foreground text-sm flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-primary" />
+                                  <span>{doc.title}</span>
+                                  {doc.is_confidential && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] border-amber-500/30 text-amber-600 bg-amber-500/10"
+                                    >
+                                      Confidential
+                                    </Badge>
+                                  )}
+                                </p>
+                                {doc.file_name && (
+                                  <p className="text-xs text-muted-foreground truncate max-w-xs">
+                                    {doc.file_name} ({formatFileSize(doc.file_size)})
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            {/* Category */}
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {doc.category}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Verification */}
+                            <TableCell>
+                              <Badge variant="outline" className={verify.colorClass}>
+                                {verify.label}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Expiry Status */}
+                            <TableCell>
+                              <Badge variant="outline" className={expiry.colorClass}>
+                                {expiry.label}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Uploaded On */}
+                            <TableCell className="text-xs text-muted-foreground font-mono">
+                              {formatDate(doc.created_at)}
+                            </TableCell>
+
+                            {/* Actions */}
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleOpenPreview(doc)}
+                                  title="Preview"
+                                >
+                                  <Eye className="w-4 h-4 text-foreground" />
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleDirectDownload(doc)}
+                                  title="Download"
+                                >
+                                  <Download className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+
+                                {isAdminOrHR &&
+                                  doc.verification_status !== "verified" && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 dark:text-emerald-400 gap-1 ml-1"
+                                      onClick={() => handleOpenVerify(doc)}
+                                    >
+                                      <FileCheck2 className="w-3.5 h-3.5" />
+                                      Review
+                                    </Button>
+                                  )}
+
+                                {isAdminOrHR && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                                    onClick={() => {
+                                      if (
+                                        confirm(
+                                          "Are you sure you want to delete this document?"
+                                        )
+                                      ) {
+                                        deleteMutation.mutate(doc.id);
+                                      }
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 3: EXPIRY TRACKER & ALERTS */}
+        <TabsContent value="expiry_tracker">
+          <DocumentExpiryLedger
+            documents={documents}
+            onPreview={handleOpenPreview}
+            onVerify={handleOpenVerify}
+            canVerify={isAdminOrHR}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Preview Modal */}
+      <DocumentPreviewModal
+        document={previewDoc}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        onVerifyClick={handleOpenVerify}
+        canVerify={isAdminOrHR}
+      />
+
+      {/* Upload Dialog */}
+      <DocumentUploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["all-documents-list"] });
+        }}
+        isCompanyPolicyMode={uploadMode === "corporate"}
+        defaultCategory={uploadMode === "corporate" ? "Policy" : "ID_DOC"}
+      />
+
+      {/* Verification Dialog */}
+      <DocumentVerificationDialog
+        document={verifyDoc}
+        open={verifyOpen}
+        onOpenChange={setVerifyOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["all-documents-list"] });
+        }}
+        onPreviewClick={handleOpenPreview}
+      />
+    </PageContainer>
   );
 }
-

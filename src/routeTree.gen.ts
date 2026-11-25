@@ -20,13 +20,22 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedEnrollRouteImport } from './routes/_authenticated/enroll'
+import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
+import { Route as AuthenticatedHelpdeskRouteImport } from './routes/_authenticated/helpdesk'
 import { Route as AuthenticatedHolidaysRouteImport } from './routes/_authenticated/holidays'
 import { Route as AuthenticatedKioskRouteImport } from './routes/_authenticated/kiosk'
+import { Route as AuthenticatedLearningRouteImport } from './routes/_authenticated/learning'
 import { Route as AuthenticatedLeavesRouteImport } from './routes/_authenticated/leaves'
+import { Route as AuthenticatedOffboardingRouteImport } from './routes/_authenticated/offboarding'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AuthenticatedPayrollRouteImport } from './routes/_authenticated/payroll'
 import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
+import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedRecruitmentRouteImport } from './routes/_authenticated/recruitment'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
 import { Route as AuthenticatedSuperadminRouteImport } from './routes/_authenticated/superadmin'
 
 const IndexRoute = IndexRouteImport.update({
@@ -84,6 +93,16 @@ const AuthenticatedEnrollRoute = AuthenticatedEnrollRouteImport.update({
   path: '/enroll',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedHelpdeskRoute = AuthenticatedHelpdeskRouteImport.update({
+  id: '/helpdesk',
+  path: '/helpdesk',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedHolidaysRoute = AuthenticatedHolidaysRouteImport.update({
   id: '/holidays',
   path: '/holidays',
@@ -94,9 +113,30 @@ const AuthenticatedKioskRoute = AuthenticatedKioskRouteImport.update({
   path: '/kiosk',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLearningRoute = AuthenticatedLearningRouteImport.update({
+  id: '/learning',
+  path: '/learning',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedLeavesRoute = AuthenticatedLeavesRouteImport.update({
   id: '/leaves',
   path: '/leaves',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOffboardingRoute =
+  AuthenticatedOffboardingRouteImport.update({
+    id: '/offboarding',
+    path: '/offboarding',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPayrollRoute = AuthenticatedPayrollRouteImport.update({
+  id: '/payroll',
+  path: '/payroll',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
@@ -104,11 +144,23 @@ const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
   path: '/people',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPerformanceRoute =
+  AuthenticatedPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedRecruitmentRoute =
+  AuthenticatedRecruitmentRouteImport.update({
+    id: '/recruitment',
+    path: '/recruitment',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -117,6 +169,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedShiftsRoute = AuthenticatedShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSuperadminRoute = AuthenticatedSuperadminRouteImport.update({
@@ -136,13 +193,22 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/enroll': typeof AuthenticatedEnrollRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
+  '/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/holidays': typeof AuthenticatedHolidaysRoute
   '/kiosk': typeof AuthenticatedKioskRoute
+  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
+  '/offboarding': typeof AuthenticatedOffboardingRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/payroll': typeof AuthenticatedPayrollRoute
   '/people': typeof AuthenticatedPeopleRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/recruitment': typeof AuthenticatedRecruitmentRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/shifts': typeof AuthenticatedShiftsRoute
   '/superadmin': typeof AuthenticatedSuperadminRoute
 }
 export interface FileRoutesByTo {
@@ -156,13 +222,22 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/enroll': typeof AuthenticatedEnrollRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
+  '/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/holidays': typeof AuthenticatedHolidaysRoute
   '/kiosk': typeof AuthenticatedKioskRoute
+  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
+  '/offboarding': typeof AuthenticatedOffboardingRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/payroll': typeof AuthenticatedPayrollRoute
   '/people': typeof AuthenticatedPeopleRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/recruitment': typeof AuthenticatedRecruitmentRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/shifts': typeof AuthenticatedShiftsRoute
   '/superadmin': typeof AuthenticatedSuperadminRoute
 }
 export interface FileRoutesById {
@@ -178,13 +253,22 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/enroll': typeof AuthenticatedEnrollRoute
+  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
+  '/_authenticated/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/_authenticated/holidays': typeof AuthenticatedHolidaysRoute
   '/_authenticated/kiosk': typeof AuthenticatedKioskRoute
+  '/_authenticated/learning': typeof AuthenticatedLearningRoute
   '/_authenticated/leaves': typeof AuthenticatedLeavesRoute
+  '/_authenticated/offboarding': typeof AuthenticatedOffboardingRoute
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/payroll': typeof AuthenticatedPayrollRoute
   '/_authenticated/people': typeof AuthenticatedPeopleRoute
+  '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/recruitment': typeof AuthenticatedRecruitmentRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
   '/_authenticated/superadmin': typeof AuthenticatedSuperadminRoute
 }
 export interface FileRouteTypes {
@@ -200,13 +284,22 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/documents'
     | '/enroll'
+    | '/expenses'
+    | '/helpdesk'
     | '/holidays'
     | '/kiosk'
+    | '/learning'
     | '/leaves'
+    | '/offboarding'
+    | '/onboarding'
+    | '/payroll'
     | '/people'
+    | '/performance'
     | '/profile'
+    | '/recruitment'
     | '/reports'
     | '/settings'
+    | '/shifts'
     | '/superadmin'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,13 +313,22 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/documents'
     | '/enroll'
+    | '/expenses'
+    | '/helpdesk'
     | '/holidays'
     | '/kiosk'
+    | '/learning'
     | '/leaves'
+    | '/offboarding'
+    | '/onboarding'
+    | '/payroll'
     | '/people'
+    | '/performance'
     | '/profile'
+    | '/recruitment'
     | '/reports'
     | '/settings'
+    | '/shifts'
     | '/superadmin'
   id:
     | '__root__'
@@ -241,13 +343,22 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/documents'
     | '/_authenticated/enroll'
+    | '/_authenticated/expenses'
+    | '/_authenticated/helpdesk'
     | '/_authenticated/holidays'
     | '/_authenticated/kiosk'
+    | '/_authenticated/learning'
     | '/_authenticated/leaves'
+    | '/_authenticated/offboarding'
+    | '/_authenticated/onboarding'
+    | '/_authenticated/payroll'
     | '/_authenticated/people'
+    | '/_authenticated/performance'
     | '/_authenticated/profile'
+    | '/_authenticated/recruitment'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/_authenticated/shifts'
     | '/_authenticated/superadmin'
   fileRoutesById: FileRoutesById
 }
@@ -339,6 +450,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEnrollRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/expenses': {
+      id: '/_authenticated/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/helpdesk': {
+      id: '/_authenticated/helpdesk'
+      path: '/helpdesk'
+      fullPath: '/helpdesk'
+      preLoaderRoute: typeof AuthenticatedHelpdeskRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/holidays': {
       id: '/_authenticated/holidays'
       path: '/holidays'
@@ -353,11 +478,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKioskRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/learning': {
+      id: '/_authenticated/learning'
+      path: '/learning'
+      fullPath: '/learning'
+      preLoaderRoute: typeof AuthenticatedLearningRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/leaves': {
       id: '/_authenticated/leaves'
       path: '/leaves'
       fullPath: '/leaves'
       preLoaderRoute: typeof AuthenticatedLeavesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/offboarding': {
+      id: '/_authenticated/offboarding'
+      path: '/offboarding'
+      fullPath: '/offboarding'
+      preLoaderRoute: typeof AuthenticatedOffboardingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/payroll': {
+      id: '/_authenticated/payroll'
+      path: '/payroll'
+      fullPath: '/payroll'
+      preLoaderRoute: typeof AuthenticatedPayrollRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/people': {
@@ -367,11 +520,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPeopleRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/performance': {
+      id: '/_authenticated/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recruitment': {
+      id: '/_authenticated/recruitment'
+      path: '/recruitment'
+      fullPath: '/recruitment'
+      preLoaderRoute: typeof AuthenticatedRecruitmentRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/reports': {
@@ -386,6 +553,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shifts': {
+      id: '/_authenticated/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof AuthenticatedShiftsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/superadmin': {
@@ -404,13 +578,22 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedEnrollRoute: typeof AuthenticatedEnrollRoute
+  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
+  AuthenticatedHelpdeskRoute: typeof AuthenticatedHelpdeskRoute
   AuthenticatedHolidaysRoute: typeof AuthenticatedHolidaysRoute
   AuthenticatedKioskRoute: typeof AuthenticatedKioskRoute
+  AuthenticatedLearningRoute: typeof AuthenticatedLearningRoute
   AuthenticatedLeavesRoute: typeof AuthenticatedLeavesRoute
+  AuthenticatedOffboardingRoute: typeof AuthenticatedOffboardingRoute
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedPayrollRoute: typeof AuthenticatedPayrollRoute
   AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
+  AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedRecruitmentRoute: typeof AuthenticatedRecruitmentRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedShiftsRoute: typeof AuthenticatedShiftsRoute
   AuthenticatedSuperadminRoute: typeof AuthenticatedSuperadminRoute
 }
 
@@ -420,13 +603,22 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedEnrollRoute: AuthenticatedEnrollRoute,
+  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
+  AuthenticatedHelpdeskRoute: AuthenticatedHelpdeskRoute,
   AuthenticatedHolidaysRoute: AuthenticatedHolidaysRoute,
   AuthenticatedKioskRoute: AuthenticatedKioskRoute,
+  AuthenticatedLearningRoute: AuthenticatedLearningRoute,
   AuthenticatedLeavesRoute: AuthenticatedLeavesRoute,
+  AuthenticatedOffboardingRoute: AuthenticatedOffboardingRoute,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedPayrollRoute: AuthenticatedPayrollRoute,
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
+  AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedRecruitmentRoute: AuthenticatedRecruitmentRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedShiftsRoute: AuthenticatedShiftsRoute,
   AuthenticatedSuperadminRoute: AuthenticatedSuperadminRoute,
 }
 

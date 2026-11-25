@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { formatDate } from "@/lib/attendance";
+import { PageContainer, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -142,16 +143,16 @@ function SettingsPage() {
   // Populate form on load
   useEffect(() => {
     if (settingsData) {
-      setOrgName(settingsData.org_name);
-      setWorkStart(settingsData.work_start);
-      setWorkEnd(settingsData.work_end);
-      setLateGraceMinutes(settingsData.late_grace_minutes);
-      setHalfDayHours(Number(settingsData.half_day_hours));
+      setOrgName(settingsData.org_name || "FlowPeople HRMS");
+      setWorkStart(settingsData.work_start || "09:00");
+      setWorkEnd(settingsData.work_end || "18:00");
+      setLateGraceMinutes(settingsData.late_grace_minutes ?? 15);
+      setHalfDayHours(Number(settingsData.half_day_hours || 4));
       setWeeklyOffDays(settingsData.weekly_off_days || [0, 6]);
-      setFaceThreshold(Number(settingsData.face_match_threshold));
-      setDuplicateScanMinutes(settingsData.duplicate_scan_minutes);
-      setStorePhotos(settingsData.store_photos);
-      setDataRetentionDays(settingsData.data_retention_days);
+      setFaceThreshold(Number(settingsData.face_match_threshold || 0.6));
+      setDuplicateScanMinutes(settingsData.duplicate_scan_minutes ?? 3);
+      setStorePhotos(settingsData.store_photos ?? true);
+      setDataRetentionDays(settingsData.data_retention_days ?? 90);
     }
   }, [settingsData]);
 
@@ -459,31 +460,29 @@ function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8 p-3 sm:p-6 md:p-8">
+    <PageContainer maxWidth="narrow">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Configure working hours, face-matching precision, Google Drive backups, and holidays.
-          </p>
-        </div>
-
-        {session.isAdmin && (
-          <Button
-            onClick={() => saveSettingsMutation.mutate()}
-            disabled={saveSettingsMutation.isPending}
-            className="w-full sm:w-auto gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs h-9"
-          >
-            <Save className="h-4 w-4" />
-            {saveSettingsMutation.isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: "Organization Settings" }]}
+        title="System Settings"
+        description="Configure working hours, face-matching precision, Google Drive backups, and organizational rules."
+        actions={
+          session.isAdmin && (
+            <Button
+              onClick={() => saveSettingsMutation.mutate()}
+              disabled={saveSettingsMutation.isPending}
+              className="w-full sm:w-auto gap-2 bg-primary shadow-xs hover:bg-primary/90 text-xs h-9"
+            >
+              <Save className="h-4 w-4" />
+              {saveSettingsMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          )
+        }
+      />
 
       {/* Revoked Token Warning Banner */}
       {isDriveRevoked && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-3.5 sm:p-4 text-xs text-destructive">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3.5 sm:p-4 text-xs text-destructive">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <div>
@@ -502,8 +501,8 @@ function SettingsPage() {
 
       {settingsLoading ? (
         <div className="space-y-6">
-          <Skeleton className="h-64 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -535,7 +534,7 @@ function SettingsPage() {
                         key={d.id}
                         type="button"
                         onClick={() => toggleDay(d.id)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${isChecked
                           ? "border-primary bg-primary text-primary-foreground shadow-sm"
                           : "border-border bg-card text-muted-foreground hover:bg-accent"
                           }`}
@@ -663,7 +662,7 @@ function SettingsPage() {
                       size="sm"
                       onClick={handleConnectDrive}
                       disabled={driveConnecting}
-                      className="gap-2 bg-primary shadow-glow hover:bg-primary/90 text-xs"
+                      className="gap-2 bg-primary shadow-xs hover:bg-primary/90 text-xs"
                     >
                       {driveConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HardDrive className="h-3.5 w-3.5" />}
                       Connect Google Drive
@@ -676,7 +675,7 @@ function SettingsPage() {
             <CardContent className="space-y-5">
               {/* Connection Status Details */}
               {isDriveConnected && (
-                <div className="rounded-xl border bg-card p-4 space-y-3">
+                <div className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2 text-xs">
                     <div>
                       <p className="text-muted-foreground">Connected Google Account</p>
@@ -722,7 +721,7 @@ function SettingsPage() {
               )}
 
               {/* Security Privacy Notice */}
-              <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+              <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
                 <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p>
                   <strong>Security & Privacy:</strong> Attendance and report PDFs contain personal personnel data.
@@ -743,14 +742,14 @@ function SettingsPage() {
                 </div>
 
                 {historyLoading ? (
-                  <Skeleton className="h-32 w-full rounded-xl" />
+                  <Skeleton className="h-32 w-full rounded-lg" />
                 ) : backupHistory.length === 0 ? (
-                  <div className="rounded-xl border border-dashed py-8 text-center text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
                     <CloudUpload className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
                     No backups uploaded yet. Connect Drive or click "Back up now".
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border">
+                  <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full min-w-[500px] text-left text-xs">
                       <thead className="bg-muted/40 font-semibold text-muted-foreground border-b">
                         <tr>
@@ -853,7 +852,7 @@ function SettingsPage() {
 
             <CardContent>
               {holidaysLoading ? (
-                <Skeleton className="h-24 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-lg" />
               ) : holidays.length === 0 ? (
                 <p className="py-6 text-center text-xs text-muted-foreground">No holidays added yet.</p>
               ) : (
@@ -910,7 +909,7 @@ function SettingsPage() {
 
               <CardContent>
                 {profilesLoading ? (
-                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-lg" />
                 ) : userProfiles.length === 0 ? (
                   <p className="py-6 text-center text-xs text-muted-foreground">No accounts found.</p>
                 ) : (
@@ -1064,6 +1063,6 @@ function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

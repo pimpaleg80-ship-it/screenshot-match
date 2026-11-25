@@ -39,6 +39,7 @@ import {
   printTable,
 } from "@/lib/attendance";
 import { generateAndBackupPdf } from "@/lib/pdf-backup";
+import { PageContainer, PageHeader, TableContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -185,45 +186,62 @@ function ReportsPage() {
 
   // REALTIME SUBSCRIPTION: Live updates whenever attendance or employee changes occur
   useEffect(() => {
-    const channel = supabase
-      .channel("reports-realtime-feed")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "attendance",
-        },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ["reports-records"] });
-          queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
-          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-          setLastLiveUpdate(`Synced at ${time}`);
-          if (payload.eventType === "INSERT") {
-            toast.success("Live attendance recorded! Reports updated.");
-          }
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      supabase.getChannels().forEach((ch) => {
+        if (ch.topic.includes("reports-realtime-feed")) {
+          supabase.removeChannel(ch);
         }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "employees",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["reports-records"] });
-          queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
-          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-          setLastLiveUpdate(`Synced at ${time}`);
-        }
-      )
-      .subscribe((status) => {
-        setIsRealtimeConnected(status === "SUBSCRIBED");
       });
+      const channelName = `reports-realtime-feed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      channel = supabase.channel(channelName);
+      channel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "attendance",
+          },
+          (payload) => {
+            queryClient.invalidateQueries({ queryKey: ["reports-records"] });
+            queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
+            const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            setLastLiveUpdate(`Synced at ${time}`);
+            if (payload.eventType === "INSERT") {
+              toast.success("Live attendance recorded! Reports updated.");
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "employees",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["reports-records"] });
+            queryClient.invalidateQueries({ queryKey: ["reports-employees"] });
+            const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            setLastLiveUpdate(`Synced at ${time}`);
+          }
+        )
+        .subscribe((status) => {
+          setIsRealtimeConnected(status === "SUBSCRIBED");
+        });
+    } catch (err) {
+      console.warn("Realtime reports subscription error:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (e) {
+          console.warn("Error removing reports channel:", e);
+        }
+      }
     };
   }, [queryClient]);
 
@@ -455,63 +473,66 @@ function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
+    <PageContainer maxWidth="wide">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-            {isRealtimeConnected ? (
-              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                </span>
-                Live
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="gap-1 text-muted-foreground text-xs">
-                <Radio className="h-3 w-3 animate-pulse" />
-                Connecting...
-              </Badge>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Real-time attendance trends, punctuality scores, and department comparisons. {lastLiveUpdate && <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>}
-          </p>
-        </div>
+      <PageHeader
+        breadcrumbs={[{ label: "Reports & Analytics" }]}
+        title="Analytics & Reports"
+        badge={
+          isRealtimeConnected ? (
+            <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Live
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-muted-foreground text-xs">
+              <Radio className="h-3 w-3 animate-pulse" />
+              Connecting...
+            </Badge>
+          )
+        }
+        description={
+          <>
+            Real-time attendance trends, punctuality scores, and department comparisons.{" "}
+            {lastLiveUpdate && <span className="text-xs text-muted-foreground/80">• {lastLiveUpdate}</span>}
+          </>
+        }
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refetchRecords()}
+              className="flex-1 sm:flex-none gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9"
+              title="Refresh now"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Sync
+            </Button>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetchRecords()}
-            className="flex-1 sm:flex-none gap-1.5 text-xs text-muted-foreground hover:text-foreground h-9"
-            title="Refresh now"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Sync
-          </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} className="flex-1 sm:flex-none gap-2 text-primary border-primary/30 hover:bg-primary/5 text-xs h-9">
+              <Download className="h-4 w-4" />
+              Export PDF
+            </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportPdf} className="flex-1 sm:flex-none gap-2 text-primary border-primary/30 hover:bg-primary/5 text-xs h-9">
-            <Download className="h-4 w-4" />
-            Export PDF
-          </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+              <Download className="h-4 w-4" />
+              CSV
+            </Button>
 
-          <Button variant="outline" size="sm" onClick={handleExportCsv} className="flex-1 sm:flex-none gap-2 text-xs h-9">
-            <Download className="h-4 w-4" />
-            CSV
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
-        </div>
-      </div>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-none gap-2 text-xs h-9">
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </>
+        }
+      />
 
       {/* Filter Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border bg-card p-3 sm:p-4 card-soft">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border bg-card p-3 sm:p-4 card-soft">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground mr-1">Time Horizon:</span>
           <div className="flex rounded-lg bg-secondary p-1 w-full sm:w-auto justify-between sm:justify-start">
@@ -574,7 +595,7 @@ function ReportsPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total Logged Attendance
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <UserCheck className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -595,7 +616,7 @@ function ReportsPage() {
         <Card className="card-soft">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Punctuality Score</CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/15 text-success">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/15 text-success">
               <TrendingUp className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -618,7 +639,7 @@ function ReportsPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Avg Daily Hours Logged
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-warning/20 text-warning-foreground">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/20 text-warning-foreground">
               <Clock className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -637,7 +658,7 @@ function ReportsPage() {
         <Card className="card-soft">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">Late Incidents</CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
               <UserX className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -666,7 +687,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             {recordsLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
+              <Skeleton className="h-72 w-full rounded-lg" />
             ) : (
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -723,7 +744,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             {recordsLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
+              <Skeleton className="h-72 w-full rounded-lg" />
             ) : departmentChart.length === 0 ? (
               <div className="flex h-72 items-center justify-center text-xs text-muted-foreground">
                 No department records available.
@@ -767,7 +788,7 @@ function ReportsPage() {
           {employeesLoading || recordsLoading ? (
             <div className="p-6 space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full rounded-xl" />
+                <Skeleton key={i} className="h-10 w-full rounded-lg" />
               ))}
             </div>
           ) : employeeSummaries.length === 0 ? (
@@ -842,6 +863,6 @@ function ReportsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

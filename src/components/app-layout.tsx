@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, Outlet, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,15 +14,25 @@ import {
   Settings,
   LogOut,
   ScanLine,
-  User,
   Shield,
   Briefcase,
   UserCheck,
   Menu,
+  Clock,
+  UserPlus,
+  Target,
+  GraduationCap,
+  LifeBuoy,
+  Receipt,
+  Calculator,
+  UserMinus,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationCenterBell } from "@/components/notifications/NotificationCenterBell";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +47,11 @@ interface NavItem {
   badge?: string;
 }
 
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
 export function AppLayout() {
   const session = useSession();
   const pathname = useLocation({ select: (l) => l.pathname });
@@ -45,15 +60,10 @@ export function AppLayout() {
   const queryClient = useQueryClient();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Auto-close mobile drawer when navigating
+  // Auto-close mobile drawer on route change
   useEffect(() => {
     setMobileDrawerOpen(false);
   }, [pathname]);
-
-  // Full-bleed kiosk mode: no sidebar / bottom nav.
-  if (pathname === "/kiosk") {
-    return <Outlet />;
-  }
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -63,239 +73,391 @@ export function AppLayout() {
     router.invalidate();
   }
 
-  // Build role-specific navigation items
-  let navItems: NavItem[] = [];
+  // Structured, semantic navigation groups
+  const navGroups: NavGroup[] = useMemo(() => {
+    if (session.isAdmin) {
+      return [
+        {
+          title: "Overview",
+          items: [
+            { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { to: "/profile", label: "My Self-Service", icon: UserCheck },
+          ],
+        },
+        {
+          title: "Workforce",
+          items: [
+            { to: "/people", label: "Employees Directory", icon: Users },
+            { to: "/recruitment", label: "Recruitment Pipeline", icon: Briefcase },
+            { to: "/onboarding", label: "Onboarding Checklists", icon: UserPlus },
+            { to: "/offboarding", label: "Offboarding & Exit", icon: UserMinus },
+          ],
+        },
+        {
+          title: "Time & Attendance",
+          items: [
+            { to: "/attendance", label: "Attendance Records", icon: ClipboardList },
+            { to: "/shifts", label: "Shift Roster", icon: Clock },
+            { to: "/leaves", label: "Leave Requests", icon: CalendarRange },
+            { to: "/holidays", label: "Holiday Calendar", icon: CalendarDays },
+            { to: "/enroll", label: "Face Enrollment", icon: ScanFace },
+            { to: "/kiosk", label: "Biometric Kiosk", icon: ScanLine },
+          ],
+        },
+        {
+          title: "Finance & Operations",
+          items: [
+            { to: "/payroll", label: "Payroll Processing", icon: Calculator },
+            { to: "/expenses", label: "Expense Claims", icon: Receipt },
+            { to: "/helpdesk", label: "HR Helpdesk", icon: LifeBuoy },
+          ],
+        },
+        {
+          title: "Talent & Growth",
+          items: [
+            { to: "/performance", label: "Performance & Reviews", icon: Target },
+            { to: "/learning", label: "Learning & LMS", icon: GraduationCap },
+            { to: "/announcements", label: "Announcements & Polls", icon: Megaphone },
+            { to: "/documents", label: "Document Vault", icon: FileText },
+            { to: "/reports", label: "Reports & Analytics", icon: BarChart3 },
+            { to: "/settings", label: "Organization Settings", icon: Settings },
+          ],
+        },
+      ];
+    }
 
-  if (session.isAdmin) {
-    navItems = [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/people", label: "Employees", icon: Users },
-      { to: "/enroll", label: "Face Enrollment", icon: ScanFace },
-      { to: "/attendance", label: "Records", icon: ClipboardList },
-      { to: "/leaves", label: "Leave Requests", icon: CalendarRange },
-      { to: "/holidays", label: "Holidays", icon: CalendarDays },
-      { to: "/announcements", label: "Announcements", icon: Megaphone },
-      { to: "/documents", label: "Documents", icon: FileText },
-      { to: "/reports", label: "Reports", icon: BarChart3 },
-      { to: "/kiosk", label: "Face Kiosk", icon: ScanLine },
-      { to: "/settings", label: "Settings", icon: Settings },
+    if (session.isManager) {
+      return [
+        {
+          title: "Overview",
+          items: [
+            { to: "/dashboard", label: "Team Dashboard", icon: LayoutDashboard },
+            { to: "/profile", label: "Self-Service", icon: UserCheck },
+          ],
+        },
+        {
+          title: "My Team",
+          items: [
+            { to: "/people", label: "Team Members", icon: Users },
+            { to: "/attendance", label: "Team Attendance", icon: ClipboardList },
+            { to: "/shifts", label: "Shift Assignments", icon: Clock },
+            { to: "/leaves", label: "Leave Approvals", icon: CalendarRange },
+            { to: "/performance", label: "Performance Reviews", icon: Target },
+            { to: "/recruitment", label: "Hiring Pipeline", icon: Briefcase },
+          ],
+        },
+        {
+          title: "Operations",
+          items: [
+            { to: "/expenses", label: "Team Expenses", icon: Receipt },
+            { to: "/helpdesk", label: "Support Tickets", icon: LifeBuoy },
+            { to: "/learning", label: "Assigned Training", icon: GraduationCap },
+            { to: "/announcements", label: "Announcements", icon: Megaphone },
+            { to: "/documents", label: "Documents", icon: FileText },
+            { to: "/reports", label: "Team Analytics", icon: BarChart3 },
+          ],
+        },
+      ];
+    }
+
+    // Employee role
+    return [
+      {
+        title: "Personal Portal",
+        items: [
+          { to: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
+          { to: "/profile", label: "Profile & Documents", icon: UserCheck },
+          { to: "/leaves", label: "Apply Leave", icon: CalendarRange },
+          { to: "/attendance", label: "My Attendance", icon: ClipboardList },
+          { to: "/holidays", label: "Company Holidays", icon: CalendarDays },
+        ],
+      },
+      {
+        title: "Work & Finances",
+        items: [
+          { to: "/payroll", label: "My Payslips", icon: Calculator },
+          { to: "/expenses", label: "Expense Claims", icon: Receipt },
+          { to: "/helpdesk", label: "Submit HR Ticket", icon: LifeBuoy },
+          { to: "/performance", label: "Goals & Appraisal", icon: Target },
+          { to: "/learning", label: "My Courses & LMS", icon: GraduationCap },
+          { to: "/announcements", label: "News & Polls", icon: Megaphone },
+          { to: "/documents", label: "Policies & Forms", icon: FileText },
+          { to: "/offboarding", label: "Resignation & Exit", icon: UserMinus },
+        ],
+      },
     ];
-  } else if (session.isManager) {
-    navItems = [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/people", label: "My Team", icon: Users },
-      { to: "/enroll", label: "Face Enrollment", icon: ScanFace },
-      { to: "/attendance", label: "Team Records", icon: ClipboardList },
-      { to: "/leaves", label: "Leave Inbox", icon: CalendarRange },
-      { to: "/holidays", label: "Holidays", icon: CalendarDays },
-      { to: "/announcements", label: "Announcements", icon: Megaphone },
-      { to: "/documents", label: "Documents", icon: FileText },
-      { to: "/reports", label: "Reports", icon: BarChart3 },
-      { to: "/kiosk", label: "Face Kiosk", icon: ScanLine },
+  }, [session.isAdmin, session.isManager]);
+
+  // Flattened items for mobile bottom bar
+  const mobilePrimaryItems = useMemo(() => {
+    return [
+      { to: "/dashboard", label: "Home", icon: LayoutDashboard },
+      { to: "/attendance", label: "Attendance", icon: ClipboardList },
+      { to: "/leaves", label: "Leaves", icon: CalendarRange },
+      session.isAdmin || session.isManager
+        ? { to: "/people", label: "People", icon: Users }
+        : { to: "/payroll", label: "Payslips", icon: Calculator },
+      { to: "/profile", label: "Profile", icon: UserCheck },
     ];
-  } else {
-    // Employee
-    navItems = [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/announcements", label: "Announcements", icon: Megaphone },
-      { to: "/leaves", label: "Apply Leave", icon: CalendarRange },
-      { to: "/holidays", label: "Holidays", icon: CalendarDays },
-      { to: "/documents", label: "Documents", icon: FileText },
-      { to: "/reports", label: "My Report", icon: BarChart3 },
-      { to: "/profile", label: "Settings & Profile", icon: Settings },
-    ];
-  }
+  }, [session.isAdmin, session.isManager]);
 
-  const roleLabel = session.isAdmin ? "Admin" : session.isManager ? "Manager" : "Employee";
-  const roleColor = session.isAdmin
-    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
-    : session.isManager
-      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
-      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800";
-
-  const RoleIcon = session.isAdmin ? Shield : session.isManager ? Briefcase : UserCheck;
-
-  const initials = (session.fullName || session.user?.email || "?")
+  const roleLabel = session.isAdmin ? "Administrator" : session.isManager ? "Manager" : "Employee";
+  const initials = (session.fullName || session.user?.email || "U")
     .split(" ")
     .map((p) => p[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
 
-  // Primary items for mobile bottom nav (max 5)
-  const mobileItems = navItems.slice(0, 5);
+  // Active page title calculation
+  const currentTitle = useMemo(() => {
+    for (const group of navGroups) {
+      for (const item of group.items) {
+        if (pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to))) {
+          return item.label;
+        }
+      }
+    }
+    if (pathname === "/superadmin") return "Superadmin Console";
+    if (pathname === "/settings") return "Organization Settings";
+    return "Dashboard";
+  }, [navGroups, pathname]);
+
+  // Full-bleed kiosk mode
+  if (pathname === "/kiosk") {
+    return <Outlet />;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-sidebar md:flex">
-        <div className="flex items-center justify-between px-4 py-4 border-b">
+      {/* Desktop Sidebar: Clean, bezel-less modern design */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/30 bg-sidebar/80 backdrop-blur-xl md:flex">
+        {/* Brand header */}
+        <div className="flex h-14 items-center px-4 border-b border-border/25">
           <BrandLogo variant="horizontal" size="sm" />
-          <ThemeToggle />
         </div>
 
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-xs bg-muted/40">
-            <div className="flex items-center gap-1.5 font-medium">
-              <RoleIcon className="h-3.5 w-3.5" />
-              <span>Portal</span>
-            </div>
-            <Badge variant="outline" className={cn("text-[11px] font-semibold uppercase tracking-wider py-0 px-2", roleColor)}>
-              {roleLabel}
-            </Badge>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                pathname.startsWith(item.to) &&
-                  "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              <span className="flex-1 truncate">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="border-t p-3">
-          <div className="flex items-center gap-2 rounded-xl bg-sidebar-accent/60 px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+        {/* User Identity Snippet */}
+        <div className="px-3 py-2.5 border-b border-border/25 bg-muted/15">
+          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-semibold text-primary-foreground shadow-xs">
               {initials}
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-sm font-semibold">{session.fullName || "Account"}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {session.employeeCode ? `${session.employeeCode} • ` : ""}
-                {session.departmentName || session.designation || roleLabel}
-              </p>
+              <p className="truncate font-medium text-foreground">{session.fullName || "User"}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium truncate">
+                  {session.employeeCode || roleLabel}
+                </span>
+                {session.isSuperadmin && (
+                  <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    ROOT
+                  </span>
+                )}
+              </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out" title="Sign out">
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
+        </div>
+
+        {/* Grouped Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
+          {navGroups.map((group) => (
+            <div key={group.title} className="space-y-0.5">
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                {group.title}
+              </div>
+              {group.items.map((item) => {
+                const isActive = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+                      isActive
+                        ? "bg-primary/10 text-primary font-semibold shadow-2xs"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <span className="flex-1 truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+
+          {/* Superadmin Console link for authorized roots */}
+          {session.isSuperadmin && (
+            <div className="pt-2 border-t border-border/25">
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                System Administration
+              </div>
+              <Link
+                to="/superadmin"
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+                  pathname === "/superadmin"
+                    ? "bg-accent text-accent-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                <Shield className="h-4 w-4 text-amber-500 shrink-0" />
+                <span className="flex-1 truncate">Superadmin Control</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-bold">SEC</span>
+              </Link>
+            </div>
+          )}
+        </nav>
+
+        {/* Sign Out Footer */}
+        <div className="border-t border-border/25 p-2.5 bg-muted/10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 font-normal rounded-lg"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sign out of workspace</span>
+          </Button>
         </div>
       </aside>
 
+      {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/90 px-3 sm:px-4 backdrop-blur md:hidden">
-          <div className="flex items-center gap-2">
+        {/* Top Header Bar for Desktop & Mobile */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/30 bg-background/75 px-4 sm:px-6 backdrop-blur-xl">
+          {/* Mobile hamburger & brand */}
+          <div className="flex items-center gap-2 md:hidden">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setMobileDrawerOpen(true)}
-              aria-label="Open navigation menu"
-              className="h-10 w-10 text-foreground"
+              aria-label="Open menu"
+              className="h-8 w-8 text-foreground"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </Button>
             <BrandLogo variant="horizontal" size="sm" showSubtitle={false} />
-            <Badge variant="outline" className={cn("text-[10px] ml-0.5 py-0 px-1.5", roleColor)}>
-              {roleLabel}
-            </Badge>
           </div>
-          <div className="flex items-center gap-1">
+
+          {/* Desktop Breadcrumbs & Status */}
+          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium text-muted-foreground/70">FlowPeople</span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <span className="font-semibold text-foreground">{currentTitle}</span>
+          </div>
+
+          {/* Header Actions */}
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 border-r border-border/30 pr-3">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              </span>
+              <Badge variant="outline" className="text-[10px] font-medium py-0 px-1.5 border-border/40 text-muted-foreground">
+                {roleLabel}
+              </Badge>
+            </div>
+            <NotificationCenterBell />
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              aria-label="Sign out"
-              className="h-10 w-10"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="hidden md:block">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                aria-label="Sign out"
+                title="Sign out"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </header>
 
         {/* Mobile Slide-in Drawer Sheet */}
         <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
-          <SheetContent side="left" className="w-[85vw] max-w-xs p-0 flex flex-col justify-between">
-            <div>
-              <SheetHeader className="p-4 border-b text-left">
+          <SheetContent side="left" className="w-[85vw] max-w-xs p-0 flex flex-col justify-between border-r border-border">
+            <div className="flex flex-col h-full">
+              <SheetHeader className="p-4 border-b border-border text-left">
                 <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                 <div className="flex items-center justify-between">
                   <BrandLogo variant="horizontal" size="sm" />
                 </div>
-                <div className="mt-3">
-                  <div className="flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-xs bg-muted/40">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <RoleIcon className="h-3.5 w-3.5" />
-                      <span>Portal Mode</span>
-                    </div>
-                    <Badge variant="outline" className={cn("text-[11px] font-semibold uppercase tracking-wider py-0 px-2", roleColor)}>
-                      {roleLabel}
-                    </Badge>
-                  </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{session.fullName || "User"}</span>
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                    {roleLabel}
+                  </Badge>
                 </div>
               </SheetHeader>
 
-              {/* Full navigation links list inside slide-in drawer */}
-              <nav className="space-y-1 overflow-y-auto p-3 max-h-[calc(100vh-210px)]">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground min-h-[44px]",
-                      pathname.startsWith(item.to) &&
-                        "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft font-semibold",
-                    )}
-                  >
-                    <item.icon className="h-4.5 w-4.5 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                  </Link>
+              {/* Categorized drawer navigation */}
+              <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+                {navGroups.map((group) => (
+                  <div key={group.title} className="space-y-0.5">
+                    <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                      {group.title}
+                    </div>
+                    {group.items.map((item) => {
+                      const isActive = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors min-h-[40px]",
+                            isActive
+                              ? "bg-accent text-accent-foreground font-semibold"
+                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          )}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 truncate">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 ))}
               </nav>
-            </div>
 
-            {/* Drawer User Card & Sign Out */}
-            <div className="border-t p-3 bg-muted/20">
-              <div className="flex items-center gap-2 rounded-xl bg-sidebar-accent/60 p-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                  {initials}
-                </div>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <p className="truncate text-sm font-semibold">{session.fullName || "Account"}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {session.employeeCode ? `${session.employeeCode} • ` : ""}
-                    {session.departmentName || session.designation || roleLabel}
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="h-9 w-9">
+              {/* Drawer footer */}
+              <div className="border-t border-border p-3 bg-muted/20">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive h-9"
+                >
                   <LogOut className="h-4 w-4" />
+                  <span>Sign out</span>
                 </Button>
               </div>
             </div>
           </SheetContent>
         </Sheet>
 
-        <main className="flex-1 pb-24 md:pb-6">
+        {/* Page Content Viewport */}
+        <main className="flex-1 pb-20 md:pb-8">
           {session.loading ? (
-            <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-8">
-              <Skeleton className="h-8 w-56" />
+            <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
+              <Skeleton className="h-7 w-48 rounded" />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-28 rounded-2xl" />
+                  <Skeleton key={i} className="h-24 rounded-lg" />
                 ))}
               </div>
-              <Skeleton className="h-72 rounded-2xl" />
+              <Skeleton className="h-64 rounded-lg" />
             </div>
           ) : !session.user ? (
             <div className="mx-auto max-w-md p-8 text-center">
-              <h1 className="text-xl font-semibold">Sign in required</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Please sign in to access the portal.
+              <h1 className="text-lg font-semibold text-foreground">Sign in required</h1>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Please sign in to access your organization portal.
               </p>
-              <Button className="mt-4" onClick={() => navigate({ to: "/auth" })}>
+              <Button className="mt-4" size="sm" onClick={() => navigate({ to: "/auth" })}>
                 Go to Sign In
               </Button>
             </div>
@@ -304,21 +466,26 @@ export function AppLayout() {
           )}
         </main>
 
-        {/* Mobile bottom nav */}
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t bg-background/95 py-1.5 backdrop-blur md:hidden">
-          {mobileItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "flex min-w-16 flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium text-muted-foreground",
-                pathname.startsWith(item.to) && "bg-accent text-accent-foreground font-semibold",
-              )}
-            >
-              <item.icon className="h-4.5 w-4.5" />
-              <span className="truncate max-w-[64px]">{item.label}</span>
-            </Link>
-          ))}
+        {/* Mobile Bottom Navigation Bar (5 Primary Destinations) */}
+        <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border/30 bg-background/80 py-1.5 backdrop-blur-xl md:hidden">
+          {mobilePrimaryItems.map((item) => {
+            const isActive = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "flex min-w-[56px] flex-col items-center gap-0.5 rounded px-2 py-1 text-[10px] font-medium transition-colors",
+                  isActive
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                <span className="truncate max-w-[60px]">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </div>

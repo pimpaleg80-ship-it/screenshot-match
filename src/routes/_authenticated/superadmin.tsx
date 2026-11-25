@@ -111,54 +111,7 @@ function SuperadminPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Loading skeleton while session loads
-  if (session.loading) {
-    return (
-      <div className="flex min-h-[85vh] items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // If user is not admin, deny access with generic access restricted screen (no superadmin leaks)
-  if (!session.isAdmin && !session.isSuperadmin) {
-    return (
-      <div className="flex min-h-[85vh] flex-col items-center justify-center p-6 text-center bg-neutral-950 text-white">
-        <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-rose-500/10 border border-rose-500/30 text-rose-500 shadow-2xl">
-          <ShieldAlert className="h-12 w-12 animate-pulse" />
-          <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
-            403
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          Access Restricted
-        </h1>
-        <p className="mt-2 max-w-md text-sm text-neutral-400">
-          You do not have permission to access this internal console.
-        </p>
-        <div className="mt-6 flex gap-3">
-          <Button
-            onClick={() => navigate({ to: "/dashboard" })}
-            className="gap-2 bg-neutral-800 text-white hover:bg-neutral-700"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Return to Dashboard
-          </Button>
-          <Button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate({ to: "/auth" });
-            }}
-            variant="outline"
-            className="gap-2 border-white/20 text-white hover:bg-white/10"
-          >
-            <LogOut className="h-4 w-4" />
-            Switch Account
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const canAccessSuperadmin = !session.loading && (session.isAdmin || session.isSuperadmin);
 
   // Active view tab
   const [activeTab, setActiveTab] = useState("provisioning");
@@ -232,7 +185,7 @@ function SuperadminPage() {
   const [provisionModalOpen, setProvisionModalOpen] = useState(false);
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formPassword, setFormPassword] = useState("Welcome@2026");
+  const [formPassword, setFormPassword] = useState("");
   const [formRole, setFormRole] = useState<"employee" | "manager" | "admin" | "superadmin">("employee");
   const [formDept, setFormDept] = useState<string>("");
   const [formDesignation, setFormDesignation] = useState("");
@@ -247,6 +200,7 @@ function SuperadminPage() {
   // 1. Fetch all system departments
   const { data: departments = [] } = useQuery({
     queryKey: ["superadmin-departments"],
+    enabled: canAccessSuperadmin,
     queryFn: async () => {
       const { data, error } = await supabase.from("departments").select("id, name").order("name");
       if (error) throw error;
@@ -261,6 +215,7 @@ function SuperadminPage() {
     refetch: refetchUsers,
   } = useQuery({
     queryKey: ["superadmin-all-users"],
+    enabled: canAccessSuperadmin,
     queryFn: async () => {
       // Query employees with joined departments and is_superadmin
       const { data: emps, error: empErr } = await supabase
@@ -330,6 +285,7 @@ function SuperadminPage() {
   // 3. Fetch System Settings
   const { data: systemSettings, refetch: refetchSettings } = useQuery({
     queryKey: ["superadmin-settings"],
+    enabled: canAccessSuperadmin,
     queryFn: async () => {
       const { data, error } = await supabase.from("settings").select("*").eq("id", 1).maybeSingle();
       if (error) throw error;
@@ -360,6 +316,7 @@ function SuperadminPage() {
   // 4. Fetch Audit Logs
   const { data: auditLogs = [], isLoading: logsLoading } = useQuery({
     queryKey: ["superadmin-audit-logs"],
+    enabled: canAccessSuperadmin,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_logs")
@@ -380,7 +337,7 @@ function SuperadminPage() {
 
       const { data, error } = await supabase.rpc("superadmin_provision_user", {
         p_email: formEmail.trim().toLowerCase(),
-        p_password: formPassword.trim() || "Welcome@2026",
+        p_password: formPassword.trim(),
         p_full_name: formName.trim(),
         p_role: formRole,
         p_department_id: formDept || null,
@@ -408,7 +365,7 @@ function SuperadminPage() {
       setProvisionModalOpen(false);
       setFormName("");
       setFormEmail("");
-      setFormPassword("Welcome@2026");
+      setFormPassword("");
       setFormDesignation("");
       setFormPhone("");
       queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
@@ -544,12 +501,61 @@ function SuperadminPage() {
     navigate({ to: "/auth" });
   }
 
+  // Loading skeleton while session loads
+  if (session.loading) {
+    return (
+      <div className="flex min-h-[85vh] items-center justify-center p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // If user is not admin, deny access with generic access restricted screen (no superadmin leaks)
+  if (!session.isAdmin && !session.isSuperadmin) {
+    return (
+      <div className="flex min-h-[85vh] flex-col items-center justify-center p-6 text-center bg-neutral-950 text-white">
+        <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 shadow-2xl">
+          <ShieldAlert className="h-12 w-12 animate-pulse" />
+          <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
+            403
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+          Access Restricted
+        </h1>
+        <p className="mt-2 max-w-md text-sm text-neutral-400">
+          You do not have permission to access this internal console.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <Button
+            onClick={() => navigate({ to: "/dashboard" })}
+            className="gap-2 bg-neutral-800 text-white hover:bg-neutral-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Return to Dashboard
+          </Button>
+          <Button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/auth" });
+            }}
+            variant="outline"
+            className="gap-2 border-white/20 text-white hover:bg-white/10"
+          >
+            <LogOut className="h-4 w-4" />
+            Switch Account
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isUnlocked) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-3 sm:p-4 bg-neutral-950 text-neutral-100">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900/95 p-5 sm:p-8 backdrop-blur-2xl shadow-2xl space-y-6">
+        <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-5 sm:p-8 shadow-md border border-zinc-800 space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow mb-2">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-lg bg-zinc-800 text-zinc-100 border border-zinc-700/60 mb-2">
               <Lock className="h-8 w-8 text-amber-300" />
             </div>
             <h1 className="text-2xl font-black tracking-tight text-white">
@@ -600,7 +606,7 @@ function SuperadminPage() {
             <Button
               type="submit"
               disabled={gateLoading}
-              className="w-full gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold shadow-lg"
+              className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs"
             >
               {gateLoading ? (
                 <>
@@ -635,9 +641,9 @@ function SuperadminPage() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 md:p-8 space-y-6 sm:space-y-8 select-none">
       {/* Top Root Command Header */}
-      <header className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/60 p-4 sm:p-6 backdrop-blur-xl shadow-2xl sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-4 rounded-lg border border-zinc-800 bg-zinc-900/90 p-4 sm:p-6 shadow-sm border border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-rose-600 text-white shadow-glow">
+          <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-zinc-100 border border-zinc-700/60">
             <Crown className="h-6 w-6 sm:h-7 sm:w-7 text-amber-300" />
             <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-black" />
           </div>
@@ -647,7 +653,7 @@ function SuperadminPage() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white truncate">
                 SUPERADMIN CONSOLE
               </h1>
-              <Badge className="bg-gradient-to-r from-rose-500 to-amber-500 text-white text-[10px] font-black tracking-wider uppercase px-2 py-0.5 border-0 shrink-0">
+              <Badge className="bg-zinc-800 text-zinc-200 border border-zinc-700 text-[10px] font-black tracking-wider uppercase px-2 py-0.5 border-0 shrink-0">
                 ROOT SYSTEM
               </Badge>
             </div>
@@ -697,7 +703,7 @@ function SuperadminPage() {
 
           <Button
             onClick={() => setProvisionModalOpen(true)}
-            className="w-full sm:w-auto gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-xs shadow-glow h-9"
+            className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-xs h-9"
           >
             <UserPlus className="h-4 w-4" />
             Add User / Admin / Manager
@@ -845,7 +851,7 @@ function SuperadminPage() {
                 <Button
                   size="sm"
                   onClick={() => setProvisionModalOpen(true)}
-                  className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs gap-1.5 shadow-glow h-9"
+                  className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs gap-1.5 shadow-xs h-9"
                 >
                   <UserPlus className="h-4 w-4" />
                   Add Person / Admin
@@ -883,7 +889,7 @@ function SuperadminPage() {
               </div>
 
               {/* Roster Table */}
-              <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/40">
+              <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/40">
                 <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="border-b border-white/10 bg-neutral-900/80 text-[11px] font-semibold text-white/60 uppercase tracking-wider">
                     <tr>
@@ -924,9 +930,9 @@ function SuperadminPage() {
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold text-xs uppercase ${
+                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-bold text-xs uppercase ${
                                     u.is_superadmin
-                                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-glow"
+                                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs"
                                       : isMainAdmin
                                         ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                                         : isManager
@@ -1282,7 +1288,7 @@ function SuperadminPage() {
                 <Button
                   onClick={() => saveSettingsMutation.mutate()}
                   disabled={saveSettingsMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-glow"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs"
                 >
                   {saveSettingsMutation.isPending ? "Saving Parameters..." : "Save Root Settings"}
                 </Button>
@@ -1367,7 +1373,7 @@ function SuperadminPage() {
                 <button
                   type="button"
                   onClick={() => setFormRole("employee")}
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "employee"
                       ? "border-blue-500 bg-blue-500/20 text-white shadow-sm"
                       : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
@@ -1381,7 +1387,7 @@ function SuperadminPage() {
                 <button
                   type="button"
                   onClick={() => setFormRole("manager")}
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "manager"
                       ? "border-amber-500 bg-amber-500/20 text-white shadow-sm"
                       : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
@@ -1395,7 +1401,7 @@ function SuperadminPage() {
                 <button
                   type="button"
                   onClick={() => setFormRole("admin")}
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "admin"
                       ? "border-rose-500 bg-rose-500/20 text-white shadow-sm"
                       : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
@@ -1409,9 +1415,9 @@ function SuperadminPage() {
                 <button
                   type="button"
                   onClick={() => setFormRole("superadmin")}
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "superadmin"
-                      ? "border-amber-400 bg-amber-500/20 text-amber-200 shadow-glow"
+                      ? "border-amber-400 bg-amber-500/20 text-amber-200 shadow-xs"
                       : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
                   }`}
                 >
@@ -1520,7 +1526,7 @@ function SuperadminPage() {
               size="sm"
               onClick={() => provisionMutation.mutate()}
               disabled={provisionMutation.isPending || !formName.trim() || !formEmail.trim()}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs shadow-glow"
+              className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs shadow-xs"
             >
               {provisionMutation.isPending ? "Creating Account..." : `Create ${formRole.toUpperCase()} Account`}
             </Button>

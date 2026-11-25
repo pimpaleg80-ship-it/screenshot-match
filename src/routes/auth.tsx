@@ -45,24 +45,22 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 sm:px-4 py-8 sm:py-10">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[880px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl"
-      />
-      <div className="relative w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center gap-2.5 text-center px-2">
-          <BrandLogo variant="stacked" size="xl" />
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xs sm:max-w-none">
-            Biometric workforce & attendance suite for modern enterprises
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <BrandLogo variant="stacked" size="lg" />
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+            Biometric workforce & HR management suite
           </p>
         </div>
 
         <SignInCard />
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Protected by enterprise-grade security and encrypted access controls.
-        </p>
+        <div className="text-center">
+          <p className="text-[11px] text-muted-foreground/80">
+            Protected by enterprise encryption and multi-tenant security isolation.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -77,7 +75,9 @@ function SignInCard() {
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
     setBusy(false);
     if (error) {
       if (/confirm/i.test(error.message)) {

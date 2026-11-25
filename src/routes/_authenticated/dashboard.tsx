@@ -27,7 +27,9 @@ import {
   UserCheck,
   Building2,
   Loader2,
+  MapPin,
 } from "lucide-react";
+import { GeofencePunchModal } from "@/components/attendance/GeofencePunchModal";
 import {
   ResponsiveContainer,
   BarChart,
@@ -50,6 +52,7 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/attendance";
+import { PageContainer, PageHeader, MetricStrip } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,35 +147,52 @@ function AdminDashboardView() {
 
   // Realtime updates for Admin Dashboard
   useEffect(() => {
-    const channel = supabase
-      .channel("admin-dashboard-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "attendance",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
-          queryClient.invalidateQueries({ queryKey: ["admin-trend-14d"] });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      supabase.getChannels().forEach((ch) => {
+        if (ch.topic.includes("admin-dashboard-realtime")) {
+          supabase.removeChannel(ch);
         }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "leave_requests",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
-        }
-      )
-      .subscribe();
+      });
+      const channelName = `admin-dashboard-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      channel = supabase.channel(channelName);
+      channel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "attendance",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-trend-14d"] });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "leave_requests",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Realtime admin dashboard subscription error:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (e) {
+          console.warn("Error removing admin dashboard channel:", e);
+        }
+      }
     };
   }, [queryClient]);
 
@@ -216,11 +236,12 @@ function AdminDashboardView() {
       }
 
       (data ?? []).forEach((row) => {
-        if (map[row.date]) {
-          if (row.status === "present") map[row.date].present++;
-          else if (row.status === "late") map[row.date].late++;
-          else if (row.status === "on_leave") map[row.date].on_leave++;
-          else if (row.status === "absent") map[row.date].absent++;
+        const entry = map[row.date];
+        if (entry) {
+          if (row.status === "present") entry.present++;
+          else if (row.status === "late") entry.late++;
+          else if (row.status === "on_leave") entry.on_leave++;
+          else if (row.status === "absent") entry.absent++;
         }
       });
 
@@ -270,104 +291,82 @@ function AdminDashboardView() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
+    <PageContainer>
       {/* Top Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Executive Dashboard</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Real-time biometric attendance metrics, leave queue, and corporate trends.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
+      <PageHeader
+        breadcrumbs={[{ label: "Executive Dashboard" }]}
+        title="Executive Dashboard"
+        description="Real-time biometric attendance metrics, leave queue, and corporate trends."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary text-xs h-9">
+              <ScanLine className="h-3.5 w-3.5" />
+              Launch Kiosk
+            </Button>
+          </>
+        }
+      />
+
+      {/* Flat Metric Strip */}
+      <MetricStrip
+        metrics={[
+          {
+            label: "Total Workforce",
+            value: empLoading ? "..." : totalEmployees,
+            subtext: "Active registered personnel",
+            icon: Users,
+            variant: "default",
+          },
+          {
+            label: "Today's Attendance",
+            value: todayLoading ? "..." : `${attendanceRate}%`,
+            subtext: `${presentCount} of ${totalEmployees} checked in`,
+            icon: CheckCircle2,
+            variant: "success",
+          },
+          {
+            label: "On Leave Today",
+            value: todayLoading ? "..." : onLeaveCount,
+            subtext: "Approved absences",
+            icon: Palmtree,
+            variant: "warning",
+          },
+          {
+            label: "Pending Approvals",
+            value: leavesLoading ? "..." : pendingCount,
+            subtext: "Awaiting decision",
+            icon: CalendarRange,
+            variant: "danger",
+          },
+        ]}
+      />
+
+      {/* Quick Action Ribbon */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-card/70 border border-border/30 rounded-xl shadow-xs">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Actions</span>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-8">
+            <UserPlus className="h-3.5 w-3.5" />
+            Add Employee
           </Button>
-          <Button size="sm" onClick={() => navigate({ to: "/kiosk" })} className="gap-1.5 bg-primary text-xs h-9">
-            <ScanLine className="h-3.5 w-3.5" />
-            Launch Kiosk
+          <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs h-8">
+            <CalendarRange className="h-3.5 w-3.5" />
+            Review Leaves
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => navigate({ to: "/reports" })} className="gap-1.5 text-xs h-8">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Export Report
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs h-8">
+            <Sparkles className="h-3.5 w-3.5" />
+            Drive Backup
           </Button>
         </div>
       </div>
-
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{empLoading ? "..." : totalEmployees}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active registered personnel</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Today's Attendance</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {todayLoading ? "..." : `${attendanceRate}%`}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{presentCount} of {totalEmployees} checked in</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">On Leave Today</CardTitle>
-            <Palmtree className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {todayLoading ? "..." : onLeaveCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Approved absences</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pending Approvals</CardTitle>
-            <CalendarRange className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
-              {leavesLoading ? "..." : pendingCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting decision</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Action Bar */}
-      <Card className="bg-muted/30">
-        <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4">
-          <span className="text-xs sm:text-sm font-semibold">Quick Actions</span>
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-9 justify-center">
-              <UserPlus className="h-3.5 w-3.5" />
-              Add Employee
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs h-9 justify-center">
-              <CalendarRange className="h-3.5 w-3.5" />
-              Review Leaves
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/reports" })} className="gap-1.5 text-xs h-9 justify-center">
-              <BarChart3 className="h-3.5 w-3.5" />
-              Export Report
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs h-9 justify-center">
-              <Sparkles className="h-3.5 w-3.5" />
-              Drive Backup
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Attendance Chart & Pending Leaves Queue */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -379,7 +378,7 @@ function AdminDashboardView() {
           </CardHeader>
           <CardContent>
             {trendLoading ? (
-              <Skeleton className="h-64 w-full rounded-xl" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : (
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -387,7 +386,17 @@ function AdminDashboardView() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                     <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={{ borderRadius: "8px", fontSize: "12px" }} />
+                    <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      borderColor: "hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      color: "hsl(var(--card-foreground))",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                    }}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                  />
                     <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
                     <Bar dataKey="present" name="Present" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="late" name="Late" fill="#f59e0b" radius={[4, 4, 0, 0]} />
@@ -414,7 +423,7 @@ function AdminDashboardView() {
             {leavesLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
                 ))}
               </div>
             ) : pendingLeaves.length === 0 ? (
@@ -425,7 +434,7 @@ function AdminDashboardView() {
             ) : (
               <div className="space-y-3">
                 {pendingLeaves.map((req) => (
-                  <div key={req.id} className="rounded-xl border p-3 text-xs space-y-1.5">
+                  <div key={req.id} className="rounded-lg border p-3 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">{req.employees?.full_name}</span>
                       <Badge variant="outline" className="text-[10px]">
@@ -491,7 +500,7 @@ function AdminDashboardView() {
           {todayLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
               ))}
             </div>
           ) : filteredFeed.length === 0 ? (
@@ -503,7 +512,7 @@ function AdminDashboardView() {
               {filteredFeed.map((rec) => (
                 <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "EM"}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -601,7 +610,7 @@ function AdminDashboardView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -650,34 +659,51 @@ function ManagerDashboardView() {
 
   // Realtime updates for Manager Dashboard
   useEffect(() => {
-    const channel = supabase
-      .channel("manager-dashboard-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "attendance",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["manager-team-today"] });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      supabase.getChannels().forEach((ch) => {
+        if (ch.topic.includes("manager-dashboard-realtime")) {
+          supabase.removeChannel(ch);
         }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "leave_requests",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
-        }
-      )
-      .subscribe();
+      });
+      const channelName = `manager-dashboard-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      channel = supabase.channel(channelName);
+      channel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "attendance",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["manager-team-today"] });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "leave_requests",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Realtime manager dashboard subscription error:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (e) {
+          console.warn("Error removing manager dashboard channel:", e);
+        }
+      }
     };
   }, [queryClient]);
 
@@ -741,78 +767,58 @@ function ManagerDashboardView() {
   const absentCount = Math.max(0, team.length - presentCount - onLeaveCount);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
+    <PageContainer>
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Team Overview</h1>
-            <Badge variant="outline" className="border-amber-200 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
-              {session.departmentName || "Engineering"} Dept
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Manage your direct team presence, approve leaves, and track department schedules.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 self-start sm:self-auto text-xs h-9">
-          <UserPlus className="h-3.5 w-3.5" />
-          Add Team Member
-        </Button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: "Team Overview" }]}
+        title="Team Overview"
+        badge={
+          <Badge variant="outline" className="border-border bg-muted/40 text-muted-foreground text-xs">
+            {session.departmentName || "Engineering"} Dept
+          </Badge>
+        }
+        description="Manage your direct team presence, approve leaves, and track department schedules."
+        actions={
+          <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-9">
+            <UserPlus className="h-3.5 w-3.5" />
+            Add Team Member
+          </Button>
+        }
+      />
 
-      {/* Team Presence Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total Team</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{teamLoading ? "..." : team.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Direct reports & department</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Present Today</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {todayLoading ? "..." : presentCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Checked in at kiosk</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">On Leave</CardTitle>
-            <Palmtree className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {todayLoading ? "..." : onLeaveCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Approved time off</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Absent</CardTitle>
-            <UserX className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
-              {todayLoading ? "..." : absentCount}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Not checked in yet</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Flat Team Presence Metric Strip */}
+      <MetricStrip
+        metrics={[
+          {
+            label: "Total Team",
+            value: teamLoading ? "..." : team.length,
+            subtext: "Direct reports & department",
+            icon: Users,
+            variant: "default",
+          },
+          {
+            label: "Present Today",
+            value: todayLoading ? "..." : presentCount,
+            subtext: "Checked in on site",
+            icon: CheckCircle2,
+            variant: "success",
+          },
+          {
+            label: "On Leave",
+            value: todayLoading ? "..." : onLeaveCount,
+            subtext: "Approved time off",
+            icon: Palmtree,
+            variant: "warning",
+          },
+          {
+            label: "Absent Today",
+            value: todayLoading ? "..." : absentCount,
+            subtext: "Not checked in yet",
+            icon: UserX,
+            variant: "danger",
+          },
+        ]}
+      />
 
       {/* Pending Team Leaves & Upcoming Events */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -831,7 +837,7 @@ function ManagerDashboardView() {
             {leavesLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
                 ))}
               </div>
             ) : teamPendingLeaves.length === 0 ? (
@@ -902,7 +908,7 @@ function ManagerDashboardView() {
             ) : (
               <div className="space-y-3">
                 {upcomingHolidays.map((h: any) => (
-                  <div key={h.id} className="flex items-center gap-3 rounded-xl border p-2.5">
+                  <div key={h.id} className="flex items-center gap-3 rounded-lg border p-2.5">
                     <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
                       <span>{new Date(h.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}</span>
                       <span className="text-sm leading-none">{h.date.split("-")[2]}</span>
@@ -929,7 +935,7 @@ function ManagerDashboardView() {
           {todayLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
               ))}
             </div>
           ) : teamRecords.length === 0 ? (
@@ -941,7 +947,7 @@ function ManagerDashboardView() {
               {teamRecords.map((rec: any) => (
                 <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-2 sm:gap-4 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
                       {rec.employees?.full_name?.slice(0, 2).toUpperCase() || "TM"}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -1022,7 +1028,7 @@ function ManagerDashboardView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -1033,6 +1039,7 @@ function EmployeeDashboardView() {
   const session = useSession();
   const navigate = useNavigate();
   const todayKey = toDateKey(new Date());
+  const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
 
   // Query Today's Attendance for Employee
   const { data: todayRecord, isLoading: todayLoading } = useQuery({
@@ -1136,28 +1143,25 @@ function EmployeeDashboardView() {
   const isCheckedOut = !!todayRecord?.check_out;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6 p-3 sm:p-6 md:p-8">
+    <PageContainer>
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Welcome back, {session.fullName.split(" ")[0]}!
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            {session.designation || "Staff Member"} • {session.departmentName || "Engineering"}
-          </p>
-        </div>
-        <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 self-start sm:self-auto text-xs h-9">
-          <Palmtree className="h-4 w-4" />
-          Apply for Leave
-        </Button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: "My Workplace" }]}
+        title={`Welcome back, ${session.fullName.split(" ")[0]}!`}
+        description={`${session.designation || "Staff Member"} • ${session.departmentName || "Engineering"}`}
+        actions={
+          <Button onClick={() => navigate({ to: "/leaves" })} className="gap-2 text-xs h-9">
+            <Palmtree className="h-4 w-4" />
+            Apply for Leave
+          </Button>
+        }
+      />
 
       {/* Today's Status Banner */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
+            <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg ${isCheckedIn ? "bg-emerald-500 text-white shadow-md" : "bg-muted text-muted-foreground"
               }`}>
               {isCheckedIn ? <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" /> : <Clock className="h-6 w-6 sm:h-7 sm:w-7" />}
             </div>
@@ -1188,9 +1192,28 @@ function EmployeeDashboardView() {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="w-full sm:w-auto text-xs h-9">
-            View My Report
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
+            <Button
+              size="sm"
+              onClick={() => setGeofenceModalOpen(true)}
+              disabled={isCheckedIn && isCheckedOut}
+              className={`w-full sm:w-auto text-xs h-9 gap-1.5 font-semibold shadow-xs ${
+                isCheckedIn && !isCheckedOut
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              {isCheckedIn
+                ? isCheckedOut
+                  ? "Workday Complete"
+                  : "Clock Out (GPS)"
+                : "Clock In with GPS"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate({ to: "/reports" })} className="w-full sm:w-auto text-xs h-9">
+              View My Report
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -1206,7 +1229,7 @@ function EmployeeDashboardView() {
         {balLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
+              <Skeleton key={i} className="h-24 rounded-lg" />
             ))}
           </div>
         ) : (
@@ -1244,7 +1267,7 @@ function EmployeeDashboardView() {
             {recentLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 rounded-xl" />
+                  <Skeleton key={i} className="h-10 rounded-lg" />
                 ))}
               </div>
             ) : recentRecords.length === 0 ? (
@@ -1284,7 +1307,7 @@ function EmployeeDashboardView() {
             ) : (
               <div className="space-y-3">
                 {announcements.map((a: any) => (
-                  <div key={a.id} className="rounded-xl border p-3 text-xs space-y-1">
+                  <div key={a.id} className="rounded-lg border p-3 text-xs space-y-1">
                     <div className="flex items-center gap-1.5 font-semibold">
                       <Megaphone className="h-3.5 w-3.5 text-primary" />
                       <span className="truncate">{a.title}</span>
@@ -1297,6 +1320,12 @@ function EmployeeDashboardView() {
           </CardContent>
         </Card>
       </div>
-    </div>
+
+      {/* Geofence GPS Punch Modal for Employee */}
+      <GeofencePunchModal
+        open={geofenceModalOpen}
+        onOpenChange={setGeofenceModalOpen}
+      />
+    </PageContainer>
   );
 }
