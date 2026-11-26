@@ -282,9 +282,6 @@ export function PayrollDashboard({
           <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Calculator className="h-6 w-6 text-primary" /> Indian Payroll Management
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Configure employee compensation, compute EPF, ESI, Professional Tax, TDS, LOP deductions, and publish verified payslips.
-          </p>
         </div>
 
         {isAdmin && (
@@ -473,11 +470,6 @@ export function PayrollDashboard({
                         <CardTitle className="text-sm font-semibold">
                           Employee Payroll & Payments ({employeeRunRows.length})
                         </CardTitle>
-                        {canEditRunPayments ? (
-                          <span className="text-[11px] text-muted-foreground">
-                            Click Edit Payment on any employee row to adjust earnings, bonus, or deductions before locking.
-                          </span>
-                        ) : null}
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -579,9 +571,6 @@ export function PayrollDashboard({
                   <CardTitle className="text-base flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" /> Employee Salary Structures
                   </CardTitle>
-                  <CardDescription className="text-xs">
-                    Configure individual compensation components, EPF wage caps, ESI coverage, and banking information.
-                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -669,9 +658,6 @@ export function PayrollDashboard({
               <CardTitle className="text-base flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" /> Indian Statutory Compliance Rules
               </CardTitle>
-              <CardDescription className="text-xs">
-                Organization-level configuration for Provident Fund, Employee State Insurance, Professional Tax slabs, and attendance deductions.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">

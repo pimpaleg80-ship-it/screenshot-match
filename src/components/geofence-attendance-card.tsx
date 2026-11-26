@@ -238,7 +238,7 @@ export function GeofenceAttendanceCard({
                 )}
               </div>
               <CardDescription className="text-xs">
-                Automatic GPS check with server-side Edge Function verification. Manual tap required for Check In & Check Out.
+                GPS attendance
               </CardDescription>
             </div>
 
@@ -610,7 +610,7 @@ export function GeofenceAttendanceCard({
               <span>Attendance Regularization Request</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              If you worked off-site or experienced GPS hardware issues, submit a reason for HR/Manager review.
+              Submit a reason for HR review.
             </DialogDescription>
           </DialogHeader>
 

@@ -35,7 +35,7 @@ import { formatDate } from "@/lib/attendance";
 import { PageContainer, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -562,9 +562,6 @@ function SettingsPage() {
                   Main Office Geofence &amp; Coordinate System
                 </CardTitle>
               </div>
-              <CardDescription>
-                Enter your Main Office latitude and longitude (or capture live GPS), set the allowed radius, and employees will auto-sync with this boundary.
-              </CardDescription>
             </CardHeader>
 
             <CardContent className="p-4 sm:p-6">
@@ -581,9 +578,6 @@ function SettingsPage() {
                   Organization &amp; Work Schedule
                 </CardTitle>
               </div>
-              <CardDescription>
-                Configure organization profile and active operating schedule.
-              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -641,9 +635,6 @@ function SettingsPage() {
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="mt-1">
-                  Automatic cloud archive for all generated PDF attendance records and reports.
-                </CardDescription>
               </div>
 
               {session.isAdmin && (
@@ -907,9 +898,6 @@ function SettingsPage() {
                   <Calendar className="h-5 w-5 text-primary" />
                   <CardTitle className="text-base font-semibold">Official Holidays</CardTitle>
                 </div>
-                <CardDescription>
-                  Scheduled organization holidays exempt from absenteeism.
-                </CardDescription>
               </div>
 
               {session.isAdmin && (
@@ -968,9 +956,6 @@ function SettingsPage() {
                     <Shield className="h-5 w-5 text-primary" />
                     <CardTitle className="text-base font-semibold">User Role Access</CardTitle>
                   </div>
-                  <CardDescription>
-                    Assign Admin, Manager, and Employee roles to authenticated accounts.
-                  </CardDescription>
                 </div>
 
                 <Button
@@ -1090,7 +1075,7 @@ function SettingsPage() {
         <DialogContent className="w-[95vw] sm:max-w-xs max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Assign Role</DialogTitle>
-            <DialogDescription>Grant administrative or kiosk privileges.</DialogDescription>
+            <DialogDescription>Assign account role.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">

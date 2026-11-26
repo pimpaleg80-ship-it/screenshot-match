@@ -38,9 +38,7 @@ import {
   Calendar,
   Clock,
   Star,
-  FileText,
   ExternalLink,
-  Download,
   Award,
   Video,
   UserCheck,
@@ -63,7 +61,6 @@ import {
   getInterviewStatusBadge,
   getRecommendationBadge,
   formatSalary,
-  getSecureResumeUrl,
   RECRUITMENT_STAGES,
   REJECTION_REASONS,
 } from "@/lib/recruitment";
@@ -100,9 +97,7 @@ export function CandidateDetailDrawer({
   const [rejectionNotes, setRejectionNotes] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
 
-  // Resume signed url state
-  const [signedResumeUrl, setSignedResumeUrl] = useState<string>("");
-  const [loadingResume, setLoadingResume] = useState(false);
+  // Tab state
 
   // Offer details form
   const [offerSalary, setOfferSalary] = useState("");
@@ -174,25 +169,7 @@ export function CandidateDetailDrawer({
     },
   });
 
-  // Fetch secure signed resume url
-  useEffect(() => {
-    if (!candidate?.resume_url) {
-      setSignedResumeUrl("");
-      return;
-    }
-    let active = true;
-    setLoadingResume(true);
-    getSecureResumeUrl(candidate.resume_url)
-      .then((url) => {
-        if (active) setSignedResumeUrl(url);
-      })
-      .finally(() => {
-        if (active) setLoadingResume(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [candidate?.resume_url]);
+  // Tab / stage helper
 
   // Sync offer form
   useEffect(() => {
@@ -209,9 +186,6 @@ export function CandidateDetailDrawer({
   if (!candidate) return null;
 
   const stageBadge = getCandidateStageBadge(candidate.stage);
-  const isResumePdf =
-    candidate.resume_file_name?.toLowerCase().endsWith(".pdf") ||
-    candidate.resume_url?.toLowerCase().includes(".pdf");
 
   // Quick stage transition
   const handleStageChange = async (newStage: string) => {
@@ -399,7 +373,7 @@ export function CandidateDetailDrawer({
         >
           <div className="px-5 pt-3 border-b bg-muted/20">
             <TabsList className="grid grid-cols-4 max-w-xl h-9 text-xs">
-              <TabsTrigger value="profile">Profile & Resume</TabsTrigger>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="interviews">
                 Interviews ({interviews.length})
               </TabsTrigger>
@@ -409,7 +383,7 @@ export function CandidateDetailDrawer({
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            {/* TAB 1: PROFILE & RESUME */}
+            {/* TAB 1: PROFILE */}
             <TabsContent value="profile" className="m-0 space-y-6">
               {/* Key Candidate Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -527,58 +501,7 @@ export function CandidateDetailDrawer({
                 </div>
               )}
 
-              {/* Resume Document Viewer */}
-              <div className="bg-card rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <div>
-                      <h4 className="font-semibold text-sm">Resume Document</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {candidate.resume_file_name || "Applicant CV / Resume"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {signedResumeUrl && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs h-8"
-                      onClick={() => window.open(signedResumeUrl, "_blank")}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download
-                    </Button>
-                  )}
-                </div>
-
-                {loadingResume ? (
-                  <div className="h-56 bg-muted/40 rounded-lg flex items-center justify-center text-xs text-muted-foreground animate-pulse">
-                    Loading secure resume preview...
-                  </div>
-                ) : !signedResumeUrl ? (
-                  <div className="p-8 text-center border-2 border-dashed rounded-lg text-xs text-muted-foreground">
-                    No resume document uploaded for this applicant.
-                  </div>
-                ) : isResumePdf ? (
-                  <div className="border rounded-lg overflow-hidden shadow-inner">
-                    <iframe
-                      src={`${signedResumeUrl}#toolbar=0`}
-                      title="Candidate Resume"
-                      className="w-full h-[52vh] bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div className="border rounded-lg p-3 bg-muted/20 flex items-center justify-center max-h-[50vh] overflow-auto">
-                    <img
-                      src={signedResumeUrl}
-                      alt="Candidate Resume"
-                      className="max-h-[46vh] object-contain rounded-lg shadow-sm"
-                    />
-                  </div>
-                )}
-              </div>
+              {/* Candidate Notes */}
             </TabsContent>
 
             {/* TAB 2: INTERVIEWS & SCORECARDS */}
@@ -588,9 +511,6 @@ export function CandidateDetailDrawer({
                   <h4 className="font-semibold text-sm text-foreground">
                     Evaluation Rounds & Feedback
                   </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Track interviewer recommendations, technical scores, and candidate assessments.
-                  </p>
                 </div>
                 <Button
                   size="sm"
@@ -792,7 +712,7 @@ export function CandidateDetailDrawer({
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Convert this candidate into an official Employee record. FlowPeople automatically transfers their resume into company records, sets their department and designation, provisions annual leave quotas, and triggers their onboarding checklist.
+                  Convert candidate into an official employee record and start onboarding.
                 </p>
                 <Button
                   onClick={() => setConvertModalOpen(true)}

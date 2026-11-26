@@ -626,7 +626,7 @@ export function AdminLocationStudio() {
                     <span>{isCreatingNew ? "Create New Office Geofence" : `Configuring: ${name || "Office"}`}</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Set precise GPS coordinates and geofence perimeter radius.
+                    Coordinates and geofence radius.
                   </CardDescription>
                 </div>
 
@@ -717,7 +717,7 @@ export function AdminLocationStudio() {
                       Office Coordinates Configuration
                     </h3>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Enter manual coordinates (you can paste a &quot;lat, lng&quot; pair from Google Maps into Latitude) or capture your live GPS position.
+                      Enter coordinates or capture GPS.
                     </p>
                   </div>
 
@@ -802,7 +802,7 @@ export function AdminLocationStudio() {
                       Geofence Radius ({radius} meters)
                     </Label>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Allowed circular perimeter around the office coordinates. Employees must be inside to Check In.
+                      Allowed radius around office coordinates.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -917,7 +917,7 @@ export function AdminLocationStudio() {
               <span>Confirm Office Geofence Configuration</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Please review the coordinates and geofence parameters before saving to the production database.
+              Review coordinates and radius before saving.
             </DialogDescription>
           </DialogHeader>
 
@@ -997,7 +997,7 @@ export function AdminLocationStudio() {
               <span>Assign Staff to {name}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Select employees who are physically authorized to mark attendance inside this office geofence.
+              Select authorized employees for this office.
             </DialogDescription>
           </DialogHeader>
 

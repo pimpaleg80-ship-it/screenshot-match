@@ -41,7 +41,7 @@ import {
 import { generateAndBackupPdf } from "@/lib/pdf-backup";
 import { PageContainer, PageHeader, TableContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -681,9 +681,6 @@ function ReportsPage() {
         <Card className="card-soft lg:col-span-8">
           <CardHeader>
             <CardTitle className="text-base font-semibold">Attendance Trend Over Time</CardTitle>
-            <CardDescription>
-              Volume of on-time present vs late check-ins per day (auto-updates in real time)
-            </CardDescription>
           </CardHeader>
           <CardContent>
             {recordsLoading ? (
@@ -740,7 +737,6 @@ function ReportsPage() {
         <Card className="card-soft lg:col-span-4">
           <CardHeader>
             <CardTitle className="text-base font-semibold">Department Breakdown</CardTitle>
-            <CardDescription>Attendance distribution across departments</CardDescription>
           </CardHeader>
           <CardContent>
             {recordsLoading ? (
@@ -780,9 +776,6 @@ function ReportsPage() {
       <Card className="card-soft overflow-hidden">
         <CardHeader>
           <CardTitle className="text-base font-semibold">Personnel Attendance Summary</CardTitle>
-          <CardDescription>
-            Performance breakdown per employee over the selected {rangePreset}-day window.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {employeesLoading || recordsLoading ? (

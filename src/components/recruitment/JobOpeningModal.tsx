@@ -165,7 +165,7 @@ export function JobOpeningModal({
             <span>{jobToEdit ? "Edit Job Opening" : "Create New Job Opening"}</span>
           </DialogTitle>
           <DialogDescription>
-            Publish career opportunities, specify role requirements, and assign hiring managers.
+            Enter job details.
           </DialogDescription>
         </DialogHeader>
 

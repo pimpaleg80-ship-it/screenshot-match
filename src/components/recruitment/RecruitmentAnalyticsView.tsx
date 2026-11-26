@@ -128,9 +128,6 @@ export function RecruitmentAnalyticsView({
               <TrendingUp className="w-5 h-5 text-primary" />
               <span>Recruitment Funnel & Drop-off Analysis</span>
             </CardTitle>
-            <CardDescription className="text-xs">
-              Candidate distribution from initial submission through offer acceptance.
-            </CardDescription>
           </CardHeader>
 
           <CardContent className="p-5 space-y-4">
@@ -162,9 +159,6 @@ export function RecruitmentAnalyticsView({
               <Users className="w-5 h-5 text-primary" />
               <span>Candidate Sources</span>
             </CardTitle>
-            <CardDescription className="text-xs">
-              Top hiring channels delivering talent.
-            </CardDescription>
           </CardHeader>
 
           <CardContent className="p-5 space-y-4">

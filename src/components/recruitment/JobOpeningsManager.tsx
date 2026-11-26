@@ -238,7 +238,7 @@ export function JobOpeningsManager({
             No job openings match your filter
           </h3>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Create new job requisitions to start receiving candidate applications and scheduling interviews.
+            Create a job opening to add candidates.
           </p>
           <Button
             size="sm"

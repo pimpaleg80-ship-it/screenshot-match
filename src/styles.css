@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
 @source "../src";
@@ -58,6 +59,16 @@
   --shadow-soft: 0 2px 8px 0 rgb(0 0 0 / 0.04);
   --shadow-bezelless: 0 0 0 1px rgb(0 0 0 / 0.03), 0 2px 8px -1px rgb(0 0 0 / 0.04);
   --shadow-glow: 0 0 0 1px rgb(37 99 235 / 0.15), 0 2px 8px -2px rgb(37 99 235 / 0.15);
+}
+
+@theme {
+  --color-ink: #0A0F2C;
+  --color-fp-muted: #5E667D;
+  --color-line: #D3D7E8;
+  --color-brand: #1357E0;
+  --color-fp-indigo: #4338CA;
+  --background-image-hero: radial-gradient(900px 600px at 100% 0%, rgba(22, 150, 220, 0.7), transparent 62%), radial-gradient(800px 640px at 0% 100%, rgba(78, 40, 230, 0.8), transparent 60%), linear-gradient(170deg, #030822 0%, #05114C 55%, #082A9A 100%);
+  --shadow-cta: 0 14px 28px -16px rgba(19, 87, 224, 0.8);
 }
 
 :root {

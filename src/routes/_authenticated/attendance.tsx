@@ -1094,9 +1094,6 @@ function AttendancePage() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Clock className="h-4 w-4 text-primary" /> Shift Attendance Distribution
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Active punches mapped across configured corporate shifts
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -1123,9 +1120,6 @@ function AttendancePage() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-primary" /> Punch Method Verification
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Proportion of GPS geofence check-ins vs authorized hardware devices vs manual HR entries
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -1180,7 +1174,7 @@ function AttendancePage() {
           <DialogHeader>
             <DialogTitle>Log Manual Attendance</DialogTitle>
             <DialogDescription>
-              Record an attendance check-in for an employee with shift calculation.
+              Log check-in for an employee.
             </DialogDescription>
           </DialogHeader>
 
@@ -1288,7 +1282,7 @@ function AttendancePage() {
           <DialogHeader>
             <DialogTitle>Edit Attendance Entry</DialogTitle>
             <DialogDescription>
-              Modify recorded check-in times for {editingRecord?.employees?.full_name}. Shift metrics will automatically recalculate.
+              Edit attendance for {editingRecord?.employees?.full_name}.
             </DialogDescription>
           </DialogHeader>
 

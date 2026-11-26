@@ -114,7 +114,7 @@ export function GeofencePunchModal({
                 Geofence Attendance
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Edge-verified GPS check-in and check-out.
+                GPS attendance
               </DialogDescription>
             </div>
           </div>

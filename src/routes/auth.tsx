@@ -1,20 +1,7 @@
-import { useState } from "react";
-import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { BrandLogo } from "@/components/brand-logo";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { HeroPanel, SignInPanel, type SignInValues } from "@/components/auth/signin";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -44,62 +31,20 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <BrandLogo variant="stacked" size="lg" />
-          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-            Biometric workforce & HR management suite
-          </p>
-        </div>
-
-        <SignInCard />
-
-        <div className="text-center">
-          <p className="text-[11px] text-muted-foreground/80">
-            Protected by enterprise encryption and multi-tenant security isolation.
-          </p>
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <Link to="/privacy-policy" className="hover:underline text-muted-foreground hover:text-foreground">
-            Privacy Policy
-          </Link>
-          <span>•</span>
-          <Link to="/terms" className="hover:underline text-muted-foreground hover:text-foreground">
-            Terms & Conditions
-          </Link>
-          <span>•</span>
-          <a href="mailto:hqfluxora@gmail.com" className="hover:underline text-muted-foreground hover:text-foreground">
-            Contact: hqfluxora@gmail.com
-          </a>
-        </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SignInCard() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  async function handleSignIn(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
+  async function handleSignIn({ email, password }: SignInValues) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
-    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
-    setBusy(false);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: cleanPassword,
+    });
     if (error) {
       if (/confirm/i.test(error.message)) {
-        toast.error("Please confirm your email first — check your inbox.");
-      } else {
-        toast.error(error.message);
+        throw new Error("Please confirm your email first — check your inbox.");
       }
-      return;
+      throw new Error(error.message);
     }
 
     const redirectParam = new URLSearchParams(window.location.search).get("redirect");
@@ -137,56 +82,9 @@ function SignInCard() {
   }
 
   return (
-    <Card className="card-soft">
-      <CardHeader className="pb-3">
-        <CardTitle>Enterprise Sign In</CardTitle>
-        <CardDescription>Sign in with your work email and password.</CardDescription>
-      </CardHeader>
-
-      <form onSubmit={handleSignIn}>
-        <CardContent className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label htmlFor="signin-email">Work Email</Label>
-            <Input
-              id="signin-email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="signin-password">Password</Label>
-              <a href="/reset-password" className="text-xs text-primary hover:underline">
-                Forgot password?
-              </a>
-            </div>
-            <Input
-              id="signin-password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-        </CardContent>
-
-        <CardFooter className="flex-col gap-3">
-          <Button type="submit" className="w-full font-semibold" disabled={busy}>
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign in
-          </Button>
-
-          <p className="text-xs text-center text-muted-foreground">
-            B2B enterprise account. Employee logins are provisioned by your system administrator.
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+    <div className="flex min-h-screen bg-white font-sans text-ink antialiased">
+      <HeroPanel />
+      <SignInPanel onSubmit={handleSignIn} />
+    </div>
   );
 }

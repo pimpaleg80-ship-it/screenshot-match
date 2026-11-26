@@ -45,7 +45,7 @@ import {
 import { toDateKey, formatDate } from "@/lib/attendance";
 import { PageContainer, PageHeader, TableContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -295,12 +295,13 @@ function LeavesPage() {
       });
 
       if (applyErr) throw applyErr;
-      const resJson = applyData as { request_id?: string; success?: boolean; error?: string };
-      if (!resJson.request_id) throw new Error(resJson.error || "Failed to create leave grant");
+      const resJson = applyData as { leave_request_id?: string; request_id?: string; success?: boolean; error?: string };
+      const reqId = resJson.leave_request_id ?? resJson.request_id;
+      if (!reqId) throw new Error(resJson.error || "Failed to create leave grant");
 
       // Approve directly
       const { error: approveErr } = await supabase.rpc("approve_leave_transactional", {
-        p_request_id: resJson.request_id,
+        p_request_id: reqId,
         p_comment: "Direct grant approved by Administrator",
       });
 
@@ -509,9 +510,6 @@ function LeavesPage() {
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 gap-3">
               <div>
                 <CardTitle className="text-base font-semibold">My Leave Applications & History</CardTitle>
-                <CardDescription className="text-xs">
-                  View application stages, approval trail, manager comments, and cancel pending requests.
-                </CardDescription>
               </div>
 
               {/* Filters */}
@@ -830,7 +828,7 @@ function LeavesPage() {
                 <UserCheck className="h-5 w-5 text-indigo-600" /> Direct Grant Leave
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Administratively assign and approve a leave for any employee. Balances will be deducted and attendance automatically synchronized.
+                Assign and approve leave for an employee.
               </DialogDescription>
             </DialogHeader>
 

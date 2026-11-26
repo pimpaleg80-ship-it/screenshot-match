@@ -18,11 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Upload, FileText, CheckCircle2, DollarSign } from "lucide-react";
+import { UserPlus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { formatFileSize } from "@/lib/documents";
 
 interface CandidateRegistrationModalProps {
   open: boolean;
@@ -51,8 +50,6 @@ export function CandidateRegistrationModal({
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [source, setSource] = useState("direct");
   const [notes, setNotes] = useState("");
-
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load published job openings
@@ -85,20 +82,8 @@ export function CandidateRegistrationModal({
       setLinkedinUrl("");
       setSource("direct");
       setNotes("");
-      setResumeFile(null);
     }
   }, [open, defaultJobOpeningId]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error("Resume file size cannot exceed 20MB");
-        return;
-      }
-      setResumeFile(file);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,34 +94,6 @@ export function CandidateRegistrationModal({
 
     setIsSubmitting(true);
     try {
-      let resumeStoragePath: string | null = null;
-      let resumeFileName: string | null = null;
-
-      if (resumeFile) {
-        resumeFileName = resumeFile.name;
-        const safeBase = resumeFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        resumeStoragePath = `resumes/${Date.now()}_${safeBase}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("resumes")
-          .upload(resumeStoragePath, resumeFile, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          // Fallback to documents bucket
-          const fallbackPath = `resumes/${Date.now()}_${safeBase}`;
-          const { error: fallbackErr } = await supabase.storage
-            .from("documents")
-            .upload(fallbackPath, resumeFile);
-          if (fallbackErr) {
-            throw new Error(`Resume upload failed: ${uploadError.message}`);
-          }
-          resumeStoragePath = fallbackPath;
-        }
-      }
-
       const { data: newCandidate, error: insertError } = await supabase
         .from("candidates")
         .insert({
@@ -155,8 +112,6 @@ export function CandidateRegistrationModal({
           source,
           stage: "applied",
           notes: notes.trim() || null,
-          resume_url: resumeStoragePath,
-          resume_file_name: resumeFileName,
         })
         .select("id")
         .single();
@@ -195,49 +150,11 @@ export function CandidateRegistrationModal({
             <span>Register New Candidate</span>
           </DialogTitle>
           <DialogDescription>
-            Enter applicant details, attach resume document, and link to an open requisition.
+            Enter candidate details.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* Resume Upload Drop Area */}
-          <div className="space-y-1.5">
-            <Label>Candidate Resume (PDF, DOCX, PNG)</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:bg-muted/30 transition cursor-pointer relative bg-card">
-              <input
-                type="file"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.png,.jpg"
-              />
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                  <Upload className="w-4 h-4" />
-                </div>
-                {resumeFile ? (
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-foreground flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                      {resumeFile.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatFileSize(resumeFile.size)} • Click to replace
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-medium text-foreground">
-                      Click or drop resume file here
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      PDF, DOCX, or images up to 20MB
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Name & Email */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">

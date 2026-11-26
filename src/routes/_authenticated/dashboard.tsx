@@ -53,7 +53,7 @@ import {
 } from "@/lib/attendance";
 import { PageContainer, PageHeader, MetricStrip } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -373,7 +373,6 @@ function AdminDashboardView() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">14-Day Attendance Trend</CardTitle>
-            <CardDescription>Daily presence, punctuality, and leaves across the workforce.</CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
@@ -412,7 +411,6 @@ function AdminDashboardView() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-base">Leave Approvals</CardTitle>
-              <CardDescription>Quick decisions</CardDescription>
             </div>
             <Link to="/leaves" className="text-xs font-semibold text-primary hover:underline">
               View All
@@ -483,7 +481,6 @@ function AdminDashboardView() {
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-base">Today's Biometric Feed</CardTitle>
-            <CardDescription>Live attendance records logged at kiosks or authorized portals.</CardDescription>
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -826,7 +823,6 @@ function ManagerDashboardView() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Team Leave Inbox</CardTitle>
-              <CardDescription>Requests awaiting your manager approval</CardDescription>
             </div>
             <Link to="/leaves" className="text-xs font-semibold text-primary hover:underline">
               Open Leaves
@@ -899,7 +895,6 @@ function ManagerDashboardView() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Upcoming Holidays</CardTitle>
-            <CardDescription>Company non-working days</CardDescription>
           </CardHeader>
           <CardContent>
             {upcomingHolidays.length === 0 ? (
@@ -928,7 +923,6 @@ function ManagerDashboardView() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Team Attendance Log (Today)</CardTitle>
-          <CardDescription>Real-time check-in and check-out entries for your department.</CardDescription>
         </CardHeader>
         <CardContent>
           {todayLoading ? (
@@ -1187,7 +1181,6 @@ function EmployeeDashboardView() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Recent Attendance</CardTitle>
-            <CardDescription>Your check-in and check-out activity over past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
             {recentLoading ? (
@@ -1225,7 +1218,6 @@ function EmployeeDashboardView() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Announcements</CardTitle>
-            <CardDescription>Latest company notices</CardDescription>
           </CardHeader>
           <CardContent>
             {announcements.length === 0 ? (

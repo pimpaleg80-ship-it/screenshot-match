@@ -22,13 +22,14 @@ interface PageHeaderProps {
 export function PageHeader({
   breadcrumbs,
   title,
-  description,
+  description: _description,
   badge,
   actions,
   children,
   className,
   borderBottom = false,
 }: PageHeaderProps) {
+  void _description;
   return (
     <div
       className={cn(
@@ -75,11 +76,6 @@ export function PageHeader({
             </h1>
             {badge && <div>{badge}</div>}
           </div>
-          {description && (
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-3xl leading-relaxed">
-              {description}
-            </p>
-          )}
         </div>
 
         {actions && (

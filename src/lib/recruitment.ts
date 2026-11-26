@@ -152,7 +152,7 @@ export const RECRUITMENT_STAGES: {
   description: string;
 }[] = [
   { key: "applied", label: "Applied", description: "Fresh applicant submission" },
-  { key: "screening", label: "Screening", description: "Initial profile & resume evaluation" },
+  { key: "screening", label: "Screening", description: "Profile screening" },
   { key: "shortlisted", label: "Shortlisted", description: "Approved for interview rounds" },
   { key: "interview", label: "Interview", description: "Active evaluation rounds in progress" },
   { key: "selected", label: "Selected", description: "Recommended for offer" },
@@ -347,36 +347,4 @@ export function formatSalary(amount?: number | null, currency = "INR"): string {
     return `₹${amount.toLocaleString("en-IN")}`;
   }
   return `${currency} ${amount.toLocaleString()}`;
-}
-
-export async function getSecureResumeUrl(pathOrUrl?: string | null): Promise<string> {
-  if (!pathOrUrl) return "";
-  if (pathOrUrl.startsWith("http") && !pathOrUrl.includes("supabase.co/storage")) {
-    return pathOrUrl;
-  }
-  try {
-    let cleanPath = pathOrUrl;
-    if (cleanPath.includes("/storage/v1/object/public/resumes/")) {
-      cleanPath = cleanPath.split("/storage/v1/object/public/resumes/")[1] ?? cleanPath;
-    } else if (cleanPath.includes("/storage/v1/object/public/documents/")) {
-      cleanPath = cleanPath.split("/storage/v1/object/public/documents/")[1] ?? cleanPath;
-    }
-
-    // Try 'resumes' bucket first, then fallback to 'documents'
-    const { data: resumeData, error: resumeErr } = await supabase.storage
-      .from("resumes")
-      .createSignedUrl(cleanPath, 3600);
-
-    if (!resumeErr && resumeData?.signedUrl) {
-      return resumeData.signedUrl;
-    }
-
-    const { data: docData } = await supabase.storage
-      .from("documents")
-      .createSignedUrl(cleanPath, 3600);
-
-    return docData?.signedUrl || pathOrUrl;
-  } catch {
-    return pathOrUrl;
-  }
 }

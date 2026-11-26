@@ -210,11 +210,11 @@ export function ConvertCandidateModal({
             <span>Convert Candidate to Official Employee</span>
           </DialogTitle>
           <DialogDescription>
-            Seamlessly induct{" "}
+            Create an employee record for{" "}
             <span className="font-semibold text-foreground">
               {candidate.full_name}
-            </span>{" "}
-            into the organizational roster.
+            </span>
+            .
           </DialogDescription>
         </DialogHeader>
 

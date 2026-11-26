@@ -251,8 +251,8 @@ function HolidaysPage() {
             Calendar Schedule ({filteredHolidays.length} Holidays)
           </CardTitle>
           <CardDescription>
-            Leaves booked across these dates are automatically marked as holidays and not deducted
-            from paid leave balances.
+            Non-deductible public and company holidays.
+
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -350,7 +350,7 @@ function HolidaysPage() {
           <DialogHeader>
             <DialogTitle>Add Holiday</DialogTitle>
             <DialogDescription>
-              Add a new official paid or optional holiday to the corporate calendar.
+              Add a holiday to the calendar.
             </DialogDescription>
           </DialogHeader>
 

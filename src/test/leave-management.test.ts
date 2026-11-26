@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   calculateWorkingLeaveDays,
@@ -449,5 +451,25 @@ describe("Leave Management - Multi-tier Approval Status Display", () => {
     const status = getLeaveRequestDisplayStatus(req);
     expect(status.label).toBe("Cancelled");
     expect(status.step).toBe(0);
+  });
+
+  it("ensures migration 20261126123500 avoids generated remaining updates and broken RPC calls", () => {
+    const sql = fs.readFileSync(
+      path.resolve(process.cwd(), "supabase/migrations/20261126123500_fix_broken_db_functions_and_security.sql"),
+      "utf8"
+    );
+    expect(sql).not.toMatch(/UPDATE\s+public\.leave_balances[\s\S]*?\bremaining\s*=/i);
+    expect(sql).toContain("app.leave_tx_handled");
+    expect(sql).toContain("'request_id', v_new_req_id");
+    expect(sql).toContain("PERFORM public.allocate_annual_leaves(\n    EXTRACT(YEAR FROM CURRENT_DATE)::integer,");
+    expect(sql).not.toContain("updated_at = now()\n  WHERE id = p_document_id");
+    expect(sql).not.toMatch(/VALUES\s*\([^;]*?v_corr\.date::text/i);
+    expect(sql).toContain("v_corr.date,\n      v_in_ts,\n      v_out_ts");
+
+    const leavesUi = fs.readFileSync(
+      path.resolve(process.cwd(), "src/routes/_authenticated/leaves.tsx"),
+      "utf8"
+    );
+    expect(leavesUi).toContain("resJson.leave_request_id ?? resJson.request_id");
   });
 });
