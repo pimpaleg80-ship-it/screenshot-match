@@ -4620,6 +4620,29 @@ export type Database = {
         };
         Returns: Json;
       };
+      update_employee_payslip: {
+        Args: {
+          _payroll_run_id: string;
+          _employee_id: string;
+          _basic_salary: number;
+          _hra?: number;
+          _special_allowance?: number;
+          _conveyance_allowance?: number;
+          _medical_allowance?: number;
+          _other_allowances?: number;
+          _bonus?: number;
+          _overtime_pay?: number;
+          _pf_employee?: number;
+          _esi_employee?: number;
+          _professional_tax?: number;
+          _tds?: number;
+          _lop_deduction?: number;
+          _other_deductions?: number;
+          _payment_method?: string | null;
+          _notes?: string | null;
+        };
+        Returns: Json;
+      };
       submit_employee_resignation: {
         Args: {
           _employee_id: string;

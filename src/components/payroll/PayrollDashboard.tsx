@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import {
   Calculator,
   Lock,
@@ -15,7 +14,7 @@ import {
   Users,
   Eye,
   Plus,
-  RefreshCw,
+  Pencil,
   ShieldAlert,
 } from "lucide-react";
 import {
@@ -23,14 +22,25 @@ import {
   PayslipItem,
   EmployeeSalaryStructure,
   PayrollSettings,
-  MONTH_NAMES,
   formatINR,
 } from "@/lib/payroll";
 import { ProcessPayrollDialog } from "./ProcessPayrollDialog";
 import { SalaryStructureModal } from "./SalaryStructureModal";
 import { PayslipViewDialog } from "./PayslipViewDialog";
 import { PayrollReports } from "./PayrollReports";
+import { EditPaymentDialog, type EditablePayrollEmployee } from "./EditPaymentDialog";
 import { toast } from "sonner";
+
+interface PayrollOrgEmployee {
+  id: string;
+  full_name: string;
+  employee_code: string;
+  email: string;
+  designation: string | null;
+  joining_date: string | null;
+  status: string | null;
+  department: { name: string } | null;
+}
 
 interface PayrollDashboardProps {
   organizationId: string;
@@ -49,10 +59,16 @@ export function PayrollDashboard({
   const [activeTab, setActiveTab] = useState<string>("runs");
   const [isProcessOpen, setIsProcessOpen] = useState(false);
   const [selectedStructure, setSelectedStructure] = useState<EmployeeSalaryStructure | null>(null);
+  const [selectedStructureEmp, setSelectedStructureEmp] = useState<PayrollOrgEmployee | null>(null);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<PayslipItem | null>(null);
   const [isPayslipOpen, setIsPayslipOpen] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [editingPaymentTarget, setEditingPaymentTarget] = useState<{
+    employee: EditablePayrollEmployee;
+    payslip: PayslipItem | null;
+    structure: EmployeeSalaryStructure | null;
+  } | null>(null);
 
   // 1. Fetch Payroll Runs
   const { data: runs = [], isLoading: runsLoading } = useQuery({
@@ -124,6 +140,25 @@ export function PayrollDashboard({
     enabled: !!organizationId,
   });
 
+  // 3b. Fetch all active employees so every employee is always listed & editable
+  const { data: orgEmployees = [], isLoading: employeesLoading } = useQuery({
+    queryKey: ["payroll-org-employees", organizationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select(
+          "id, full_name, employee_code, email, designation, joining_date, status, department:departments(name)",
+        )
+        .eq("organization_id", organizationId)
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return ((data || []) as unknown as PayrollOrgEmployee[]).filter(
+        (e) => e.status !== "relieved" && e.status !== "terminated",
+      );
+    },
+    enabled: !!organizationId,
+  });
+
   // 4. Fetch Payroll Settings
   const { data: settings } = useQuery({
     queryKey: ["payroll-settings", organizationId],
@@ -138,6 +173,58 @@ export function PayrollDashboard({
     },
     enabled: !!organizationId,
   });
+
+  // Merge active employees with salary structures & run payslips so every employee appears
+  const structureByEmpId = useMemo(() => {
+    const map = new Map<string, EmployeeSalaryStructure>();
+    for (const s of structures) {
+      if (!map.has(s.employee_id) || s.is_active) {
+        map.set(s.employee_id, s);
+      }
+    }
+    return map;
+  }, [structures]);
+
+  const employeeRunRows = useMemo(() => {
+    const byEmp = new Map<string, PayslipItem>();
+    for (const p of runPayslips) {
+      byEmp.set(p.employee_id, p);
+    }
+
+    const rows: Array<{
+      employee: PayrollOrgEmployee;
+      payslip: PayslipItem | null;
+      structure: EmployeeSalaryStructure | null;
+    }> = orgEmployees.map((emp) => ({
+      employee: emp,
+      payslip: byEmp.get(emp.id) ?? null,
+      structure: structureByEmpId.get(emp.id) ?? null,
+    }));
+
+    const seenIds = new Set(orgEmployees.map((e) => e.id));
+    for (const p of runPayslips) {
+      if (!seenIds.has(p.employee_id) && p.employee) {
+        rows.push({
+          employee: {
+            id: p.employee.id,
+            full_name: p.employee.full_name,
+            employee_code: p.employee.employee_code,
+            email: p.employee.email || "",
+            designation: p.employee.designation ?? null,
+            joining_date: p.employee.joining_date ?? null,
+            status: null,
+            department: p.employee.department ? { name: p.employee.department.name } : null,
+          },
+          payslip: p,
+          structure: structureByEmpId.get(p.employee_id) ?? null,
+        });
+      }
+    }
+    return rows;
+  }, [orgEmployees, runPayslips, structureByEmpId]);
+
+  const canEditRunPayments =
+    isAdmin && Boolean(activeRun) && activeRun?.status !== "locked" && activeRun?.status !== "paid";
 
   // Approve Mutation
   const approveMutation = useMutation({
@@ -220,7 +307,7 @@ export function PayrollDashboard({
             <FileSpreadsheet className="h-3.5 w-3.5" /> Payroll Runs & Batches
           </TabsTrigger>
           <TabsTrigger value="structures" className="gap-2 text-xs">
-            <Users className="h-3.5 w-3.5" /> Salary Structures ({structures.length})
+            <Users className="h-3.5 w-3.5" /> Salary Structures ({orgEmployees.length || structures.length})
           </TabsTrigger>
           <TabsTrigger value="reports" className="gap-2 text-xs">
             <Calculator className="h-3.5 w-3.5" /> Payroll Reports & Register
@@ -382,15 +469,22 @@ export function PayrollDashboard({
                   {/* Line Item Payslips Table */}
                   <Card>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-semibold">
-                        Generated Payslips ({runPayslips.length})
-                      </CardTitle>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <CardTitle className="text-sm font-semibold">
+                          Employee Payroll & Payments ({employeeRunRows.length})
+                        </CardTitle>
+                        {canEditRunPayments ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            Click Edit Payment on any employee row to adjust earnings, bonus, or deductions before locking.
+                          </span>
+                        ) : null}
+                      </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      {payslipsLoading ? (
-                        <div className="p-6 text-center text-xs text-muted-foreground">Loading payslips...</div>
-                      ) : runPayslips.length === 0 ? (
-                        <div className="p-6 text-center text-xs text-muted-foreground">No payslips in this run.</div>
+                      {payslipsLoading || employeesLoading ? (
+                        <div className="p-6 text-center text-xs text-muted-foreground">Loading employee payroll...</div>
+                      ) : employeeRunRows.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-muted-foreground">No active employees found in organization.</div>
                       ) : (
                         <div className="overflow-x-auto border rounded-lg">
                           <table className="w-full text-xs text-left border-collapse">
@@ -407,34 +501,56 @@ export function PayrollDashboard({
                               </tr>
                             </thead>
                             <tbody className="divide-y">
-                              {runPayslips.map((p) => (
-                                <tr key={p.id} className="hover:bg-muted/10">
+                              {employeeRunRows.map(({ employee: emp, payslip: p, structure: s }) => (
+                                <tr key={emp.id} className="hover:bg-muted/10">
                                   <td className="p-2.5">
-                                    <div className="font-semibold text-foreground">{p.employee?.full_name}</div>
-                                    <div className="text-[11px] text-muted-foreground font-mono">{p.employee?.employee_code}</div>
+                                    <div className="font-semibold text-foreground">{emp.full_name}</div>
+                                    <div className="text-[11px] text-muted-foreground font-mono">{emp.employee_code}</div>
                                   </td>
-                                  <td className="p-2.5 text-right">{formatINR(p.gross_salary)}</td>
-                                  <td className="p-2.5 text-right text-amber-600">{formatINR(p.pf_employee)}</td>
-                                  <td className="p-2.5 text-right text-amber-600">{formatINR(p.professional_tax)}</td>
-                                  <td className="p-2.5 text-right text-rose-600">{formatINR(p.lop_deduction)}</td>
-                                  <td className="p-2.5 text-right font-bold text-emerald-600">{formatINR(p.net_salary)}</td>
+                                  <td className="p-2.5 text-right">{p ? formatINR(p.gross_salary) : "—"}</td>
+                                  <td className="p-2.5 text-right text-amber-600">{p ? formatINR(p.pf_employee) : "—"}</td>
+                                  <td className="p-2.5 text-right text-amber-600">{p ? formatINR(p.professional_tax) : "—"}</td>
+                                  <td className="p-2.5 text-right text-rose-600">{p ? formatINR(p.lop_deduction) : "—"}</td>
+                                  <td className="p-2.5 text-right font-bold text-emerald-600">
+                                    {p ? formatINR(p.net_salary) : "Not calculated"}
+                                  </td>
                                   <td className="p-2.5 text-center">
                                     <Badge variant="outline" className="text-[10px]">
-                                      {p.status}
+                                      {p ? p.status : "unprocessed"}
                                     </Badge>
                                   </td>
                                   <td className="p-2.5 text-right">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setSelectedPayslip(p);
-                                        setIsPayslipOpen(true);
-                                      }}
-                                      className="h-7 text-xs gap-1"
-                                    >
-                                      <Eye className="h-3.5 w-3.5" /> View / PDF
-                                    </Button>
+                                    <div className="flex items-center justify-end gap-1">
+                                      {canEditRunPayments && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() =>
+                                            setEditingPaymentTarget({
+                                              employee: emp,
+                                              payslip: p,
+                                              structure: s,
+                                            })
+                                          }
+                                          className="h-7 text-xs gap-1"
+                                        >
+                                          <Pencil className="h-3 w-3" /> {p ? "Edit Payment" : "Set Payment"}
+                                        </Button>
+                                      )}
+                                      {p && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setSelectedPayslip(p);
+                                            setIsPayslipOpen(true);
+                                          }}
+                                          className="h-7 text-xs gap-1"
+                                        >
+                                          <Eye className="h-3.5 w-3.5" /> View / PDF
+                                        </Button>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -470,10 +586,10 @@ export function PayrollDashboard({
               </div>
             </CardHeader>
             <CardContent>
-              {structLoading ? (
-                <div className="p-6 text-center text-xs text-muted-foreground">Loading salary structures...</div>
-              ) : structures.length === 0 ? (
-                <div className="p-6 text-center text-xs text-muted-foreground">No salary structures configured yet.</div>
+              {structLoading || employeesLoading ? (
+                <div className="p-6 text-center text-xs text-muted-foreground">Loading employees & salary structures...</div>
+              ) : orgEmployees.length === 0 ? (
+                <div className="p-6 text-center text-xs text-muted-foreground">No active employees found.</div>
               ) : (
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="w-full text-xs text-left border-collapse">
@@ -491,42 +607,48 @@ export function PayrollDashboard({
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {structures.map((s) => (
-                        <tr key={s.id} className="hover:bg-muted/10">
-                          <td className="p-2.5">
-                            <div className="font-semibold text-foreground">{s.employee?.full_name}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{s.employee?.employee_code}</div>
-                          </td>
-                          <td className="p-2.5 text-muted-foreground">{s.employee?.department?.name || "General"}</td>
-                          <td className="p-2.5 text-right font-semibold">{formatINR(s.ctc_annual)}</td>
-                          <td className="p-2.5 text-right">{formatINR(s.basic_salary)}</td>
-                          <td className="p-2.5 text-right">{formatINR(s.hra)}</td>
-                          <td className="p-2.5 text-center">
-                            <Badge variant="outline" className={`text-[10px] ${s.pf_applicable ? "text-emerald-600" : "text-muted-foreground"}`}>
-                              {s.pf_applicable ? "12%" : "No"}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 text-center">
-                            <Badge variant="outline" className={`text-[10px] ${s.esi_applicable ? "text-emerald-600" : "text-muted-foreground"}`}>
-                              {s.esi_applicable ? "Yes" : "No"}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 font-medium">{s.pt_state}</td>
-                          <td className="p-2.5 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedStructure(s);
-                                setIsStructureModalOpen(true);
-                              }}
-                              className="h-7 text-xs"
-                            >
-                              Configure
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {orgEmployees.map((emp) => {
+                        const s = structureByEmpId.get(emp.id) ?? null;
+                        return (
+                          <tr key={emp.id} className="hover:bg-muted/10">
+                            <td className="p-2.5">
+                              <div className="font-semibold text-foreground">{emp.full_name}</div>
+                              <div className="text-[11px] text-muted-foreground font-mono">{emp.employee_code}</div>
+                            </td>
+                            <td className="p-2.5 text-muted-foreground">{emp.department?.name || "General"}</td>
+                            <td className="p-2.5 text-right font-semibold">
+                              {s ? formatINR(s.ctc_annual) : <span className="text-muted-foreground font-normal">Default</span>}
+                            </td>
+                            <td className="p-2.5 text-right">{s ? formatINR(s.basic_salary) : "—"}</td>
+                            <td className="p-2.5 text-right">{s ? formatINR(s.hra) : "—"}</td>
+                            <td className="p-2.5 text-center">
+                              <Badge variant="outline" className={`text-[10px] ${!s || s.pf_applicable ? "text-emerald-600" : "text-muted-foreground"}`}>
+                                {!s || s.pf_applicable ? "12%" : "No"}
+                              </Badge>
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <Badge variant="outline" className={`text-[10px] ${s?.esi_applicable ? "text-emerald-600" : "text-muted-foreground"}`}>
+                                {s?.esi_applicable ? "Yes" : "No"}
+                              </Badge>
+                            </td>
+                            <td className="p-2.5 font-medium">{s?.pt_state || "Default"}</td>
+                            <td className="p-2.5 text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedStructure(s);
+                                  setSelectedStructureEmp(emp);
+                                  setIsStructureModalOpen(true);
+                                }}
+                                className="h-7 text-xs"
+                              >
+                                {s ? "Edit Salary" : "Configure"}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -612,9 +734,26 @@ export function PayrollDashboard({
 
       <SalaryStructureModal
         open={isStructureModalOpen}
-        onOpenChange={setIsStructureModalOpen}
+        onOpenChange={(open) => {
+          setIsStructureModalOpen(open);
+          if (!open) setSelectedStructureEmp(null);
+        }}
         structure={selectedStructure}
+        employeeId={selectedStructureEmp?.id}
+        employeeName={selectedStructureEmp?.full_name}
         organizationId={organizationId}
+      />
+
+      <EditPaymentDialog
+        open={Boolean(editingPaymentTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditingPaymentTarget(null);
+        }}
+        payrollRunId={activeRun?.id ?? null}
+        runTitle={activeRun?.title ?? "Monthly Payroll"}
+        employee={editingPaymentTarget?.employee ?? null}
+        payslip={editingPaymentTarget?.payslip ?? null}
+        structure={editingPaymentTarget?.structure ?? null}
       />
 
       <PayslipViewDialog

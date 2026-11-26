@@ -16,7 +16,10 @@ function PayrollRoutePage() {
   const isManager = session.isManager || isAdmin;
 
   const userMeta = (session.user?.user_metadata || {}) as Record<string, any>;
-  const orgId = userMeta["organization_id"] || "00000000-0000-0000-0000-000000000001";
+  const orgId =
+    session.organizationId ||
+    userMeta["organization_id"] ||
+    "00000000-0000-0000-0000-000000000001";
   const userId = session.user?.id || "";
 
   if (isAdmin || isManager) {

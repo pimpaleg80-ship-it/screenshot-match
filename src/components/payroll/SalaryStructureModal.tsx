@@ -34,9 +34,9 @@ interface SalaryStructureModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   structure: EmployeeSalaryStructure | null;
-  employeeId?: string;
-  organizationId?: string;
-  employeeName?: string;
+  employeeId?: string | undefined;
+  organizationId?: string | undefined;
+  employeeName?: string | undefined;
 }
 
 export function SalaryStructureModal({
@@ -71,6 +71,7 @@ export function SalaryStructureModal({
   const [uanNumber, setUanNumber] = useState<string>("");
 
   useEffect(() => {
+    if (!open) return;
     if (structure) {
       setCtcAnnual(structure.ctc_annual || 600000);
       setBasic(structure.basic_salary || 25000);
@@ -92,8 +93,27 @@ export function SalaryStructureModal({
       setIfscCode(structure.bank_ifsc_code || "");
       setPanNumber(structure.pan_number || "");
       setUanNumber(structure.uan_number || "");
+    } else {
+      setCtcAnnual(600000);
+      setBasic(25000);
+      setHra(12500);
+      setSpecial(9500);
+      setConveyance(1500);
+      setMedical(1500);
+      setOtherAllowances(0);
+      setPfApplicable(true);
+      setPfCapCeiling(true);
+      setEsiApplicable(false);
+      setPtApplicable(true);
+      setPtState("Karnataka");
+      setTdsMonthly(0);
+      setBankName("");
+      setAccountNumber("");
+      setIfscCode("");
+      setPanNumber("");
+      setUanNumber("");
     }
-  }, [structure]);
+  }, [open, structure, employeeId]);
 
   // Auto-distribute CTC standard Indian breakdown
   function autoCalculateBreakdown(annual: number) {
