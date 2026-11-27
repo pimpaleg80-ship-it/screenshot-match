@@ -12,10 +12,7 @@ import {
   FileSpreadsheet,
   Bell,
   Loader2,
-  UserPlus,
   Target,
-  GraduationCap,
-  UserMinus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -31,11 +28,8 @@ import { SelfServiceHrTickets } from "@/components/self-service/SelfServiceHrTic
 import { SelfServiceDocuments } from "@/components/self-service/SelfServiceDocuments";
 import { SelfServicePayslips } from "@/components/self-service/SelfServicePayslips";
 import { SelfServiceNotifications } from "@/components/self-service/SelfServiceNotifications";
-import { SelfServiceOnboarding } from "@/components/self-service/SelfServiceOnboarding";
 import { PerformanceGoalsManager } from "@/components/performance/PerformanceGoalsManager";
 import { PerformanceAppraisalsManager } from "@/components/performance/PerformanceAppraisalsManager";
-import { CourseCatalogView } from "@/components/lms/CourseCatalogView";
-import { SelfServiceOffboarding } from "@/components/self-service/SelfServiceOffboarding";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   ssr: false,
@@ -224,35 +218,11 @@ function ProfilePage() {
               </TabsTrigger>
 
               <TabsTrigger
-                value="onboarding"
-                className="gap-1.5 text-xs rounded-lg px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                Onboarding Journey
-              </TabsTrigger>
-
-              <TabsTrigger
                 value="performance"
                 className="gap-1.5 text-xs rounded-lg px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
               >
                 <Target className="h-3.5 w-3.5" />
                 Performance
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="learning"
-                className="gap-1.5 text-xs rounded-lg px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                <GraduationCap className="h-3.5 w-3.5" />
-                Training & LMS
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="offboarding"
-                className="gap-1.5 text-xs rounded-lg px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-              >
-                <UserMinus className="h-3.5 w-3.5" />
-                Exit & Separation
               </TabsTrigger>
 
               <TabsTrigger
@@ -320,33 +290,10 @@ function ProfilePage() {
             <SelfServiceNotifications userId={session.user?.id || ""} />
           </TabsContent>
 
-          {/* Tab 10: Onboarding Journey */}
-          <TabsContent value="onboarding" className="mt-0 outline-none">
-            <SelfServiceOnboarding />
-          </TabsContent>
-
           {/* Tab 11: Performance & Appraisals */}
           <TabsContent value="performance" className="mt-0 outline-none space-y-6">
             <PerformanceGoalsManager filterEmployeeId={employee.id} />
             <PerformanceAppraisalsManager filterEmployeeId={employee.id} />
-          </TabsContent>
-
-          {/* Tab 12: Training & LMS */}
-          <TabsContent value="learning" className="mt-0 outline-none">
-            <CourseCatalogView filterMyEnrollmentsOnly={false} />
-          </TabsContent>
-
-          {/* Tab 13: Exit & Separation */}
-          <TabsContent value="offboarding" className="mt-0 outline-none">
-            <SelfServiceOffboarding
-              employeeId={employee.id}
-              employeeName={employee.full_name}
-              employeeCode={employee.employee_code}
-              joiningDate={employee.joining_date}
-              designation={employee.designation}
-              departmentName={employee.departments?.name}
-              noticePeriodDays={employee.notice_period_days || 30}
-            />
           </TabsContent>
         </Tabs>
       )}

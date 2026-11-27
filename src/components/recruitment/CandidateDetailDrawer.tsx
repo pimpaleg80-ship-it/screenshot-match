@@ -45,7 +45,6 @@ import {
   XCircle,
   AlertTriangle,
   History,
-  Sparkles,
   ChevronRight,
   ShieldCheck,
   DollarSign,
@@ -664,7 +663,7 @@ export function CandidateDetailDrawer({
                     <Input
                       id="off-sal"
                       type="number"
-                      placeholder="e.g. 2400000"
+                      placeholder="Enter annual CTC"
                       value={offerSalary}
                       onChange={(e) => setOfferSalary(e.target.value)}
                     />
@@ -712,13 +711,13 @@ export function CandidateDetailDrawer({
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Convert candidate into an official employee record and start onboarding.
+                  Convert candidate into an official employee record.
                 </p>
                 <Button
                   onClick={() => setConvertModalOpen(true)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <UserCheck className="w-4 h-4" />
                   Convert to Official Employee
                 </Button>
               </div>

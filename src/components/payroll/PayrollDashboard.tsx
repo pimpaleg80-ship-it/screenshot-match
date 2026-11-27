@@ -150,6 +150,7 @@ export function PayrollDashboard({
           "id, full_name, employee_code, email, designation, joining_date, status, department:departments(name)",
         )
         .eq("organization_id", organizationId)
+        .neq("is_superadmin", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
       return ((data || []) as unknown as PayrollOrgEmployee[]).filter(

@@ -19,7 +19,6 @@ import {
   Sliders,
   Radio,
   Clock,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -188,6 +187,7 @@ export function AdminLocationStudio() {
         .select(
           "id, full_name, employee_code, email, designation, work_location_id, departments(name)",
         )
+        .neq("is_superadmin", true)
         .order("full_name");
       if (error) throw error;
       return (data ?? []) as unknown as Array<{
@@ -538,7 +538,7 @@ export function AdminLocationStudio() {
                 <div className="p-3.5 rounded-xl border-2 border-primary bg-primary/5 shadow-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Building className="h-3.5 w-3.5" />
                       New Office (Draft)
                     </span>
                     <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
@@ -684,7 +684,7 @@ export function AdminLocationStudio() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Office Name *</Label>
                   <Input
-                    placeholder="e.g. Pune Headquarters, Mumbai Branch"
+                    placeholder="Enter office name"
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value);
@@ -697,7 +697,7 @@ export function AdminLocationStudio() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Address / Landmark</Label>
                   <Input
-                    placeholder="e.g. Senapati Bapat Road, Tower B, Level 4"
+                    placeholder="Enter address or landmark"
                     value={address}
                     onChange={(e) => {
                       setAddress(e.target.value);
@@ -760,7 +760,7 @@ export function AdminLocationStudio() {
                     <Input
                       type="text"
                       inputMode="decimal"
-                      placeholder="e.g. 19.0948"
+                      placeholder="Enter latitude"
                       value={latStr}
                       onChange={(e) => handleLatInputChange(e.target.value)}
                       className="text-xs font-mono"
@@ -775,7 +775,7 @@ export function AdminLocationStudio() {
                     <Input
                       type="text"
                       inputMode="decimal"
-                      placeholder="e.g. 74.7480"
+                      placeholder="Enter longitude"
                       value={lngStr}
                       onChange={(e) => handleLngInputChange(e.target.value)}
                       className="text-xs font-mono"

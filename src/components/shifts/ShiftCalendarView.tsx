@@ -62,6 +62,7 @@ export function ShiftCalendarView({ organizationId }: ShiftCalendarViewProps) {
           shifts (id, name, code, start_time, end_time, work_days, color, is_night_shift)
         `)
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
 
       if (selectedDept !== "all") {

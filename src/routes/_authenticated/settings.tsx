@@ -27,6 +27,7 @@ import {
   Compass,
 } from "lucide-react";
 import { getCurrentDevicePosition } from "@/lib/geofence";
+import { excludeSuperadminRecords, getOrgSwitchableRoles, type OrgAssignableRole } from "@/lib/access-control";
 import { AdminLocationStudio } from "@/components/admin/location-studio";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,9 +112,8 @@ function SettingsPage() {
   // Role Assignment Modal state
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState("");
-  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<
-    "admin" | "manager" | "employee"
-  >("manager");
+  const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<OrgAssignableRole>("manager");
+  const switchableRoles = getOrgSwitchableRoles(session);
 
   // Handle OAuth redirect url query params
   useEffect(() => {
@@ -142,11 +142,19 @@ function SettingsPage() {
 
   // Fetch Settings
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
-    queryKey: ["app-settings"],
+    queryKey: ["app-settings", session.organizationId],
+    enabled: !session.loading,
     queryFn: async () => {
-      const { data, error } = await supabase.from("settings").select("*").eq("id", 1).single();
+      const { data, error } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("organization_id", session.organizationId)
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      const fallback = await supabase.from("settings").select("*").eq("id", 1).maybeSingle();
+      if (fallback.error) throw fallback.error;
+      return fallback.data;
     },
   });
 
@@ -235,13 +243,16 @@ function SettingsPage() {
     },
   });
 
-  // Fetch Users & Roles
+  // Fetch Users & Roles (strictly excludes Root Superadmin)
   const { data: userProfiles = [], isLoading: profilesLoading } = useQuery({
-    queryKey: ["user-profiles-and-roles"],
+    queryKey: ["user-profiles-and-roles", session.organizationId],
+    enabled: !session.loading && session.isAdmin,
     queryFn: async () => {
       const { data: emps, error: pErr } = await supabase
         .from("employees")
-        .select("id, user_id, full_name, email, department_id, departments(name)")
+        .select("id, user_id, full_name, email, department_id, is_superadmin, departments(name)")
+        .eq("organization_id", session.organizationId)
+        .neq("is_superadmin", true)
         .not("user_id", "is", null);
       if (pErr) throw pErr;
 
@@ -254,12 +265,14 @@ function SettingsPage() {
         roleMap[r.user_id]!.push(r.role);
       }
 
-      return (emps ?? []).map((e: any) => ({
+      return excludeSuperadminRecords(emps ?? []).map((e: any) => ({
         id: e.user_id as string,
         full_name: e.full_name,
         email: e.email,
         department: e.departments?.name || "General",
-        roles: roleMap[e.user_id] || [],
+        roles: (roleMap[e.user_id] || []).filter(
+          (r) => r !== "superadmin" && r !== "super_admin",
+        ),
       }));
     },
   });
@@ -267,6 +280,7 @@ function SettingsPage() {
   // Save Settings Mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
+      const targetId = settingsData?.id ?? 1;
       const { error } = await supabase
         .from("settings")
         .update({
@@ -278,9 +292,16 @@ function SettingsPage() {
           store_capture_photos: storePhotos,
           retention_days: Number(dataRetentionDays),
         })
-        .eq("id", 1);
+        .eq("id", targetId);
 
       if (error) throw error;
+
+      if (orgName.trim() && session.organizationId) {
+        await supabase
+          .from("organizations")
+          .update({ name: orgName.trim() })
+          .eq("id", session.organizationId);
+      }
 
       await supabase.from("audit_logs").insert({
         user_id: session.user?.id ?? null,
@@ -326,6 +347,14 @@ function SettingsPage() {
     }
   }
 
+  async function getAuthHeaders(): Promise<Record<string, string>> {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token
+      ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+      : { "Content-Type": "application/json" };
+  }
+
   // Trigger Manual Backup Now
   async function handleBackupNow() {
     try {
@@ -333,7 +362,7 @@ function SettingsPage() {
       toast.info("Starting instant daily attendance backup...");
       const res = await fetch("/api/integrations/google-drive/backup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {
@@ -359,7 +388,7 @@ function SettingsPage() {
       toast.info("Retrying backup to Google Drive...");
       const res = await fetch("/api/integrations/google-drive/backup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ backup_id: backupId }),
       });
       const data = await res.json();
@@ -403,9 +432,12 @@ function SettingsPage() {
       if (!newHolidayDate || !newHolidayTitle.trim()) {
         throw new Error("Date and title are required");
       }
+      const label = newHolidayTitle.trim();
       const { error } = await supabase.from("holidays").insert({
         date: newHolidayDate,
-        title: newHolidayTitle.trim(),
+        title: label,
+        name: label,
+        organization_id: session.organizationId,
       });
       if (error) throw error;
     },
@@ -436,18 +468,18 @@ function SettingsPage() {
     },
   });
 
-  // Assign Role Mutation
+  // Assign Role Mutation (Org Admin assigns Manager / Employee access via secure RPC)
   const assignRoleMutation = useMutation({
     mutationFn: async () => {
       if (!selectedUserForRole) throw new Error("Select a user");
-      const { error } = await supabase.from("user_roles").insert({
-        user_id: selectedUserForRole,
-        role: selectedRoleToAssign,
+      const { error } = await supabase.rpc("manage_org_user_role", {
+        p_target_user_id: selectedUserForRole,
+        p_new_role: selectedRoleToAssign,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Role assigned successfully");
+      toast.success("Access role updated successfully");
       setRoleModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["user-profiles-and-roles"] });
     },
@@ -456,22 +488,21 @@ function SettingsPage() {
     },
   });
 
-  // Remove Role Mutation
+  // Reset Manager access back to Employee
   const removeRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId)
-        .eq("role", role as any);
+    mutationFn: async ({ userId }: { userId: string; role: string }) => {
+      const { error } = await supabase.rpc("manage_org_user_role", {
+        p_target_user_id: userId,
+        p_new_role: "employee",
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Role removed");
+      toast.success("User access reset to Employee");
       queryClient.invalidateQueries({ queryKey: ["user-profiles-and-roles"] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to remove role");
+      toast.error(err.message || "Failed to update role");
     },
   });
 
@@ -502,7 +533,7 @@ function SettingsPage() {
   }
 
   return (
-    <PageContainer maxWidth="narrow">
+    <PageContainer maxWidth="full">
       {/* Header */}
       <PageHeader
         breadcrumbs={[{ label: "Organization Settings" }]}
@@ -552,9 +583,9 @@ function SettingsPage() {
           <Skeleton className="h-64 w-full rounded-lg" />
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-12">
           {/* Card 1: Main Office Geofence & Coordinate Enter System */}
-          <Card id="geofence" className="card-soft overflow-hidden scroll-mt-20">
+          <Card id="geofence" className="card-soft overflow-hidden scroll-mt-20 lg:col-span-2 xl:col-span-12">
             <CardHeader className="border-b border-border/30 pb-4">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
@@ -570,7 +601,7 @@ function SettingsPage() {
           </Card>
 
           {/* Card 2: Organization & Work Schedule */}
-          <Card className="card-soft">
+          <Card className={session.isAdmin ? "card-soft xl:col-span-4" : "card-soft xl:col-span-6"}>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Building className="h-5 w-5 text-primary" />
@@ -581,7 +612,7 @@ function SettingsPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="max-w-md space-y-1.5">
+              <div className="space-y-1.5">
                 <Label>Organization Name</Label>
                 <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} />
               </div>
@@ -611,7 +642,7 @@ function SettingsPage() {
           </Card>
 
           {/* Card 3: Google Drive Cloud Backup */}
-          <Card className="card-soft border-primary/20">
+          <Card className="card-soft min-w-0 border-primary/20 xl:col-span-8">
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -891,7 +922,7 @@ function SettingsPage() {
           </Card>
 
           {/* Card 4: Holidays Calendar */}
-          <Card className="card-soft">
+          <Card className={session.isAdmin ? "card-soft xl:col-span-6" : "card-soft lg:col-span-2 xl:col-span-12"}>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -949,7 +980,7 @@ function SettingsPage() {
 
           {/* Card 5: User Roles & Permissions */}
           {session.isAdmin && (
-            <Card className="card-soft">
+            <Card className="card-soft min-w-0 xl:col-span-6">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -1005,15 +1036,18 @@ function SettingsPage() {
                                 className="gap-1 text-[10px] uppercase font-semibold"
                               >
                                 {r}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeRoleMutation.mutate({ userId: user.id, role: r })
-                                  }
-                                  className="ml-1 text-muted-foreground hover:text-destructive"
-                                >
-                                  ×
-                                </button>
+                                {r === "manager" && (
+                                  <button
+                                    type="button"
+                                    title="Reset to Employee"
+                                    onClick={() =>
+                                      removeRoleMutation.mutate({ userId: user.id, role: r })
+                                    }
+                                    className="ml-1 text-muted-foreground hover:text-destructive"
+                                  >
+                                    ×
+                                  </button>
+                                )}
                               </Badge>
                             ))
                           )}
@@ -1048,7 +1082,7 @@ function SettingsPage() {
             <div className="space-y-1.5">
               <Label>Holiday Title</Label>
               <Input
-                placeholder="e.g. Founders Day"
+                placeholder="Enter holiday title"
                 value={newHolidayTitle}
                 onChange={(e) => setNewHolidayTitle(e.target.value)}
               />
@@ -1074,8 +1108,10 @@ function SettingsPage() {
       <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
         <DialogContent className="w-[95vw] sm:max-w-xs max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Assign Role</DialogTitle>
-            <DialogDescription>Assign account role.</DialogDescription>
+            <DialogTitle>Manage Team Access</DialogTitle>
+            <DialogDescription>
+              Grant Manager or Employee portal access within your organization.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
@@ -1086,11 +1122,13 @@ function SettingsPage() {
                   <SelectValue placeholder="Select user..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {userProfiles.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name || u.email}
-                    </SelectItem>
-                  ))}
+                  {userProfiles
+                    .filter((u) => !u.roles.includes("admin"))
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.full_name || u.email}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1099,15 +1137,19 @@ function SettingsPage() {
               <Label>Role</Label>
               <Select
                 value={selectedRoleToAssign}
-                onValueChange={(v) => setSelectedRoleToAssign(v as any)}
+                onValueChange={(v) => setSelectedRoleToAssign(v as OrgAssignableRole)}
               >
                 <SelectTrigger className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin (Full Control)</SelectItem>
-                  <SelectItem value="manager">Manager (Department Records)</SelectItem>
-                  <SelectItem value="employee">Employee (Personal Portal)</SelectItem>
+                  {switchableRoles.map((roleOpt) => (
+                    <SelectItem key={roleOpt} value={roleOpt}>
+                      {roleOpt === "manager"
+                        ? "Manager (Department & Employee Access)"
+                        : "Employee (Personal Portal)"}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

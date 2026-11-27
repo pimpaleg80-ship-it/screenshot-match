@@ -195,6 +195,9 @@ function ReportsPage() {
       });
       const channelName = `reports-realtime-feed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       channel = supabase.channel(channelName);
+      const orgFilter = session.organizationId
+        ? `organization_id=eq.${session.organizationId}`
+        : undefined;
       channel
         .on(
           "postgres_changes",
@@ -202,6 +205,7 @@ function ReportsPage() {
             event: "*",
             schema: "public",
             table: "attendance",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           (payload) => {
             queryClient.invalidateQueries({ queryKey: ["reports-records"] });
@@ -219,6 +223,7 @@ function ReportsPage() {
             event: "*",
             schema: "public",
             table: "employees",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["reports-records"] });
@@ -243,7 +248,7 @@ function ReportsPage() {
         }
       }
     };
-  }, [queryClient]);
+  }, [queryClient, session.organizationId]);
 
   // Filter records by selected department
   const filteredRecords = useMemo(() => {
@@ -481,15 +486,12 @@ function ReportsPage() {
         badge={
           isRealtimeConnected ? (
             <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              </span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Live
             </Badge>
           ) : (
             <Badge variant="outline" className="gap-1 text-muted-foreground text-xs">
-              <Radio className="h-3 w-3 animate-pulse" />
+              <Radio className="h-3 w-3" />
               Connecting...
             </Badge>
           )

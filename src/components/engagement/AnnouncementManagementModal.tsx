@@ -175,7 +175,7 @@ export function AnnouncementManagementModal({
             <Label htmlFor="ann-title">Title *</Label>
             <Input
               id="ann-title"
-              placeholder="e.g. Annual Company Offsite 2027 Announced"
+              placeholder="Enter announcement title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />

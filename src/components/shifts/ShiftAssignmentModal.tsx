@@ -76,6 +76,7 @@ export function ShiftAssignmentModal({
         .from("employees")
         .select("id, full_name, employee_code, department_id, departments(name)")
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
       if (error) throw error;
       return data || [];
@@ -267,7 +268,7 @@ export function ShiftAssignmentModal({
           <div className="space-y-1">
             <Label className="text-xs">Notes / Reason (Optional)</Label>
             <Input
-              placeholder="e.g. Q4 rotation pattern / Client project coverage"
+              placeholder="Optional notes or reason"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="h-8 text-xs"

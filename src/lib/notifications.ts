@@ -7,7 +7,6 @@ export type NotificationType =
   | "expense"
   | "ticket"
   | "document_expiry"
-  | "onboarding"
   | "interview"
   | "performance"
   | "payroll"
@@ -52,7 +51,6 @@ export interface NotificationPreferences {
   notify_expense: boolean;
   notify_ticket: boolean;
   notify_document_expiry: boolean;
-  notify_onboarding: boolean;
   notify_interview: boolean;
   notify_performance: boolean;
   notify_payroll: boolean;
@@ -72,7 +70,6 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferences, "id
   notify_expense: true,
   notify_ticket: true,
   notify_document_expiry: true,
-  notify_onboarding: true,
   notify_interview: true,
   notify_performance: true,
   notify_payroll: true,
@@ -122,12 +119,6 @@ export function getNotificationTypeMeta(type: string): NotificationTypeMeta {
         label: "Document Expiry",
         badgeClass: "bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400",
         defaultLink: "/documents",
-      };
-    case "onboarding":
-      return {
-        label: "Onboarding",
-        badgeClass: "bg-teal-500/10 text-teal-600 border-teal-500/20 dark:text-teal-400",
-        defaultLink: "/onboarding",
       };
     case "interview":
       return {
@@ -273,7 +264,6 @@ export async function saveNotificationPreferences(
     notify_expense: preferences.notify_expense,
     notify_ticket: preferences.notify_ticket,
     notify_document_expiry: preferences.notify_document_expiry,
-    notify_onboarding: preferences.notify_onboarding,
     notify_interview: preferences.notify_interview,
     notify_performance: preferences.notify_performance,
     notify_payroll: preferences.notify_payroll,

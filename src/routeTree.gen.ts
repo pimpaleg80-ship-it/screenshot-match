@@ -28,10 +28,7 @@ import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedHelpdeskRouteImport } from './routes/_authenticated/helpdesk'
 import { Route as AuthenticatedHolidaysRouteImport } from './routes/_authenticated/holidays'
 import { Route as AuthenticatedKioskRouteImport } from './routes/_authenticated/kiosk'
-import { Route as AuthenticatedLearningRouteImport } from './routes/_authenticated/learning'
 import { Route as AuthenticatedLeavesRouteImport } from './routes/_authenticated/leaves'
-import { Route as AuthenticatedOffboardingRouteImport } from './routes/_authenticated/offboarding'
-import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedPayrollRouteImport } from './routes/_authenticated/payroll'
 import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
@@ -137,25 +134,9 @@ const AuthenticatedKioskRoute = AuthenticatedKioskRouteImport.update({
   path: '/kiosk',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedLearningRoute = AuthenticatedLearningRouteImport.update({
-  id: '/learning',
-  path: '/learning',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedLeavesRoute = AuthenticatedLeavesRouteImport.update({
   id: '/leaves',
   path: '/leaves',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedOffboardingRoute =
-  AuthenticatedOffboardingRouteImport.update({
-    id: '/offboarding',
-    path: '/offboarding',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPayrollRoute = AuthenticatedPayrollRouteImport.update({
@@ -225,10 +206,7 @@ export interface FileRoutesByFullPath {
   '/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/holidays': typeof AuthenticatedHolidaysRoute
   '/kiosk': typeof AuthenticatedKioskRoute
-  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
-  '/offboarding': typeof AuthenticatedOffboardingRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/payroll': typeof AuthenticatedPayrollRoute
   '/people': typeof AuthenticatedPeopleRoute
   '/performance': typeof AuthenticatedPerformanceRoute
@@ -258,10 +236,7 @@ export interface FileRoutesByTo {
   '/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/holidays': typeof AuthenticatedHolidaysRoute
   '/kiosk': typeof AuthenticatedKioskRoute
-  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
-  '/offboarding': typeof AuthenticatedOffboardingRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/payroll': typeof AuthenticatedPayrollRoute
   '/people': typeof AuthenticatedPeopleRoute
   '/performance': typeof AuthenticatedPerformanceRoute
@@ -293,10 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/helpdesk': typeof AuthenticatedHelpdeskRoute
   '/_authenticated/holidays': typeof AuthenticatedHolidaysRoute
   '/_authenticated/kiosk': typeof AuthenticatedKioskRoute
-  '/_authenticated/learning': typeof AuthenticatedLearningRoute
   '/_authenticated/leaves': typeof AuthenticatedLeavesRoute
-  '/_authenticated/offboarding': typeof AuthenticatedOffboardingRoute
-  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/payroll': typeof AuthenticatedPayrollRoute
   '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
@@ -328,10 +300,7 @@ export interface FileRouteTypes {
     | '/helpdesk'
     | '/holidays'
     | '/kiosk'
-    | '/learning'
     | '/leaves'
-    | '/offboarding'
-    | '/onboarding'
     | '/payroll'
     | '/people'
     | '/performance'
@@ -361,10 +330,7 @@ export interface FileRouteTypes {
     | '/helpdesk'
     | '/holidays'
     | '/kiosk'
-    | '/learning'
     | '/leaves'
-    | '/offboarding'
-    | '/onboarding'
     | '/payroll'
     | '/people'
     | '/performance'
@@ -395,10 +361,7 @@ export interface FileRouteTypes {
     | '/_authenticated/helpdesk'
     | '/_authenticated/holidays'
     | '/_authenticated/kiosk'
-    | '/_authenticated/learning'
     | '/_authenticated/leaves'
-    | '/_authenticated/offboarding'
-    | '/_authenticated/onboarding'
     | '/_authenticated/payroll'
     | '/_authenticated/people'
     | '/_authenticated/performance'
@@ -558,32 +521,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKioskRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/learning': {
-      id: '/_authenticated/learning'
-      path: '/learning'
-      fullPath: '/learning'
-      preLoaderRoute: typeof AuthenticatedLearningRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/leaves': {
       id: '/_authenticated/leaves'
       path: '/leaves'
       fullPath: '/leaves'
       preLoaderRoute: typeof AuthenticatedLeavesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/offboarding': {
-      id: '/_authenticated/offboarding'
-      path: '/offboarding'
-      fullPath: '/offboarding'
-      preLoaderRoute: typeof AuthenticatedOffboardingRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/onboarding': {
-      id: '/_authenticated/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/payroll': {
@@ -662,10 +604,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHelpdeskRoute: typeof AuthenticatedHelpdeskRoute
   AuthenticatedHolidaysRoute: typeof AuthenticatedHolidaysRoute
   AuthenticatedKioskRoute: typeof AuthenticatedKioskRoute
-  AuthenticatedLearningRoute: typeof AuthenticatedLearningRoute
   AuthenticatedLeavesRoute: typeof AuthenticatedLeavesRoute
-  AuthenticatedOffboardingRoute: typeof AuthenticatedOffboardingRoute
-  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPayrollRoute: typeof AuthenticatedPayrollRoute
   AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
@@ -687,10 +626,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHelpdeskRoute: AuthenticatedHelpdeskRoute,
   AuthenticatedHolidaysRoute: AuthenticatedHolidaysRoute,
   AuthenticatedKioskRoute: AuthenticatedKioskRoute,
-  AuthenticatedLearningRoute: AuthenticatedLearningRoute,
   AuthenticatedLeavesRoute: AuthenticatedLeavesRoute,
-  AuthenticatedOffboardingRoute: AuthenticatedOffboardingRoute,
-  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPayrollRoute: AuthenticatedPayrollRoute,
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,

@@ -400,7 +400,7 @@ export function generatePayslipPDF({
         "PAN Number:", payslip.pan_number || employee.pan_number || "N/A",
       ],
       [
-        "Bank Name:", payslip.bank_name || employee.bank_name || "HDFC Bank",
+        "Bank Name:", payslip.bank_name || employee.bank_name || "N/A",
         "Account Number:", payslip.account_number || employee.account_number || "N/A",
       ],
       [

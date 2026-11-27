@@ -131,15 +131,15 @@ describe("Main Office Coordinate Validation & Radius Bounds", () => {
 
   it("renders AdminLocationStudio with zero hardcoded coordinates when creating an office", () => {
     renderWithQuery(<AdminLocationStudio />);
-    const latInput = screen.getByPlaceholderText("e.g. 19.0948") as HTMLInputElement;
-    const lngInput = screen.getByPlaceholderText("e.g. 74.7480") as HTMLInputElement;
+    const latInput = screen.getByPlaceholderText("Enter latitude") as HTMLInputElement;
+    const lngInput = screen.getByPlaceholderText("Enter longitude") as HTMLInputElement;
 
     expect(latInput.value).toBe("");
     expect(lngInput.value).toBe("");
     expect(screen.getByRole("button", { name: /Save Location/i })).toBeDisabled();
 
     // Entering invalid coordinates keeps Save disabled and surfaces validation error
-    fireEvent.change(screen.getByPlaceholderText(/Pune Headquarters/i), {
+    fireEvent.change(screen.getByPlaceholderText("Enter office name"), {
       target: { value: "Main Office" },
     });
     fireEvent.change(latInput, { target: { value: "95" } });

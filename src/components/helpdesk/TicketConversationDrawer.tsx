@@ -740,7 +740,7 @@ export function TicketConversationDrawer({
             <Textarea
               id="res-notes"
               rows={4}
-              placeholder="e.g., Attendance punch verified with security biometric logs and updated in database. Salary adjustment will be processed in next payroll."
+              placeholder="Enter resolution details"
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
               className="text-sm resize-none"

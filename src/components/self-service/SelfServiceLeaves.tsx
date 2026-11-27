@@ -11,7 +11,6 @@ import {
   Ban,
   Loader2,
   FileText,
-  Sparkles,
   ExternalLink,
   ChevronRight,
   ShieldCheck,
@@ -176,7 +175,7 @@ export function SelfServiceLeaves({ employeeId }: SelfServiceLeavesProps) {
                 </CardTitle>
                 {sandwichRuleEnabled && (
                   <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/40">
-                    <Sparkles className="h-2.5 w-2.5 mr-1" /> Sandwich Rule Active
+                    <ShieldCheck className="h-2.5 w-2.5 mr-1" /> Sandwich Rule Active
                   </Badge>
                 )}
               </div>
@@ -488,7 +487,7 @@ export function SelfServiceLeaves({ employeeId }: SelfServiceLeavesProps) {
             <div className="space-y-1.5">
               <Label className="text-xs">Reason for Cancellation (Optional)</Label>
               <Input
-                placeholder="e.g. Personal schedule changed"
+                placeholder="Enter cancellation reason"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 className="h-8 text-xs"

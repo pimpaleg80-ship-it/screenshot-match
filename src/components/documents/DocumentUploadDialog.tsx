@@ -301,7 +301,7 @@ export function DocumentUploadDialog({
             <Label htmlFor="doc-title">Document Title *</Label>
             <Input
               id="doc-title"
-              placeholder="e.g. Passport Copy, Degree Certificate, Offer Letter"
+              placeholder="Enter document title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required

@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Search,
   Calendar as CalendarIcon,
-  Sparkles,
+  HardDrive,
   ShieldAlert,
   CalendarRange,
   Palmtree,
@@ -27,8 +27,11 @@ import {
   Building2,
   Loader2,
   MapPin,
+  Shield,
 } from "lucide-react";
 import { GeofenceAttendanceCard } from "@/components/geofence-attendance-card";
+import { EmployeeRegistrationDialog } from "@/components/employees/EmployeeRegistrationDialog";
+import { excludeSuperadminRecords, type OrgAssignableRole } from "@/lib/access-control";
 import {
   ResponsiveContainer,
   BarChart,
@@ -66,6 +69,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -106,27 +116,124 @@ function DashboardPage() {
    1. ADMIN DASHBOARD VIEW
 ========================================================================================= */
 function AdminDashboardView() {
+  const session = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
 
   const [feedSearch, setFeedSearch] = useState("");
+  const [roleSearch, setRoleSearch] = useState("");
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   const [decisionAction, setDecisionAction] = useState<"approved" | "rejected">("approved");
   const [managerComment, setManagerComment] = useState("");
 
-  // Query Active Employees
+  // Query Active Employees (Root Superadmin is always excluded)
   const { data: employees = [], isLoading: empLoading } = useQuery({
-    queryKey: ["admin-employees-count"],
+    queryKey: ["admin-employees-count", session.organizationId],
+    enabled: !session.loading && !!session.organizationId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, employee_code, department_id, departments(name)")
+        .select("id, user_id, full_name, email, employee_code, designation, department_id, is_superadmin, departments(name)")
+        .eq("organization_id", session.organizationId)
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
       if (error) throw error;
+      return excludeSuperadminRecords(data ?? []);
+    },
+  });
+
+  // Query shifts for employee/manager registration dialog
+  const { data: shifts = [] } = useQuery({
+    queryKey: ["shifts-list"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from as any)("shifts").select("id, name");
+      if (error) return [];
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
+
+  // Query user_roles for org members so HR can assign Employee or Manager on HR Dashboard
+  const { data: userRolesRows = [], isLoading: rolesLoading } = useQuery({
+    queryKey: ["hr-dashboard-user-roles", session.organizationId],
+    enabled: !session.loading && session.isAdmin && !!session.organizationId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_roles").select("user_id, role");
+      if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  const roleByUserId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of userRolesRows) {
+      map.set(row.user_id, row.role);
+    }
+    return map;
+  }, [userRolesRows]);
+
+  const manageableMembers = useMemo(() => {
+    const q = roleSearch.trim().toLowerCase();
+    return (employees as any[])
+      .filter((e) => {
+        if (!e.user_id) return false;
+        const currentRole = roleByUserId.get(e.user_id) || "employee";
+        if (currentRole === "admin" || currentRole === "superadmin" || currentRole === "super_admin") {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          e.full_name?.toLowerCase().includes(q) ||
+          e.email?.toLowerCase().includes(q) ||
+          e.employee_code?.toLowerCase().includes(q) ||
+          e.departments?.name?.toLowerCase().includes(q)
+        );
+      })
+      .map((e) => ({
+        ...e,
+        assignedRole: (roleByUserId.get(e.user_id) === "manager" ? "manager" : "employee") as OrgAssignableRole,
+      }));
+  }, [employees, roleByUserId, roleSearch]);
+
+  const departmentsList = useMemo(() => {
+    const names = new Set<string>(["General"]);
+    for (const e of employees as any[]) {
+      if (e.departments?.name) names.add(e.departments.name);
+    }
+    return Array.from(names).sort();
+  }, [employees]);
+
+  const existingEmployeesList = useMemo(
+    () => (employees as any[]).map((e) => ({ id: e.id, name: `${e.full_name} (${e.employee_code})` })),
+    [employees],
+  );
+
+  // HR switches an existing org account cleanly between Employee and Manager
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: OrgAssignableRole }) => {
+      setUpdatingRoleUserId(userId);
+      const { error } = await supabase.rpc("manage_org_user_role", {
+        p_target_user_id: userId,
+        p_new_role: newRole,
+      });
+      if (error) throw error;
+      return newRole;
+    },
+    onSuccess: (newRole) => {
+      toast.success(`Role updated to ${newRole === "manager" ? "Manager" : "Employee"}`);
+      queryClient.invalidateQueries({ queryKey: ["hr-dashboard-user-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user-profiles-and-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-employees-count"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update role");
+    },
+    onSettled: () => {
+      setUpdatingRoleUserId(null);
     },
   });
 
@@ -155,6 +262,9 @@ function AdminDashboardView() {
       });
       const channelName = `admin-dashboard-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       channel = supabase.channel(channelName);
+      const orgFilter = session.organizationId
+        ? `organization_id=eq.${session.organizationId}`
+        : undefined;
       channel
         .on(
           "postgres_changes",
@@ -162,6 +272,7 @@ function AdminDashboardView() {
             event: "*",
             schema: "public",
             table: "attendance",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["admin-today-attendance"] });
@@ -174,6 +285,7 @@ function AdminDashboardView() {
             event: "*",
             schema: "public",
             table: "leave_requests",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["admin-pending-leaves"] });
@@ -193,7 +305,7 @@ function AdminDashboardView() {
         }
       }
     };
-  }, [queryClient]);
+  }, [queryClient, session.organizationId]);
 
   // Query Pending Leaves
   const { data: pendingLeaves = [], isLoading: leavesLoading } = useQuery({
@@ -252,13 +364,20 @@ function AdminDashboardView() {
   const decisionMutation = useMutation({
     mutationFn: async () => {
       if (!selectedReq) return;
-      const { error } = await supabase
-        .from("leave_requests")
-        .update({
-          status: decisionAction,
-          manager_comment: managerComment.trim() || null,
-        })
-        .eq("id", selectedReq.id);
+      const comment = managerComment.trim();
+      if (decisionAction === "rejected" && !comment) {
+        throw new Error("A reason for rejection is required");
+      }
+      const { error } =
+        decisionAction === "approved"
+          ? await supabase.rpc("approve_leave_transactional", {
+              p_request_id: selectedReq.id,
+              p_comment: comment || null,
+            })
+          : await supabase.rpc("reject_leave_transactional", {
+              p_request_id: selectedReq.id,
+              p_comment: comment,
+            });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -293,18 +412,18 @@ function AdminDashboardView() {
     <PageContainer>
       {/* Top Header */}
       <PageHeader
-        breadcrumbs={[{ label: "Executive Dashboard" }]}
-        title="Executive Dashboard"
-        description="Real-time GPS geofence attendance metrics, leave queue, and corporate trends."
+        breadcrumbs={[{ label: "HR Dashboard" }]}
+        title="HR Dashboard"
+        description="Provision employees & managers, assign team roles, and monitor real-time attendance."
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => refetchToday()} className="gap-1.5 text-xs h-9">
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 bg-primary text-xs h-9">
-              <MapPin className="h-3.5 w-3.5" />
-              Main Office Geofence
+            <Button size="sm" onClick={() => setRegisterModalOpen(true)} className="gap-1.5 bg-primary text-xs h-9">
+              <UserPlus className="h-3.5 w-3.5" />
+              Add Employee / Manager
             </Button>
           </>
         }
@@ -348,9 +467,9 @@ function AdminDashboardView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-card/70 border border-border/30 rounded-xl shadow-xs">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Actions</span>
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-8">
+          <Button size="sm" variant="outline" onClick={() => setRegisterModalOpen(true)} className="gap-1.5 text-xs h-8">
             <UserPlus className="h-3.5 w-3.5" />
-            Add Employee
+            Add Employee / Manager
           </Button>
           <Button size="sm" variant="outline" onClick={() => navigate({ to: "/leaves" })} className="gap-1.5 text-xs h-8">
             <CalendarRange className="h-3.5 w-3.5" />
@@ -361,8 +480,8 @@ function AdminDashboardView() {
             Export Report
           </Button>
           <Button size="sm" variant="outline" onClick={() => navigate({ to: "/settings" })} className="gap-1.5 text-xs h-8">
-            <Sparkles className="h-3.5 w-3.5" />
-            Drive Backup
+            <MapPin className="h-3.5 w-3.5" />
+            Office Geofence
           </Button>
         </div>
       </div>
@@ -476,6 +595,112 @@ function AdminDashboardView() {
         </Card>
       </div>
 
+      {/* Team Access & Role Management (Employee / Manager) */}
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              Team Access &amp; Role Management
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select Employee or Manager access for team members, or provision new authenticated accounts.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Filter by name, code, email..."
+                value={roleSearch}
+                onChange={(e) => setRoleSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+            <Button size="sm" onClick={() => setRegisterModalOpen(true)} className="gap-1.5 text-xs h-8 shrink-0">
+              <UserPlus className="h-3.5 w-3.5" />
+              Provision Account
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {empLoading || rolesLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : manageableMembers.length === 0 ? (
+            <div className="py-6 text-center text-xs text-muted-foreground">
+              No Employee or Manager accounts found yet. Click{" "}
+              <button
+                type="button"
+                onClick={() => setRegisterModalOpen(true)}
+                className="text-primary font-semibold hover:underline"
+              >
+                Provision Account
+              </button>{" "}
+              to create an authenticated Employee or Manager.
+            </div>
+          ) : (
+            <div className="divide-y divide-border/60">
+              {manageableMembers.map((member: any) => (
+                <div
+                  key={member.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 text-xs"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground truncate">{member.full_name}</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] uppercase font-semibold px-1.5 py-0 ${
+                          member.assignedRole === "manager"
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            : "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                        }`}
+                      >
+                        {member.assignedRole}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {member.email} • {member.employee_code} • {member.departments?.name || "General"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Select
+                      value={member.assignedRole}
+                      disabled={updatingRoleUserId === member.user_id}
+                      onValueChange={(value) => {
+                        const nextRole = value as OrgAssignableRole;
+                        if (nextRole !== member.assignedRole) {
+                          updateMemberRoleMutation.mutate({
+                            userId: member.user_id,
+                            newRole: nextRole,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label={`Select role for ${member.full_name}`}
+                        className="w-40 h-8 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="text-xs">
+                        <SelectItem value="employee">Employee</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent Check-Ins Live Feed */}
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -567,11 +792,11 @@ function AdminDashboardView() {
             <div className="rounded-lg border p-3 bg-muted/40 space-y-1">
               <div className="flex justify-between font-medium">
                 <span>Duration:</span>
-                <span>{selectedReq?.total_days} day(s)</span>
+                <span>{selectedReq?.days ?? 0} day(s)</span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Period:</span>
-                <span>{selectedReq?.start_date} to {selectedReq?.end_date}</span>
+                <span>{selectedReq?.from_date} to {selectedReq?.to_date}</span>
               </div>
               <div className="text-xs pt-1">
                 <span className="font-medium">Reason: </span>
@@ -606,6 +831,21 @@ function AdminDashboardView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Direct HR Employee / Manager Registration Dialog */}
+      <EmployeeRegistrationDialog
+        open={registerModalOpen}
+        onOpenChange={setRegisterModalOpen}
+        departments={departmentsList}
+        existingEmployees={existingEmployeesList}
+        shifts={shifts}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["admin-employees-count"] });
+          queryClient.invalidateQueries({ queryKey: ["hr-dashboard-user-roles"] });
+          queryClient.invalidateQueries({ queryKey: ["user-profiles-and-roles"] });
+          queryClient.invalidateQueries({ queryKey: ["people-list"] });
+        }}
+      />
     </PageContainer>
   );
 }
@@ -620,6 +860,7 @@ function ManagerDashboardView() {
   const todayKey = toDateKey(new Date());
 
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   const [decisionAction, setDecisionAction] = useState<"approved" | "rejected">("approved");
   const [managerComment, setManagerComment] = useState("");
@@ -633,6 +874,7 @@ function ManagerDashboardView() {
         .select("id, full_name, employee_code, designation, department_id, departments(name)")
         .or(`manager_id.eq.${session.employeeId},department_id.eq.${session.departmentId}`)
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
       if (error) throw error;
       return (data ?? []) as any[];
@@ -664,6 +906,9 @@ function ManagerDashboardView() {
       });
       const channelName = `manager-dashboard-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       channel = supabase.channel(channelName);
+      const orgFilter = session.organizationId
+        ? `organization_id=eq.${session.organizationId}`
+        : undefined;
       channel
         .on(
           "postgres_changes",
@@ -671,6 +916,7 @@ function ManagerDashboardView() {
             event: "*",
             schema: "public",
             table: "attendance",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["manager-team-today"] });
@@ -682,6 +928,7 @@ function ManagerDashboardView() {
             event: "*",
             schema: "public",
             table: "leave_requests",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["manager-team-pending-leaves"] });
@@ -701,7 +948,7 @@ function ManagerDashboardView() {
         }
       }
     };
-  }, [queryClient]);
+  }, [queryClient, session.organizationId]);
 
   // Query Pending Team Leaves
   const { data: teamPendingLeaves = [], isLoading: leavesLoading } = useQuery({
@@ -735,13 +982,20 @@ function ManagerDashboardView() {
   const decisionMutation = useMutation({
     mutationFn: async () => {
       if (!selectedReq) return;
-      const { error } = await supabase
-        .from("leave_requests")
-        .update({
-          status: decisionAction,
-          manager_comment: managerComment.trim() || null,
-        })
-        .eq("id", selectedReq.id);
+      const comment = managerComment.trim();
+      if (decisionAction === "rejected" && !comment) {
+        throw new Error("A reason for rejection is required");
+      }
+      const { error } =
+        decisionAction === "approved"
+          ? await supabase.rpc("approve_leave_transactional", {
+              p_request_id: selectedReq.id,
+              p_comment: comment || null,
+            })
+          : await supabase.rpc("reject_leave_transactional", {
+              p_request_id: selectedReq.id,
+              p_comment: comment,
+            });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -775,9 +1029,9 @@ function ManagerDashboardView() {
         }
         description="Manage your direct team presence, approve leaves, and track department schedules."
         actions={
-          <Button size="sm" onClick={() => navigate({ to: "/people" })} className="gap-1.5 text-xs h-9">
+          <Button size="sm" onClick={() => setRegisterModalOpen(true)} className="gap-1.5 text-xs h-9">
             <UserPlus className="h-3.5 w-3.5" />
-            Add Team Member
+            Add Team Employee
           </Button>
         }
       />
@@ -998,7 +1252,7 @@ function ManagerDashboardView() {
               <Label htmlFor="mgr-comment" className="text-xs">Manager Comment</Label>
               <Input
                 id="mgr-comment"
-                placeholder="e.g. Approved. Please ensure task handover."
+                placeholder="Optional review comment"
                 value={managerComment}
                 onChange={(e) => setManagerComment(e.target.value)}
                 className="text-xs"
@@ -1021,6 +1275,23 @@ function ManagerDashboardView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manager Employee Provisioning Dialog (locked strictly to Employee role) */}
+      <EmployeeRegistrationDialog
+        open={registerModalOpen}
+        onOpenChange={setRegisterModalOpen}
+        departments={session.departmentName ? [session.departmentName] : ["General"]}
+        existingEmployees={
+          session.employeeId
+            ? [{ id: session.employeeId, name: session.fullName || "Me" }]
+            : []
+        }
+        shifts={[]}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["manager-team-members"] });
+          queryClient.invalidateQueries({ queryKey: ["people-list"] });
+        }}
+      />
     </PageContainer>
   );
 }

@@ -1,4 +1,5 @@
 import React from "react";
+import "./landing.css";
 import { Navbar } from "./Navbar";
 import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
@@ -10,7 +11,7 @@ import { Footer } from "./Footer";
 
 export function HomePage() {
   return (
-    <div className="min-h-screen bg-[#F8FAFF] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="fp-landing min-h-screen overflow-x-clip bg-[#F7F9FE] text-[#64748B] font-sans selection:bg-[#EDEBFF] selection:text-[#172554]">
       <Navbar />
       <main>
         <HeroSection />

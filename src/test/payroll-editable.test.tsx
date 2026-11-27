@@ -93,34 +93,38 @@ vi.mock("../integrations/supabase/client", () => ({
         };
       }
       if (table === "employees") {
+        const resultChain = {
+          order: async () => ({
+            data: [
+              {
+                id: "emp-1",
+                full_name: "Ada Lovelace",
+                employee_code: "EMP001",
+                email: "ada@example.com",
+                designation: "Engineer",
+                joining_date: "2026-01-01",
+                status: "active",
+                department: { name: "Engineering" },
+              },
+              {
+                id: "emp-2",
+                full_name: "Grace Hopper",
+                employee_code: "EMP002",
+                email: "grace@example.com",
+                designation: "Architect",
+                joining_date: "2026-02-01",
+                status: "active",
+                department: { name: "Engineering" },
+              },
+            ],
+            error: null,
+          }),
+        };
         return {
           select: () => ({
             eq: () => ({
-              order: async () => ({
-                data: [
-                  {
-                    id: "emp-1",
-                    full_name: "Ada Lovelace",
-                    employee_code: "EMP001",
-                    email: "ada@example.com",
-                    designation: "Engineer",
-                    joining_date: "2026-01-01",
-                    status: "active",
-                    department: { name: "Engineering" },
-                  },
-                  {
-                    id: "emp-2",
-                    full_name: "Grace Hopper",
-                    employee_code: "EMP002",
-                    email: "grace@example.com",
-                    designation: "Architect",
-                    joining_date: "2026-02-01",
-                    status: "active",
-                    department: { name: "Engineering" },
-                  },
-                ],
-                error: null,
-              }),
+              ...resultChain,
+              neq: () => resultChain,
             }),
           }),
         };

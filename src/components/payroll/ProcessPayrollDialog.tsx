@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MONTH_NAMES } from "@/lib/payroll";
-import { Calculator, Sparkles } from "lucide-react";
+import { Calculator } from "lucide-react";
 
 interface ProcessPayrollDialogProps {
   open: boolean;
@@ -130,7 +130,7 @@ export function ProcessPayrollDialog({
 
           <div className="p-3 bg-muted/40 rounded-lg border text-xs space-y-1 text-muted-foreground">
             <div className="font-semibold text-foreground flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> Calculation Engine Rules:
+              <Calculator className="h-3.5 w-3.5 text-primary" /> Calculation Engine Rules:
             </div>
             <ul className="list-disc list-inside space-y-0.5 text-[11px]">
               <li>Applies individual salary structures and statutory limits.</li>

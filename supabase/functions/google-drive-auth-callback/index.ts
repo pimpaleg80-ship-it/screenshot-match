@@ -21,9 +21,14 @@ serve(async (req) => {
 
   const getRedirectUrl = (baseReturnTo: string) => {
     const appBaseUrl = Deno.env.get("APP_URL") || "http://localhost:8080";
-    return baseReturnTo.startsWith("http://") || baseReturnTo.startsWith("https://")
-      ? new URL(baseReturnTo)
-      : new URL(baseReturnTo, appBaseUrl);
+    const allowedOrigin = new URL(appBaseUrl).origin;
+    try {
+      const candidate = new URL(baseReturnTo, appBaseUrl);
+      if (candidate.origin === allowedOrigin) return candidate;
+    } catch {
+      // fall through to safe settings route
+    }
+    return new URL("/settings", appBaseUrl);
   };
 
   // Handle Google OAuth error

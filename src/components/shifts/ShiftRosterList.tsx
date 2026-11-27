@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ interface ShiftRosterListProps {
 }
 
 export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
+  const session = useSession();
   const queryClient = useQueryClient();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -199,7 +201,10 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
           .eq("id", editingShift.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("shifts").insert(payload);
+        const { error } = await supabase.from("shifts").insert({
+          ...payload,
+          organization_id: session.organizationId,
+        });
         if (error) throw error;
       }
     },
@@ -241,17 +246,19 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
             Define daily rosters, break policies, late grace limits, and overnight schedules.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            resetForm();
-            setCreateModalOpen(true);
-          }}
-          className="gap-1.5 text-xs h-8"
-        >
-          <PlusCircle className="h-3.5 w-3.5" />
-          Create Custom Shift
-        </Button>
+        {session.isAdmin && (
+          <Button
+            size="sm"
+            onClick={() => {
+              resetForm();
+              setCreateModalOpen(true);
+            }}
+            className="gap-1.5 text-xs h-8"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            Create Custom Shift
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -344,25 +351,29 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleOpenEdit(shift)}
-                      title="Edit shift settings"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeletingShift(shift)}
-                      title="Delete shift"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    {onAssignShift && (
+                    {session.isAdmin && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleOpenEdit(shift)}
+                          title="Edit shift settings"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeletingShift(shift)}
+                          title="Delete shift"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                    {onAssignShift && session.isStaff && (
                       <Button
                         size="sm"
                         variant="outline"

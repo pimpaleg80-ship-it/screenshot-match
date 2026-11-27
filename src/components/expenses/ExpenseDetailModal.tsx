@@ -283,7 +283,7 @@ export function ExpenseDetailModal({
                       claim.status === "rejected"
                         ? "bg-rose-500/10 border-rose-200"
                         : claim.status === "pending"
-                        ? "bg-amber-500/10 border-amber-300 font-bold animate-pulse"
+                        ? "bg-amber-500/10 border-amber-300 font-bold"
                         : "bg-emerald-500/10 border-emerald-200"
                     }`}
                   >
@@ -304,7 +304,7 @@ export function ExpenseDetailModal({
                   <div
                     className={`p-2 rounded border ${
                       claim.status === "pending_finance"
-                        ? "bg-blue-500/10 border-blue-300 font-bold animate-pulse"
+                        ? "bg-blue-500/10 border-blue-300 font-bold"
                         : claim.status === "approved" || claim.status === "reimbursed"
                         ? "bg-emerald-500/10 border-emerald-200"
                         : "bg-muted/40 border-border text-muted-foreground"
@@ -329,7 +329,7 @@ export function ExpenseDetailModal({
                       claim.status === "reimbursed"
                         ? "bg-emerald-500/10 border-emerald-200"
                         : claim.status === "approved"
-                        ? "bg-indigo-500/10 border-indigo-300 font-bold animate-pulse"
+                        ? "bg-indigo-500/10 border-indigo-300 font-bold"
                         : "bg-muted/40 border-border text-muted-foreground"
                     }`}
                   >
@@ -592,7 +592,7 @@ export function ExpenseDetailModal({
             <Textarea
               id="rej-reason"
               rows={3}
-              placeholder="e.g., Ineligible travel expense, or original tax invoice missing GST details..."
+              placeholder="Enter rejection reason"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               className="text-sm resize-none"
@@ -651,7 +651,7 @@ export function ExpenseDetailModal({
               </Label>
               <Input
                 id="pay-ref"
-                placeholder="e.g., UTR-9823482394 or BATCH-PAYROLL-NOV26"
+                placeholder="Enter transaction reference or UTR"
                 value={reimbursementRef}
                 onChange={(e) => setReimbursementRef(e.target.value)}
                 className="text-sm font-mono"

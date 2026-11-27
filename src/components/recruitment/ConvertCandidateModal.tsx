@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -24,7 +23,6 @@ import {
   Calendar,
   AlertTriangle,
   Briefcase,
-  Sparkles,
   ShieldCheck,
   Check,
 } from "lucide-react";
@@ -55,7 +53,6 @@ export function ConvertCandidateModal({
   const [managerId, setManagerId] = useState("");
   const [shiftId, setShiftId] = useState("");
   const [employmentType, setEmploymentType] = useState("full_time");
-  const [startOnboarding, setStartOnboarding] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check if an employee with this candidate's email already exists
@@ -96,6 +93,7 @@ export function ConvertCandidateModal({
       const { data, error } = await supabase
         .from("employees")
         .select("id, full_name, employee_code, designation")
+        .neq("is_superadmin", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -129,8 +127,8 @@ export function ConvertCandidateModal({
 
     if (candidate.job_openings?.department_id) {
       setDepartmentId(candidate.job_openings.department_id);
-    } else if (departments.length > 0 && !departmentId) {
-      setDepartmentId(departments[0]?.id ?? "");
+    } else if (departments.length > 0) {
+      setDepartmentId((prev) => prev || departments[0]?.id || "");
     }
 
     if (candidate.joining_date) {
@@ -153,7 +151,7 @@ export function ConvertCandidateModal({
             return;
           }
         }
-        setEmployeeCode(`EMP-${Math.floor(100 + Math.random() * 900)}`);
+        setEmployeeCode("");
       });
   }, [open, candidate, departments]);
 
@@ -161,7 +159,8 @@ export function ConvertCandidateModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeCode.trim() && !existingEmployee) {
+    const resolvedCode = (existingEmployee?.employee_code || employeeCode).trim().toUpperCase();
+    if (!resolvedCode) {
       toast.error("Please enter a valid employee code");
       return;
     }
@@ -172,14 +171,13 @@ export function ConvertCandidateModal({
         "convert_candidate_to_employee",
         {
           p_candidate_id: candidate.id,
-          p_employee_code: existingEmployee?.employee_code || employeeCode.trim().toUpperCase() || "EMP-001",
+          p_employee_code: resolvedCode,
           p_joining_date: joiningDate || new Date().toISOString().slice(0, 10),
           p_designation: designation.trim() || null,
           p_department_id: departmentId || null,
           p_manager_id: managerId || null,
           p_employment_type: employmentType,
           p_shift_id: shiftId || null,
-          p_start_onboarding: startOnboarding,
         }
       );
 
@@ -244,7 +242,7 @@ export function ConvertCandidateModal({
                 value={existingEmployee?.employee_code || employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
                 disabled={Boolean(existingEmployee)}
-                placeholder="e.g. EMP-025"
+                placeholder="Enter employee ID"
                 required
               />
             </div>
@@ -269,7 +267,7 @@ export function ConvertCandidateModal({
                 id="conv-desig"
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
-                placeholder="e.g. Senior Frontend Engineer"
+                placeholder="Enter designation"
                 required
               />
             </div>
@@ -342,24 +340,6 @@ export function ConvertCandidateModal({
             </Select>
           </div>
 
-          {/* Toggles */}
-          <div className="pt-2 border-t space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">
-                  Trigger Employee Onboarding Pipeline
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Initializes onboarding checklist, personal info forms, bank credentials & document collection
-                </p>
-              </div>
-              <Switch
-                checked={startOnboarding}
-                onCheckedChange={setStartOnboarding}
-              />
-            </div>
-          </div>
-
           <DialogFooter className="pt-3">
             <Button
               type="button"
@@ -374,7 +354,7 @@ export function ConvertCandidateModal({
               disabled={isSubmitting}
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
             >
-              <Sparkles className="w-4 h-4" />
+              <UserCheck className="w-4 h-4" />
               {isSubmitting
                 ? "Converting..."
                 : existingEmployee

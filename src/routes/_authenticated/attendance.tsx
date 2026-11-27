@@ -186,6 +186,7 @@ function AttendancePage() {
         .from("employees")
         .select("id, full_name, employee_code, department_id, departments(name)")
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
       if (session.isManager && session.departmentId) {
         q = q.eq("department_id", session.departmentId);
@@ -268,6 +269,9 @@ function AttendancePage() {
       });
       const channelName = `attendance-page-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       channel = supabase.channel(channelName);
+      const orgFilter = session.organizationId
+        ? `organization_id=eq.${session.organizationId}`
+        : undefined;
       channel
         .on(
           "postgres_changes",
@@ -275,6 +279,7 @@ function AttendancePage() {
             event: "*",
             schema: "public",
             table: "attendance",
+            ...(orgFilter ? { filter: orgFilter } : {}),
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["attendance-records"] });
@@ -294,7 +299,7 @@ function AttendancePage() {
         }
       }
     };
-  }, [queryClient]);
+  }, [queryClient, session.organizationId]);
 
   // Filter records
   const filteredRecords = useMemo(() => {
@@ -1258,7 +1263,7 @@ function AttendancePage() {
             <div className="space-y-2">
               <Label>Reason / Note</Label>
               <Input
-                placeholder="e.g. Card forgotten, offsite meeting"
+                placeholder="Enter attendance note"
                 value={addReason}
                 onChange={(e) => setAddReason(e.target.value)}
               />

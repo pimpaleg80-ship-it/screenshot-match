@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Users,
   Building,
-  Sparkles,
   UserCheck,
   Clock,
   Filter,
@@ -250,7 +249,7 @@ export function TeamLeaveCalendarView({
                         className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 gap-0.5"
                         title={cell.holiday.name || cell.holiday.title}
                       >
-                        <Sparkles className="h-2.5 w-2.5" />
+                        <CalendarIcon className="h-2.5 w-2.5" />
                         <span className="hidden sm:inline truncate max-w-[45px]">
                           {cell.holiday.name || cell.holiday.title}
                         </span>
@@ -310,7 +309,7 @@ export function TeamLeaveCalendarView({
         <CardContent>
           {selectedDateHoliday && (
             <div className="mb-3 p-3 rounded-lg border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 text-xs flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
+              <CalendarIcon className="h-4 w-4 text-amber-600 shrink-0" />
               <div>
                 <span className="font-bold text-amber-700 dark:text-amber-400">
                   {selectedDateHoliday.name || selectedDateHoliday.title}

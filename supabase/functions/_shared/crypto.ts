@@ -6,8 +6,11 @@
 async function getEncryptionKey(): Promise<CryptoKey> {
   const secret =
     Deno.env.get("DRIVE_ENCRYPTION_KEY") ||
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    "face-attendance-drive-secret-fallback-key-32b";
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!secret) {
+    throw new Error("Missing DRIVE_ENCRYPTION_KEY or SUPABASE_SERVICE_ROLE_KEY secret");
+  }
 
   const enc = new TextEncoder();
   const rawKey = enc.encode(secret);

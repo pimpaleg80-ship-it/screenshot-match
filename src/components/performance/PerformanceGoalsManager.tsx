@@ -121,6 +121,7 @@ export function PerformanceGoalsManager({
         .from("employees")
         .select("id, full_name, employee_code, designation, department_id, departments(name)")
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
 
       if (session.isManager && !isHRorAdmin && session.employeeId) {
@@ -620,7 +621,7 @@ export function PerformanceGoalsManager({
               </Label>
               <Input
                 id="goal-title"
-                placeholder="e.g. Increase monthly MRR by 15%, Reduce sprint bugs by 25%"
+                placeholder="Enter goal title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -686,7 +687,7 @@ export function PerformanceGoalsManager({
                 <Label htmlFor="goal-metric">Metric Name</Label>
                 <Input
                   id="goal-metric"
-                  placeholder="e.g. Revenue, Closed Deals"
+                  placeholder="Enter metric name"
                   value={metric}
                   onChange={(e) => setMetric(e.target.value)}
                 />
@@ -707,7 +708,7 @@ export function PerformanceGoalsManager({
                 <Label htmlFor="goal-unit">Unit</Label>
                 <Input
                   id="goal-unit"
-                  placeholder="e.g. $, %, calls, PRs"
+                  placeholder="Enter unit"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                 />

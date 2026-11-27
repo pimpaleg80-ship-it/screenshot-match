@@ -11,7 +11,6 @@ import {
   Receipt,
   LifeBuoy,
   FileText,
-  UserPlus,
   Briefcase,
   Target,
   Calculator,
@@ -89,7 +88,7 @@ export function NotificationPreferencesModal({
       // Basic validation for phone number
       const cleaned = formState.whatsapp_number.replace(/\s+/g, "");
       if (cleaned.length < 8) {
-        toast.error("Please enter a valid phone number with country code (e.g. +91 9876543210)");
+        toast.error("Please enter a valid phone number with country code");
         return;
       }
     }
@@ -185,7 +184,7 @@ export function NotificationPreferencesModal({
                       </Label>
                       <Input
                         type="tel"
-                        placeholder="+91 9876543210"
+                        placeholder="Enter phone number with country code"
                         value={formState.whatsapp_number || ""}
                         onChange={(e) =>
                           setFormState((prev) => ({ ...prev, whatsapp_number: e.target.value }))
@@ -276,18 +275,6 @@ export function NotificationPreferencesModal({
                     onCheckedChange={(val) =>
                       setFormState((p) => ({ ...p, notify_document_expiry: val }))
                     }
-                  />
-                </div>
-
-                {/* Onboarding */}
-                <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs">
-                  <div className="flex items-center gap-2">
-                    <UserPlus className="h-3.5 w-3.5 text-teal-500 shrink-0" />
-                    <span>Onboarding task assignments</span>
-                  </div>
-                  <Switch
-                    checked={formState.notify_onboarding}
-                    onCheckedChange={(val) => setFormState((p) => ({ ...p, notify_onboarding: val }))}
                   />
                 </div>
 

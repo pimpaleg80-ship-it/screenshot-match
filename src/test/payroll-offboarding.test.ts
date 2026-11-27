@@ -6,15 +6,8 @@ import {
   numberToWordsIndian,
   calculateStatutoryComponents,
 } from "../lib/payroll";
-import {
-  EXIT_REASON_CATEGORIES,
-  CLEARANCE_DEPARTMENTS,
-  EXIT_STATUS_CONFIG,
-  calculateFnFSettlement,
-  ExitStatus,
-} from "../lib/offboarding";
 
-describe("Phase 08: Payroll Management & Employee Offboarding", () => {
+describe("Phase 08: Payroll Management", () => {
   describe("Module 1: Payroll Management", () => {
     describe("Indian Currency Formatting & Word Representation", () => {
       it("formats amounts in Indian Rupees (INR) correctly", () => {
@@ -215,123 +208,6 @@ describe("Phase 08: Payroll Management & Employee Offboarding", () => {
         const expectedTotalDeductions = 1800 + 0 + 200 + 5000 + 2666.67;
         expect(fullComp.totalDeductions).toBeCloseTo(expectedTotalDeductions, 1);
         expect(fullComp.netPayable).toBeCloseTo(80000 - expectedTotalDeductions, 1);
-      });
-    });
-  });
-
-  describe("Module 2: Employee Offboarding & Exit Management", () => {
-    describe("Separation Configuration & Status Workflow", () => {
-      it("defines the standard resignation reasons", () => {
-        expect(EXIT_REASON_CATEGORIES).toContain("Better Opportunity");
-        expect(EXIT_REASON_CATEGORIES).toContain("Higher Studies");
-        expect(EXIT_REASON_CATEGORIES).toContain("Relocation");
-        expect(EXIT_REASON_CATEGORIES).toContain("Personal & Family");
-        expect(EXIT_REASON_CATEGORIES).toContain("Compensation & Benefits");
-      });
-
-      it("defines all four required clearance departments", () => {
-        expect(CLEARANCE_DEPARTMENTS).toHaveLength(4);
-        expect(CLEARANCE_DEPARTMENTS).toContain("Reporting Manager");
-        expect(CLEARANCE_DEPARTMENTS).toContain("IT & Security");
-        expect(CLEARANCE_DEPARTMENTS).toContain("Finance & Accounts");
-        expect(CLEARANCE_DEPARTMENTS).toContain("HR & Admin");
-      });
-
-      it("maps the full exit lifecycle in progression", () => {
-        const progression: ExitStatus[] = [
-          "submitted",
-          "manager_approved",
-          "in_clearance",
-          "clearance_completed",
-          "fnf_settled",
-          "relieved",
-        ];
-
-        progression.forEach((status, idx) => {
-          expect(EXIT_STATUS_CONFIG[status]).toBeDefined();
-          expect(EXIT_STATUS_CONFIG[status].step).toBe(idx + 1);
-          expect(EXIT_STATUS_CONFIG[status].label).toBeTruthy();
-        });
-
-        // Non-progress terminal states
-        expect(EXIT_STATUS_CONFIG["rejected"].step).toBe(0);
-        expect(EXIT_STATUS_CONFIG["withdrawn"].step).toBe(0);
-      });
-    });
-
-    describe("Full & Final (FnF) Settlement Calculations", () => {
-      it("calculates unpaid salary and leave encashment earnings accurately", () => {
-        // Monthly Gross: ₹60,000 (₹2,000/day for 30 days), worked 15 days = ₹30,000
-        // Basic: ₹30,000 (₹1,000/day for 30 days), 10 days leave encashment = ₹10,000
-        const fnf = calculateFnFSettlement({
-          monthlyGross: 60000,
-          basicSalaryRate: 30000,
-          workingDaysInFinalMonth: 30,
-          payableDaysInFinalMonth: 15,
-          leaveEncashmentDays: 10,
-        });
-
-        expect(fnf.unpaidSalaryAmount).toBe(30000);
-        expect(fnf.leaveEncashmentAmount).toBe(10000);
-        expect(fnf.totalEarnings).toBe(40000);
-        expect(fnf.netPayable).toBe(40000);
-      });
-
-      it("recovers notice period shortfall from earnings", () => {
-        // Monthly Gross: ₹90,000 (₹3,000/day for 30 days)
-        // Payable days: 30 -> ₹90,000
-        // Notice shortfall: 10 days -> 10 * 3000 = ₹30,000 deduction
-        const fnf = calculateFnFSettlement({
-          monthlyGross: 90000,
-          basicSalaryRate: 45000,
-          workingDaysInFinalMonth: 30,
-          payableDaysInFinalMonth: 30,
-          noticeShortfallDays: 10,
-        });
-
-        expect(fnf.unpaidSalaryAmount).toBe(90000);
-        expect(fnf.noticeRecoveryAmount).toBe(30000);
-        expect(fnf.totalDeductions).toBe(30000);
-        expect(fnf.netPayable).toBe(60000);
-      });
-
-      it("includes gratuity, bonuses, pending expenses, and asset deductions", () => {
-        const fnf = calculateFnFSettlement({
-          monthlyGross: 75000,
-          basicSalaryRate: 37500,
-          workingDaysInFinalMonth: 30,
-          payableDaysInFinalMonth: 20, // 20 * 2500 = ₹50,000
-          leaveEncashmentDays: 5, // 5 * 1250 = ₹6,250
-          gratuityAmount: 150000,
-          bonusIncentives: 25000,
-          pendingExpenseClaims: 8000,
-          noticeShortfallDays: 0,
-          assetDeductions: 5000, // Damaged monitor
-          statutoryDeductions: 3600, // PF/PT
-          otherDeductions: 1000,
-        });
-
-        const expectedEarnings = 50000 + 6250 + 150000 + 25000 + 8000;
-        const expectedDeductions = 5000 + 3600 + 1000;
-
-        expect(fnf.unpaidSalaryAmount).toBe(50000);
-        expect(fnf.leaveEncashmentAmount).toBe(6250);
-        expect(fnf.totalEarnings).toBe(expectedEarnings);
-        expect(fnf.totalDeductions).toBe(expectedDeductions);
-        expect(fnf.netPayable).toBe(expectedEarnings - expectedDeductions);
-      });
-
-      it("enforces non-negative net payable boundary when deductions exceed earnings", () => {
-        const fnf = calculateFnFSettlement({
-          monthlyGross: 30000,
-          basicSalaryRate: 15000,
-          payableDaysInFinalMonth: 5, // 5 * 1000 = ₹5,000
-          assetDeductions: 25000, // Lost MacBook
-        });
-
-        expect(fnf.totalEarnings).toBe(50000 / 10); // 5000
-        expect(fnf.totalDeductions).toBe(25000);
-        expect(fnf.netPayable).toBe(0); // Clamped at 0
       });
     });
   });

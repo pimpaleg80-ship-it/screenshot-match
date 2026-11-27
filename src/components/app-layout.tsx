@@ -16,15 +16,13 @@ import {
   Briefcase,
   UserCheck,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Clock,
-  UserPlus,
   Target,
-  GraduationCap,
   LifeBuoy,
   Receipt,
   Calculator,
-  UserMinus,
-  Sparkles,
   ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +55,25 @@ export function AppLayout() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem("fp-sidebar-hidden") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggleSidebar() {
+    setSidebarHidden((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("fp-sidebar-hidden", String(next));
+      } catch {
+        // ignore storage restrictions
+      }
+      return next;
+    });
+  }
 
   // Auto-close mobile drawer on route change
   useEffect(() => {
@@ -64,6 +81,11 @@ export function AppLayout() {
   }, [pathname]);
 
   async function handleSignOut() {
+    try {
+      sessionStorage.removeItem("superadmin_unlocked");
+    } catch {
+      // ignore storage errors
+    }
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
@@ -78,7 +100,7 @@ export function AppLayout() {
         {
           title: "Overview",
           items: [
-            { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { to: "/dashboard", label: "HR Dashboard", icon: LayoutDashboard },
             { to: "/profile", label: "My Self-Service", icon: UserCheck },
           ],
         },
@@ -87,8 +109,6 @@ export function AppLayout() {
           items: [
             { to: "/people", label: "Employees Directory", icon: Users },
             { to: "/recruitment", label: "Recruitment Pipeline", icon: Briefcase },
-            { to: "/onboarding", label: "Onboarding Checklists", icon: UserPlus },
-            { to: "/offboarding", label: "Offboarding & Exit", icon: UserMinus },
           ],
         },
         {
@@ -112,7 +132,6 @@ export function AppLayout() {
           title: "Talent & Growth",
           items: [
             { to: "/performance", label: "Performance & Reviews", icon: Target },
-            { to: "/learning", label: "Learning & LMS", icon: GraduationCap },
             { to: "/announcements", label: "Announcements & Polls", icon: Megaphone },
             { to: "/documents", label: "Document Vault", icon: FileText },
             { to: "/reports", label: "Reports & Analytics", icon: BarChart3 },
@@ -147,7 +166,6 @@ export function AppLayout() {
           items: [
             { to: "/expenses", label: "Team Expenses", icon: Receipt },
             { to: "/helpdesk", label: "Support Tickets", icon: LifeBuoy },
-            { to: "/learning", label: "Assigned Training", icon: GraduationCap },
             { to: "/announcements", label: "Announcements", icon: Megaphone },
             { to: "/documents", label: "Documents", icon: FileText },
             { to: "/reports", label: "Team Analytics", icon: BarChart3 },
@@ -175,10 +193,8 @@ export function AppLayout() {
           { to: "/expenses", label: "Expense Claims", icon: Receipt },
           { to: "/helpdesk", label: "Submit HR Ticket", icon: LifeBuoy },
           { to: "/performance", label: "Goals & Appraisal", icon: Target },
-          { to: "/learning", label: "My Courses & LMS", icon: GraduationCap },
           { to: "/announcements", label: "News & Polls", icon: Megaphone },
           { to: "/documents", label: "Policies & Forms", icon: FileText },
-          { to: "/offboarding", label: "Resignation & Exit", icon: UserMinus },
         ],
       },
     ];
@@ -197,7 +213,13 @@ export function AppLayout() {
     ];
   }, [session.isAdmin, session.isManager]);
 
-  const roleLabel = session.isAdmin ? "Administrator" : session.isManager ? "Manager" : "Employee";
+  const roleLabel = session.isSuperadmin
+    ? "Superadmin"
+    : session.isAdmin
+      ? "HR Admin"
+      : session.isManager
+        ? "Manager"
+        : "Employee";
   const initials = (session.fullName || session.user?.email || "U")
     .split(" ")
     .map((p) => p[0])
@@ -227,7 +249,12 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar: Clean, bezel-less modern design */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/30 bg-sidebar/80 backdrop-blur-xl md:flex">
+      <aside
+        className={cn(
+          "sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/50 bg-sidebar",
+          !sidebarHidden && "md:flex"
+        )}
+      >
         {/* Brand header */}
         <div className="flex h-14 items-center px-4 border-b border-border/25">
           <BrandLogo variant="horizontal" size="sm" />
@@ -307,7 +334,7 @@ export function AppLayout() {
         </nav>
 
         {/* Sign Out Footer */}
-        <div className="border-t border-border/25 p-2.5 bg-muted/10">
+        <div className="border-t border-border/40 p-2.5">
           <Button
             variant="ghost"
             size="sm"
@@ -315,7 +342,7 @@ export function AppLayout() {
             className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 font-normal rounded-lg"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span>Sign out of workspace</span>
+            <span>Sign out</span>
           </Button>
         </div>
       </aside>
@@ -323,7 +350,7 @@ export function AppLayout() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Header Bar for Desktop & Mobile */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/30 bg-background/75 px-4 sm:px-6 backdrop-blur-xl">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-4 sm:px-6 backdrop-blur-sm">
           {/* Mobile hamburger & brand */}
           <div className="flex items-center gap-2 md:hidden">
             <Button
@@ -338,9 +365,21 @@ export function AppLayout() {
             <BrandLogo variant="horizontal" size="sm" showSubtitle={false} />
           </div>
 
-          {/* Desktop Breadcrumbs & Status */}
+          {/* Desktop Sidebar Toggle, Breadcrumbs & Status */}
           <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-muted-foreground/70">FlowPeople</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              aria-label={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
+              title={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              {sidebarHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
+            <Link to="/dashboard" className="font-medium text-muted-foreground/70 hover:text-foreground transition-colors">
+              FlowPeople
+            </Link>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
             <span className="font-semibold text-foreground">{currentTitle}</span>
           </div>
@@ -357,18 +396,20 @@ export function AppLayout() {
             </div>
             <NotificationCenterBell />
             <ThemeToggle />
-            <div className="hidden md:block">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                aria-label="Sign out"
-                title="Sign out"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            {sidebarHidden && (
+              <div className="hidden md:block">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSignOut}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -463,7 +504,7 @@ export function AppLayout() {
         </main>
 
         {/* Mobile Bottom Navigation Bar (5 Primary Destinations) */}
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border/30 bg-background/80 py-1.5 backdrop-blur-xl md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border/50 bg-background/95 py-1.5 backdrop-blur-sm md:hidden">
           {mobilePrimaryItems.map((item) => {
             const isActive = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
             return (

@@ -243,7 +243,7 @@ export function ReviewCyclesModal() {
               </Label>
               <Input
                 id="cycle-title"
-                placeholder="e.g. FY 2026-27 Annual Performance Appraisal"
+                placeholder="Enter cycle title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />

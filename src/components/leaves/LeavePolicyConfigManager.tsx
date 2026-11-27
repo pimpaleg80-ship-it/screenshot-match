@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Settings,
@@ -110,6 +110,13 @@ export function LeavePolicyConfigManager({ organizationId }: LeavePolicyConfigMa
   const [weeklyOffs, setWeeklyOffs] = useState<number[]>(policy?.weekly_off_days || [0, 6]);
   const [sandwichRule, setSandwichRule] = useState<boolean>(policy?.sandwich_rule_enabled || false);
 
+  useEffect(() => {
+    if (!policy) return;
+    setApprovalFlow(policy.approval_flow || "manager_then_admin");
+    setWeeklyOffs(policy.weekly_off_days || [0, 6]);
+    setSandwichRule(Boolean(policy.sandwich_rule_enabled));
+  }, [policy]);
+
   // Save Policy Mutation
   const savePolicyMutation = useMutation({
     mutationFn: async () => {
@@ -126,6 +133,7 @@ export function LeavePolicyConfigManager({ organizationId }: LeavePolicyConfigMa
         if (error) throw error;
       } else {
         const { error } = await supabase.from("leave_policies").insert({
+          ...(organizationId ? { organization_id: organizationId } : {}),
           name: "Standard Corporate Leave Policy",
           approval_flow: approvalFlow,
           weekly_off_days: weeklyOffs,
@@ -174,7 +182,10 @@ export function LeavePolicyConfigManager({ organizationId }: LeavePolicyConfigMa
           .eq("id", editingType.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("leave_types").insert(payload);
+        const { error } = await supabase.from("leave_types").insert({
+          ...payload,
+          ...(organizationId ? { organization_id: organizationId } : {}),
+        });
         if (error) throw error;
       }
     },
@@ -540,7 +551,7 @@ export function LeavePolicyConfigManager({ organizationId }: LeavePolicyConfigMa
                 <Input
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
-                  placeholder="e.g. Maternity Leave"
+                  placeholder="Enter leave type name"
                   className="h-9 text-xs"
                   required
                 />
@@ -551,7 +562,7 @@ export function LeavePolicyConfigManager({ organizationId }: LeavePolicyConfigMa
                 <Input
                   value={typeCode}
                   onChange={(e) => setTypeCode(e.target.value)}
-                  placeholder="e.g. ML"
+                  placeholder="Enter leave code"
                   className="h-9 text-xs font-mono uppercase"
                   maxLength={5}
                 />

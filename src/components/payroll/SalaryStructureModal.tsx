@@ -408,7 +408,7 @@ export function SalaryStructureModal({
                 <Input
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
-                  placeholder="e.g. HDFC Bank"
+                  placeholder="Enter bank name"
                   className="h-8 text-xs"
                 />
               </div>
@@ -417,7 +417,7 @@ export function SalaryStructureModal({
                 <Input
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="e.g. 5010049281923"
+                  placeholder="Enter account number"
                   className="h-8 text-xs"
                 />
               </div>
@@ -426,7 +426,7 @@ export function SalaryStructureModal({
                 <Input
                   value={ifscCode}
                   onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
-                  placeholder="HDFC0001234"
+                  placeholder="Enter IFSC code"
                   className="h-8 text-xs font-mono"
                 />
               </div>
@@ -435,7 +435,7 @@ export function SalaryStructureModal({
                 <Input
                   value={panNumber}
                   onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                  placeholder="ABCDE1234F"
+                  placeholder="Enter PAN number"
                   className="h-8 text-xs font-mono"
                 />
               </div>
@@ -444,7 +444,7 @@ export function SalaryStructureModal({
                 <Input
                   value={uanNumber}
                   onChange={(e) => setUanNumber(e.target.value)}
-                  placeholder="100918239012"
+                  placeholder="Enter UAN number"
                   className="h-8 text-xs font-mono"
                 />
               </div>

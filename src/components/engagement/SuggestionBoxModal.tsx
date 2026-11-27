@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Lightbulb, Lock, Sparkles } from "lucide-react";
+import { Lightbulb, Lock, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   SuggestionCategory,
@@ -106,7 +106,7 @@ export function SuggestionBoxModal({
             <Label htmlFor="sug-title">Idea Title *</Label>
             <Input
               id="sug-title"
-              placeholder="e.g. Flexible Core Hours for Engineering Team"
+              placeholder="Enter suggestion title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -167,7 +167,7 @@ export function SuggestionBoxModal({
             disabled={submitMutation.isPending}
             className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
           >
-            <Sparkles className="h-4 w-4" />
+            <Send className="h-4 w-4" />
             {submitMutation.isPending ? "Submitting..." : "Submit Idea"}
           </Button>
         </DialogFooter>

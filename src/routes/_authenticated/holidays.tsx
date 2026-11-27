@@ -6,7 +6,6 @@ import {
   Plus,
   Trash2,
   Calendar as CalendarIcon,
-  Sparkles,
   Search,
   Filter,
   CheckCircle2,
@@ -47,9 +46,10 @@ export const Route = createFileRoute("/_authenticated/holidays")({
 interface HolidayRow {
   id: string;
   date: string;
-  name: string;
-  is_optional: boolean;
-  created_at: string;
+  title?: string | null;
+  name: string | null;
+  is_optional: boolean | null;
+  created_at?: string;
 }
 
 function HolidaysPage() {
@@ -84,10 +84,13 @@ function HolidaysPage() {
       if (!formData.name.trim()) throw new Error("Holiday name is required");
       if (!formData.date) throw new Error("Holiday date is required");
 
+      const label = formData.name.trim();
       const { error } = await supabase.from("holidays").insert({
-        name: formData.name.trim(),
+        title: label,
+        name: label,
         date: formData.date,
         is_optional: formData.is_optional,
+        organization_id: session.organizationId,
       });
       if (error) throw error;
     },
@@ -128,9 +131,10 @@ function HolidaysPage() {
 
   // Filtering
   const filteredHolidays = holidays.filter((h) => {
-    const matchesSearch = !search || h.name.toLowerCase().includes(search.toLowerCase());
+    const label = (h.name || h.title || "").toLowerCase();
+    const matchesSearch = !search || label.includes(search.toLowerCase());
     const matchesMonth =
-      selectedMonth === "all" || h.date.startsWith(`2026-${selectedMonth}`);
+      selectedMonth === "all" || h.date.slice(5, 7) === selectedMonth;
     return matchesSearch && matchesMonth;
   });
 
@@ -164,7 +168,7 @@ function HolidaysPage() {
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Holidays</h1>
           <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Official non-working days and optional observances for 2026.
+            Official non-working days and optional observances.
           </p>
         </div>
         {session.isAdmin && (
@@ -181,7 +185,7 @@ function HolidaysPage() {
           <CardContent className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Sparkles className="h-6 w-6" />
+                <CalendarDays className="h-6 w-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -192,7 +196,7 @@ function HolidaysPage() {
                     {getDaysUntil(nextHoliday.date)}
                   </span>
                 </div>
-                <h3 className="text-base sm:text-lg font-bold">{nextHoliday.name}</h3>
+                <h3 className="text-base sm:text-lg font-bold">{nextHoliday.name || nextHoliday.title}</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   {formatHolidayDate(nextHoliday.date)}
                 </p>
@@ -300,7 +304,7 @@ function HolidaysPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <p className={`font-semibold ${isPast ? "text-muted-foreground" : ""}`}>
-                            {holiday.name}
+                            {holiday.name || holiday.title}
                           </p>
                           {holiday.is_optional && (
                             <Badge variant="secondary" className="text-[10px]">
@@ -325,7 +329,7 @@ function HolidaysPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            if (confirm(`Remove holiday "${holiday.name}"?`)) {
+                            if (confirm(`Remove holiday "${holiday.name || holiday.title}"?`)) {
                               deleteHolidayMutation.mutate(holiday.id);
                             }
                           }}
@@ -359,7 +363,7 @@ function HolidaysPage() {
               <Label htmlFor="holiday-name">Holiday Name</Label>
               <Input
                 id="holiday-name"
-                placeholder="e.g. Independence Day"
+                placeholder="Enter holiday name"
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               />

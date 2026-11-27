@@ -123,7 +123,7 @@ export function AttendanceCorrectionRequestDialog({
           <div className="space-y-1">
             <Label className="text-xs">Reason / Justification</Label>
             <Textarea
-              placeholder="e.g. Forgot to punch out after late deployment / Onsite client meeting / Scanner terminal glitch..."
+              placeholder="Enter reason for attendance adjustment"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}

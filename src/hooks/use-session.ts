@@ -171,7 +171,7 @@ export function useSession(): AppSession {
       });
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       globalSession = s;
       setSession(s);
 
@@ -181,7 +181,8 @@ export function useSession(): AppSession {
         setLoading(false);
       } else {
         const user = s.user;
-        if (!globalProfile || globalProfile.userId !== user.id) {
+        if (event === "USER_UPDATED" || !globalProfile || globalProfile.userId !== user.id) {
+          globalProfile = null;
           fetchUserProfile(user.id, user.email, user.user_metadata?.["name"]).then((prof) => {
             if (cancelled) return;
             if (prof) setProfile(prof);

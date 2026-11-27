@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 
 interface MobileMenuProps {
@@ -9,11 +9,15 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ isOpen, onClose, isLoggedIn }: MobileMenuProps) {
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const isHome = pathname === "/";
+
   if (!isOpen) return null;
 
-  const handleLinkClick = (hashId?: string) => {
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, hashId?: string) => {
     onClose();
-    if (hashId) {
+    if (isHome && hashId) {
+      e.preventDefault();
       const el = document.getElementById(hashId);
       if (el) {
         el.scrollIntoView({ behavior: "smooth" });
@@ -24,60 +28,48 @@ export function MobileMenu({ isOpen, onClose, isLoggedIn }: MobileMenuProps) {
   return (
     <div
       id="mobile-menu"
-      className="border-t border-slate-200 bg-white px-4 sm:px-6 pb-4 pt-2 shadow-lg lg:hidden"
+      className="border-t border-[#E5EAF4] bg-white px-4 sm:px-6 pb-4 pt-2 shadow-md lg:hidden"
     >
-      <nav className="flex flex-col divide-y divide-slate-100" aria-label="Mobile Navigation">
+      <nav className="flex flex-col divide-y divide-[#E5EAF4]/70" aria-label="Mobile Navigation">
         <a
-          href="#features"
-          onClick={(e) => {
-            e.preventDefault();
-            handleLinkClick("features");
-          }}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          href={isHome ? "#features" : "/#features"}
+          onClick={(e) => handleLinkClick(e, "features")}
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Features
         </a>
         <a
-          href="#geofencing"
-          onClick={(e) => {
-            e.preventDefault();
-            handleLinkClick("geofencing");
-          }}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          href={isHome ? "#geofencing" : "/#geofencing"}
+          onClick={(e) => handleLinkClick(e, "geofencing")}
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Geofencing
         </a>
         <a
-          href="#cloud-backup"
-          onClick={(e) => {
-            e.preventDefault();
-            handleLinkClick("cloud-backup");
-          }}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          href={isHome ? "#cloud-backup" : "/#cloud-backup"}
+          onClick={(e) => handleLinkClick(e, "cloud-backup")}
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Cloud Backup
         </a>
         <a
-          href="#security"
-          onClick={(e) => {
-            e.preventDefault();
-            handleLinkClick("security");
-          }}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          href={isHome ? "#security" : "/#security"}
+          onClick={(e) => handleLinkClick(e, "security")}
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Security
         </a>
         <Link
           to="/privacy-policy"
           onClick={onClose}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Privacy Policy
         </Link>
         <Link
           to="/terms"
           onClick={onClose}
-          className="py-3 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
+          className="py-3 text-sm font-medium text-[#172554] hover:text-[#315EFB] transition-colors"
         >
           Terms &amp; Conditions
         </Link>
@@ -87,7 +79,7 @@ export function MobileMenu({ isOpen, onClose, isLoggedIn }: MobileMenuProps) {
         <Link
           to={isLoggedIn ? "/dashboard" : "/auth"}
           onClick={onClose}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#315EFB] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#254EDB]"
         >
           {isLoggedIn ? "Open Dashboard" : "Sign In to Workspace"}
           <ArrowRight className="h-4 w-4" />

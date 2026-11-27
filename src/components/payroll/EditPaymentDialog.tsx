@@ -289,7 +289,7 @@ export function EditPaymentDialog({
               <Input
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Performance bonus or reimbursement"
+                placeholder="Optional adjustment note"
                 className="h-8 text-xs"
               />
             </div>

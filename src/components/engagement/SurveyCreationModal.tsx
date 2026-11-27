@@ -269,7 +269,7 @@ export function SurveyCreationModal({
               <Label htmlFor="srv-title">Survey Title *</Label>
               <Input
                 id="srv-title"
-                placeholder="e.g. Q4 Pulse Survey: Work-Life & Remote Setup"
+                placeholder="Enter survey title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />

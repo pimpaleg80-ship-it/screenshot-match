@@ -432,7 +432,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                   <div className="space-y-1">
                     <Label className="text-xs">Mobile Phone</Label>
                     <Input
-                      placeholder="+91 98765 43210"
+                      placeholder="Enter mobile number"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="h-8 text-xs"
@@ -442,7 +442,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                     <Label className="text-xs">Personal Email</Label>
                     <Input
                       type="email"
-                      placeholder="alex.personal@gmail.com"
+                      placeholder="Enter personal email"
                       value={personalEmail}
                       onChange={(e) => setPersonalEmail(e.target.value)}
                       className="h-8 text-xs"
@@ -460,7 +460,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                   <div className="space-y-1">
                     <Label className="text-xs">Current Residence Address</Label>
                     <Input
-                      placeholder="Apartment, Street, City, State, PIN"
+                      placeholder="Enter current address"
                       value={currentAddress}
                       onChange={(e) => setCurrentAddress(e.target.value)}
                       className="h-8 text-xs"
@@ -469,7 +469,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                   <div className="space-y-1">
                     <Label className="text-xs">Permanent Address</Label>
                     <Input
-                      placeholder="Permanent family residence address"
+                      placeholder="Enter permanent address"
                       value={permanentAddress}
                       onChange={(e) => setPermanentAddress(e.target.value)}
                       className="h-8 text-xs"
@@ -487,7 +487,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                   <div className="space-y-1">
                     <Label className="text-xs">Contact Person Name</Label>
                     <Input
-                      placeholder="e.g. Sarah Doe"
+                      placeholder="Enter contact name"
                       value={emergencyName}
                       onChange={(e) => setEmergencyName(e.target.value)}
                       className="h-8 text-xs"
@@ -496,7 +496,7 @@ export function SelfServiceProfile({ employee, faceEnrolled, userId }: SelfServi
                   <div className="space-y-1">
                     <Label className="text-xs">Contact Phone Number</Label>
                     <Input
-                      placeholder="+91 98765 00000"
+                      placeholder="Enter phone number"
                       value={emergencyPhone}
                       onChange={(e) => setEmergencyPhone(e.target.value)}
                       className="h-8 text-xs"

@@ -255,10 +255,17 @@ async function backupPdfToDrive({
     const base64Data = pdfDataUri.split(",")[1];
     if (!base64Data) return;
 
-    // Invoke google-drive-upload API
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) return;
+
+    // Invoke google-drive-upload API with caller's Supabase bearer token
     const res = await fetch("/api/integrations/google-drive/upload", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         file_type: fileType,
         file_name: fileName,

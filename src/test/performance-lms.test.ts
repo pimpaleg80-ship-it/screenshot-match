@@ -5,13 +5,10 @@ import {
   getGradeBadge,
   getReviewStageBadge,
   getGoalStatusBadge,
-  getCourseLevelBadge,
-  getEnrollmentStatusBadge,
-  formatCourseDuration,
   PerformanceGoal,
 } from "../lib/performance-lms";
 
-describe("Phase 06: Performance Management & LMS", () => {
+describe("Phase 06: Performance Management", () => {
   describe("Goal Completion Statistics", () => {
     it("returns zero stats when goals list is empty", () => {
       const stats = calculateGoalCompletionStats([]);
@@ -129,36 +126,6 @@ describe("Phase 06: Performance Management & LMS", () => {
       expect(getGoalStatusBadge("in_progress").label).toBe("In Progress");
       expect(getGoalStatusBadge("not_started").label).toBe("Not Started");
       expect(getGoalStatusBadge("cancelled").label).toBe("Cancelled");
-    });
-  });
-
-  describe("LMS Course Duration & Badges", () => {
-    it("formats minutes into readable hours and minutes", () => {
-      expect(formatCourseDuration(45)).toBe("45 mins");
-      expect(formatCourseDuration(60)).toBe("1 hr");
-      expect(formatCourseDuration(90)).toBe("1h 30m");
-      expect(formatCourseDuration(135)).toBe("2h 15m");
-    });
-
-    it("provides skill level badges", () => {
-      expect(getCourseLevelBadge("beginner").label).toBe("Beginner");
-      expect(getCourseLevelBadge("intermediate").label).toBe("Intermediate");
-      expect(getCourseLevelBadge("advanced").label).toBe("Advanced");
-      expect(getCourseLevelBadge("all_levels").label).toBe("All Levels");
-    });
-
-    it("detects completed and overdue enrollment states", () => {
-      // Completed status
-      expect(getEnrollmentStatusBadge("completed").label).toBe("Completed");
-
-      // Past due date with incomplete status -> Overdue
-      const pastDate = new Date(Date.now() - 86400000).toISOString();
-      expect(getEnrollmentStatusBadge("in_progress", pastDate).label).toBe("Overdue");
-
-      // Future due date -> Active status
-      const futureDate = new Date(Date.now() + 86400000 * 7).toISOString();
-      expect(getEnrollmentStatusBadge("in_progress", futureDate).label).toBe("In Progress");
-      expect(getEnrollmentStatusBadge("enrolled", futureDate).label).toBe("Enrolled / Not Started");
     });
   });
 });

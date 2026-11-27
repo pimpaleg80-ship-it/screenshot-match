@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2, KeyRound } from "lucide-react";
+import { ArrowLeft, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -45,7 +45,9 @@ function ResetPasswordPage() {
           <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <KeyRound className="h-5 w-5" />
           </div>
-          <CardTitle>Set a new password</CardTitle>
+          <CardTitle>
+            <h1 className="text-lg font-semibold tracking-tight">Set a new password</h1>
+          </CardTitle>
           <CardDescription>
             {ready
               ? "Choose a new password for your account."
@@ -74,6 +76,15 @@ function ResetPasswordPage() {
             </form>
           </CardContent>
         )}
+        <CardFooter className="border-t border-border/50 pt-4 justify-center">
+          <Link
+            to="/auth"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to sign in
+          </Link>
+        </CardFooter>
       </Card>
     </div>
   );

@@ -16,6 +16,7 @@ import {
   Building,
   User,
   ArrowRight,
+  Edit2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,25 +47,38 @@ import {
   LEAVE_STATUS_COLORS,
   LEAVE_STATUS_LABELS,
   getLeaveRequestDisplayStatus,
+  type Holiday,
   type LeaveRequest,
 } from "@/lib/leave";
+import { EditLeaveRequestDialog } from "./EditLeaveRequestDialog";
 
 interface LeaveApprovalsManagerProps {
   currentEmployeeId?: string | null;
   isAdmin: boolean;
   isManager: boolean;
+  isHrOrAdmin?: boolean;
   departmentId?: string | null;
+  holidays?: Holiday[];
+  weeklyOffDays?: number[];
+  sandwichRuleEnabled?: boolean;
 }
 
 export function LeaveApprovalsManager({
   currentEmployeeId,
   isAdmin,
   isManager,
+  isHrOrAdmin,
   departmentId,
+  holidays = [],
+  weeklyOffDays = [0, 6],
+  sandwichRuleEnabled = false,
 }: LeaveApprovalsManagerProps) {
   const queryClient = useQueryClient();
+  const canEditAllLeaves = Boolean(isHrOrAdmin ?? isAdmin);
 
-  const [filterScope, setFilterScope] = useState<"pending_my_action" | "all_pending" | "approved" | "rejected">("pending_my_action");
+  const [filterScope, setFilterScope] = useState<
+    "pending_my_action" | "all_pending" | "approved" | "rejected" | "cancelled" | "all"
+  >("pending_my_action");
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
 
@@ -74,9 +88,13 @@ export function LeaveApprovalsManager({
   const [decisionType, setDecisionType] = useState<"approve" | "reject">("approve");
   const [decisionComment, setDecisionComment] = useState("");
 
+  // Edit Modal State (HR & Admin across all levels/statuses)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+
   // Query Leave Requests with complete relations
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: ["admin-manager-leave-approvals", currentEmployeeId, isAdmin],
+    queryKey: ["admin-manager-leave-approvals", currentEmployeeId, canEditAllLeaves],
     queryFn: async () => {
       const q = supabase
         .from("leave_requests")
@@ -126,11 +144,17 @@ export function LeaveApprovalsManager({
       }
 
       // Tab filter
+      if (filterScope === "all") {
+        return true;
+      }
       if (filterScope === "approved") {
         return r.status === "approved";
       }
       if (filterScope === "rejected") {
         return r.status === "rejected";
+      }
+      if (filterScope === "cancelled") {
+        return r.status === "cancelled";
       }
       if (filterScope === "all_pending") {
         return r.status === "pending";
@@ -139,8 +163,8 @@ export function LeaveApprovalsManager({
       // pending_my_action
       if (r.status !== "pending") return false;
 
-      if (isAdmin) {
-        // Admins can act on any pending request (or specifically pending_admin)
+      if (canEditAllLeaves) {
+        // HR and Admins can act on any pending request (manager or HR level)
         return true;
       }
 
@@ -154,7 +178,7 @@ export function LeaveApprovalsManager({
 
       return false;
     });
-  }, [requests, currentEmployeeId, isAdmin, isManager, filterScope, search, selectedDept]);
+  }, [requests, currentEmployeeId, canEditAllLeaves, isManager, filterScope, search, selectedDept]);
 
   // Approve Mutation (Transactional)
   const approveMutation = useMutation({
@@ -166,31 +190,7 @@ export function LeaveApprovalsManager({
         p_comment: decisionComment.trim() || null,
       });
 
-      if (error) {
-        // Fallback update if RPC not accessible
-        const updatePayload: Record<string, unknown> = {
-          status: "approved",
-          decided_at: new Date().toISOString(),
-        };
-        if (isAdmin) {
-          updatePayload["admin_id"] = currentEmployeeId;
-          updatePayload["admin_comment"] = decisionComment.trim() || null;
-          updatePayload["admin_decision"] = "approved";
-          updatePayload["admin_decision_at"] = new Date().toISOString();
-        } else {
-          updatePayload["manager_id"] = currentEmployeeId;
-          updatePayload["manager_comment"] = decisionComment.trim() || null;
-          updatePayload["manager_decision"] = "approved";
-          updatePayload["manager_decision_at"] = new Date().toISOString();
-        }
-
-        const { error: fallbackErr } = await (supabase
-          .from("leave_requests") as any)
-          .update(updatePayload)
-          .eq("id", selectedRequest.id);
-
-        if (fallbackErr) throw fallbackErr;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Leave request approved successfully");
@@ -217,28 +217,7 @@ export function LeaveApprovalsManager({
         p_comment: decisionComment.trim(),
       });
 
-      if (error) {
-        const updatePayload: Record<string, unknown> = {
-          status: "rejected",
-          decided_at: new Date().toISOString(),
-        };
-        if (isAdmin) {
-          updatePayload["admin_id"] = currentEmployeeId;
-          updatePayload["admin_comment"] = decisionComment.trim();
-          updatePayload["admin_decision"] = "rejected";
-        } else {
-          updatePayload["manager_id"] = currentEmployeeId;
-          updatePayload["manager_comment"] = decisionComment.trim();
-          updatePayload["manager_decision"] = "rejected";
-        }
-
-        const { error: fallbackErr } = await (supabase
-          .from("leave_requests") as any)
-          .update(updatePayload)
-          .eq("id", selectedRequest.id);
-
-        if (fallbackErr) throw fallbackErr;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Leave request rejected");
@@ -264,7 +243,7 @@ export function LeaveApprovalsManager({
   const pendingActionCount = useMemo(() => {
     return requests.filter((r) => {
       if (r.employee_id === currentEmployeeId || r.status !== "pending") return false;
-      if (isAdmin) return true;
+      if (canEditAllLeaves) return true;
       if (isManager && currentEmployeeId) {
         return (
           r.employees?.manager_id === currentEmployeeId &&
@@ -273,7 +252,7 @@ export function LeaveApprovalsManager({
       }
       return false;
     }).length;
-  }, [requests, currentEmployeeId, isAdmin, isManager]);
+  }, [requests, currentEmployeeId, canEditAllLeaves, isManager]);
 
   return (
     <div className="space-y-5">
@@ -295,7 +274,7 @@ export function LeaveApprovalsManager({
             )}
           </Button>
 
-          {isAdmin && (
+          {canEditAllLeaves && (
             <Button
               variant={filterScope === "all_pending" ? "default" : "outline"}
               size="sm"
@@ -325,6 +304,27 @@ export function LeaveApprovalsManager({
             <XCircle className="h-3.5 w-3.5 text-rose-600" />
             Rejected
           </Button>
+
+          {canEditAllLeaves && (
+            <>
+              <Button
+                variant={filterScope === "cancelled" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterScope("cancelled")}
+                className="text-xs h-8 gap-1.5"
+              >
+                Cancelled
+              </Button>
+              <Button
+                variant={filterScope === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterScope("all")}
+                className="text-xs h-8 gap-1.5"
+              >
+                All Leaves
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center pt-2 border-t">
@@ -429,15 +429,27 @@ export function LeaveApprovalsManager({
                           </Badge>
                         )}
                         {req.attachment_url && (
-                          <a
-                            href={req.attachment_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (/^https?:\/\//i.test(req.attachment_url!)) {
+                                window.open(req.attachment_url!, "_blank", "noopener,noreferrer");
+                                return;
+                              }
+                              const { data } = await supabase.storage
+                                .from("leave-attachments")
+                                .createSignedUrl(req.attachment_url!, 3600);
+                              if (data?.signedUrl) {
+                                window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                              } else {
+                                toast.error("Attachment URL unavailable");
+                              }
+                            }}
                             className="flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
                           >
                             <FileText className="h-3 w-3" /> View Medical/Proof Document
                             <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
+                          </button>
                         )}
                       </div>
 
@@ -517,27 +529,43 @@ export function LeaveApprovalsManager({
                         {statusMeta.label}
                       </span>
 
-                      {req.status === "pending" && (
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenDecision(req, "approve")}
-                            className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {isAdmin ? "Final Approve" : "Approve"}
-                          </Button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {req.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenDecision(req, "approve")}
+                              className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {canEditAllLeaves ? "Final Approve" : "Approve"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenDecision(req, "reject")}
+                              className="h-8 border-rose-300 text-rose-600 hover:bg-rose-50 text-xs gap-1"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {canEditAllLeaves && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenDecision(req, "reject")}
-                            className="h-8 border-rose-300 text-rose-600 hover:bg-rose-50 text-xs gap-1"
+                            onClick={() => {
+                              setEditingRequest(req);
+                              setEditModalOpen(true);
+                            }}
+                            className="h-8 text-xs gap-1"
                           >
-                            <XCircle className="h-3.5 w-3.5" />
-                            Reject
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -634,6 +662,15 @@ export function LeaveApprovalsManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Edit Leave Dialog (HR & Admin across all levels/statuses) */}
+      <EditLeaveRequestDialog
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        request={editingRequest}
+        holidays={holidays}
+        weeklyOffDays={weeklyOffDays}
+        sandwichRuleEnabled={sandwichRuleEnabled}
+      />
     </div>
   );
 }

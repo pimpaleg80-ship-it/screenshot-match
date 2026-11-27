@@ -175,7 +175,7 @@ export function JobOpeningModal({
             <Label htmlFor="job-title">Job Title *</Label>
             <Input
               id="job-title"
-              placeholder="e.g. Senior Frontend Engineer, Talent Acquisition Manager"
+              placeholder="Enter job title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -252,7 +252,7 @@ export function JobOpeningModal({
               <Label htmlFor="job-loc">Location / City</Label>
               <Input
                 id="job-loc"
-                placeholder="e.g. Bengaluru, Remote"
+                placeholder="Enter location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
               />
@@ -266,7 +266,7 @@ export function JobOpeningModal({
               <Input
                 id="min-sal"
                 type="number"
-                placeholder="e.g. 1500000"
+                placeholder="Enter minimum CTC"
                 value={minSalary}
                 onChange={(e) => setMinSalary(e.target.value)}
               />
@@ -277,7 +277,7 @@ export function JobOpeningModal({
               <Input
                 id="max-sal"
                 type="number"
-                placeholder="e.g. 2500000"
+                placeholder="Enter maximum CTC"
                 value={maxSalary}
                 onChange={(e) => setMaxSalary(e.target.value)}
               />

@@ -22,16 +22,6 @@ export interface NewHireItem {
   joining_date: string;
 }
 
-export interface ExitItem {
-  id: string;
-  full_name: string;
-  employee_code: string;
-  resignation_date: string;
-  agreed_last_working_day: string | null;
-  reason_category: string | null;
-  status: string;
-}
-
 export interface AttendanceData {
   present_count: number;
   late_count: number;
@@ -91,13 +81,6 @@ export interface TicketData {
   payroll_queries: number;
 }
 
-export interface TrainingData {
-  total_enrollments: number;
-  completed: number;
-  in_progress: number;
-  enrolled: number;
-}
-
 export interface PerformanceData {
   total_reviews: number;
   completed_reviews: number;
@@ -108,7 +91,6 @@ export interface ReportsAnalyticsOverview {
   headcount: HeadcountData;
   department_distribution: DepartmentDistItem[];
   new_hires: NewHireItem[];
-  exits: ExitItem[];
   attendance: AttendanceData;
   leaves: LeaveData;
   shifts: ShiftItem[];
@@ -116,7 +98,6 @@ export interface ReportsAnalyticsOverview {
   expenses: ExpenseData;
   payroll: PayrollData;
   tickets: TicketData;
-  training: TrainingData;
   performance: PerformanceData;
 }
 
@@ -182,11 +163,6 @@ export function calculatePunctualityScore(present: number, late: number): number
   return Math.round((present / total) * 100);
 }
 
-export function calculateTurnoverRate(exitsCount: number, avgHeadcount: number): number {
-  if (avgHeadcount <= 0) return 0;
-  return Math.round((exitsCount / avgHeadcount) * 1000) / 10;
-}
-
 export function calculateLeaveUtilizationRate(usedDays: number, totalAllocated: number): number {
   if (totalAllocated <= 0) return 0;
   return Math.round((usedDays / totalAllocated) * 100);
@@ -200,11 +176,6 @@ export function calculateRecruitmentConversionRate(hired: number, applied: numbe
 export function calculateTicketResolutionRate(resolved: number, total: number): number {
   if (total <= 0) return 100;
   return Math.round((resolved / total) * 100);
-}
-
-export function calculateTrainingCompletionRate(completed: number, total: number): number {
-  if (total <= 0) return 100;
-  return Math.round((completed / total) * 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +211,7 @@ export function exportOverviewToCsv(
   lines.push(`"Active Employees",${overview.headcount.active_count}`);
   lines.push(`"Probation",${overview.headcount.probation_count}`);
   lines.push(`"Notice Period",${overview.headcount.notice_count}`);
-  lines.push(`"Inactive / Exited",${overview.headcount.inactive_count}`);
+  lines.push(`"Inactive",${overview.headcount.inactive_count}`);
   lines.push("");
 
   // Department Distribution
@@ -300,16 +271,13 @@ export function exportOverviewToCsv(
   lines.push(`"TDS Tax",${overview.payroll.total_tds}`);
   lines.push("");
 
-  // Helpdesk & Training
-  lines.push(`"--- 7. HELPDESK & TRAINING ---"`);
+  // Helpdesk
+  lines.push(`"--- 7. HELPDESK ---"`);
   lines.push(`"Metric","Value"`);
   lines.push(`"Total Tickets Raised",${overview.tickets.total_tickets}`);
   lines.push(`"Open / In Progress Tickets",${overview.tickets.open_tickets}`);
   lines.push(`"Resolved Tickets",${overview.tickets.resolved_tickets}`);
   lines.push(`"Resolution Rate %",${calculateTicketResolutionRate(overview.tickets.resolved_tickets, overview.tickets.total_tickets)}%`);
-  lines.push(`"Training Enrollments",${overview.training.total_enrollments}`);
-  lines.push(`"Completed Courses",${overview.training.completed}`);
-  lines.push(`"Training Completion Rate %",${calculateTrainingCompletionRate(overview.training.completed, overview.training.total_enrollments)}%`);
 
   const csv = lines.join("\n");
   downloadCsv(`FlowPeople-Analytics-Report-${Date.now()}.csv`, csv);
@@ -414,7 +382,6 @@ export function exportExecutivePdfReport(
     ["Statutory Deductions (PF + PT + TDS)", `INR ${(overview.payroll.total_pf + overview.payroll.total_pt + overview.payroll.total_tds).toLocaleString()}`],
     ["Approved Expense Claims", `INR ${overview.expenses.approved_amount.toLocaleString()}`],
     ["Recruitment Pipeline Conversion", `${overview.recruitment.hired} Hired of ${overview.recruitment.applied} Applicants`],
-    ["Training Completion Rate", `${calculateTrainingCompletionRate(overview.training.completed, overview.training.total_enrollments)}%`],
   ];
 
   autoTable(doc, {

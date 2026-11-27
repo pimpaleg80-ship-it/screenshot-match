@@ -73,30 +73,6 @@ export function DocumentVerificationDialog({
 
       if (error) throw error;
 
-      // Also check if any onboarding tasks are linked to this document
-      const { data: linkedTasks } = await supabase
-        .from("employee_onboarding_tasks")
-        .select("id, onboarding_id")
-        .eq("document_id", document.id);
-
-      if (linkedTasks && linkedTasks.length > 0) {
-        for (const task of linkedTasks) {
-          await supabase
-            .from("employee_onboarding_tasks")
-            .update({
-              status: decision === "verified" ? "verified" : "rejected",
-              rejection_notes:
-                decision === "rejected" ? rejectionReason.trim() : null,
-            })
-            .eq("id", task.id);
-
-          // Recalculate onboarding progress
-          await supabase.rpc("recalculate_onboarding_progress", {
-            p_onboarding_id: task.onboarding_id,
-          });
-        }
-      }
-
       toast.success(
         decision === "verified"
           ? "Document successfully verified"
@@ -237,7 +213,7 @@ export function DocumentVerificationDialog({
               <Textarea
                 id="rejection-reason"
                 rows={3}
-                placeholder="Explain why this document was rejected (e.g. blurred scan, expired ID, name mismatch)..."
+                placeholder="Explain why this document was rejected"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 required

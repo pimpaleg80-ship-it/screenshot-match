@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { UserPlus, User, Briefcase, Heart, MapPin, Shield, Loader2, Sparkles } from "lucide-react";
+import { UserPlus, User, Briefcase, Heart, MapPin, Shield, Loader2, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-session";
+import { getOrgCreatableRoles, type OrgAssignableRole } from "@/lib/access-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +42,10 @@ export function EmployeeRegistrationDialog({
   shifts,
   onSuccess,
 }: EmployeeRegistrationDialogProps) {
+  const session = useSession();
+  const creatableRoles = getOrgCreatableRoles(session);
+  const canGrantManager = creatableRoles.includes("manager");
+
   const [activeTab, setActiveTab] = useState("identity");
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,6 +56,7 @@ export function EmployeeRegistrationDialog({
     email: "",
     password: "",
     employee_code: "",
+    role: "employee" as OrgAssignableRole,
     phone: "",
     personal_email: "",
 
@@ -79,17 +86,28 @@ export function EmployeeRegistrationDialog({
     emergency_contact_relation: "Spouse",
   });
 
-  // Auto-generate employee code suggestion on open
+  // Auto-generate employee code suggestion & scope defaults on open
   useEffect(() => {
-    if (open && !formData.employee_code) {
-      const randomSeq = Math.floor(100 + Math.random() * 900);
-      setFormData((prev) => ({
+    if (!open) return;
+    setFormData((prev) => {
+      const nextCode = prev.employee_code || `EMP${Math.floor(100 + Math.random() * 900)}`;
+      const defaultRole: OrgAssignableRole = canGrantManager ? prev.role : "employee";
+      return {
         ...prev,
-        employee_code: `EMP${randomSeq}`,
+        employee_code: nextCode,
         password: "",
-      }));
-    }
-  }, [open]);
+        role: defaultRole,
+        department:
+          !canGrantManager && session.departmentName
+            ? session.departmentName
+            : prev.department,
+        manager_id:
+          !canGrantManager && session.employeeId
+            ? session.employeeId
+            : prev.manager_id,
+      };
+    });
+  }, [open, canGrantManager, session.departmentName, session.employeeId]);
 
   function handleChange(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -126,13 +144,17 @@ export function EmployeeRegistrationDialog({
       const finalManagerId = formData.manager_id === "none" ? null : formData.manager_id;
       const finalShiftId = formData.shift_id === "none" ? null : formData.shift_id;
 
+      const effectiveRole: OrgAssignableRole = canGrantManager ? formData.role : "employee";
+
       // 1. Call admin_create_employee_v2 RPC
       const { data, error } = await (supabase.rpc as any)("admin_create_employee_v2", {
         p_email: formData.email.trim().toLowerCase(),
         p_password: formData.password.trim(),
         p_full_name: formData.full_name.trim(),
         p_department: finalDept,
-        p_designation: formData.designation.trim() || "Employee",
+        p_designation:
+          formData.designation.trim() ||
+          (effectiveRole === "manager" ? "Team Manager" : "Employee"),
         p_phone: formData.phone.trim() || null,
         p_person_code: formData.employee_code.trim() || null,
         p_manager_id: finalManagerId,
@@ -150,10 +172,12 @@ export function EmployeeRegistrationDialog({
         p_emergency_contact_name: formData.emergency_contact_name.trim() || null,
         p_emergency_contact_phone: formData.emergency_contact_phone.trim() || null,
         p_emergency_contact_relation: formData.emergency_contact_relation || null,
+        p_role: effectiveRole,
       });
 
       if (error) {
-        // Fallback to legacy RPC if v2 not yet applied
+        if (effectiveRole !== "employee") throw error;
+        // Fallback to legacy RPC if v2 signature unavailable for employee
         const { error: legacyErr } = await (supabase.rpc as any)("admin_create_employee", {
           p_email: formData.email.trim().toLowerCase(),
           p_password: formData.password.trim(),
@@ -165,9 +189,12 @@ export function EmployeeRegistrationDialog({
         if (legacyErr) throw legacyErr;
       }
 
-      toast.success(`Employee ${formData.full_name} registered successfully!`, {
-        description: `Login email: ${formData.email} • ID: ${formData.employee_code}`,
-      });
+      toast.success(
+        `${effectiveRole === "manager" ? "Manager" : "Employee"} ${formData.full_name} registered successfully!`,
+        {
+          description: `Login email: ${formData.email} • ID: ${formData.employee_code}`,
+        },
+      );
 
       onSuccess();
       onOpenChange(false);
@@ -178,12 +205,13 @@ export function EmployeeRegistrationDialog({
         email: "",
         password: "",
         employee_code: "",
+        role: "employee",
         phone: "",
         personal_email: "",
-        department: "General",
+        department: !canGrantManager && session.departmentName ? session.departmentName : "General",
         new_department: "",
         designation: "Software Engineer",
-        manager_id: "none",
+        manager_id: !canGrantManager && session.employeeId ? session.employeeId : "none",
         joining_date: new Date().toISOString().split("T")[0],
         employment_type: "full_time",
         work_location: "onsite",
@@ -253,7 +281,7 @@ export function EmployeeRegistrationDialog({
                     </Label>
                     <Input
                       id="full_name"
-                      placeholder="e.g. Priya Sharma"
+                      placeholder="Enter full name"
                       value={formData.full_name}
                       onChange={(e) => handleChange("full_name", e.target.value)}
                       required
@@ -266,7 +294,7 @@ export function EmployeeRegistrationDialog({
                     </Label>
                     <Input
                       id="employee_code"
-                      placeholder="e.g. EMP005"
+                      placeholder="Enter employee ID"
                       value={formData.employee_code}
                       onChange={(e) => handleChange("employee_code", e.target.value)}
                       required
@@ -282,7 +310,7 @@ export function EmployeeRegistrationDialog({
                     <Input
                       id="email"
                       type="email"
-                      placeholder="priya@company.com"
+                      placeholder="Enter work email"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
                       required
@@ -304,6 +332,36 @@ export function EmployeeRegistrationDialog({
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-primary" />
+                    Access Level
+                  </Label>
+                  {canGrantManager ? (
+                    <Select
+                      value={formData.role}
+                      onValueChange={(val) => handleChange("role", val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="employee">
+                          Employee (Personal Portal & Attendance)
+                        </SelectItem>
+                        <SelectItem value="manager">
+                          Manager (Team Lead — Can grant Employee access)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
+                      <span className="font-medium text-foreground">Employee (Personal Portal)</span>
+                      <span className="text-[11px]">Assigned to your team</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="text-xs font-medium">
@@ -312,7 +370,7 @@ export function EmployeeRegistrationDialog({
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="+91 98765 43210"
+                      placeholder="Enter mobile number"
                       value={formData.phone}
                       onChange={(e) => handleChange("phone", e.target.value)}
                     />
@@ -325,7 +383,7 @@ export function EmployeeRegistrationDialog({
                     <Input
                       id="personal_email"
                       type="email"
-                      placeholder="priya.personal@gmail.com"
+                      placeholder="Enter personal email"
                       value={formData.personal_email}
                       onChange={(e) => handleChange("personal_email", e.target.value)}
                     />
@@ -351,7 +409,9 @@ export function EmployeeRegistrationDialog({
                             {d}
                           </SelectItem>
                         ))}
-                        <SelectItem value="NEW">+ Add New Department</SelectItem>
+                        {canGrantManager && (
+                          <SelectItem value="NEW">+ Add New Department</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -363,7 +423,7 @@ export function EmployeeRegistrationDialog({
                       </Label>
                       <Input
                         id="new_dept"
-                        placeholder="e.g. Artificial Intelligence"
+                        placeholder="Enter department name"
                         value={formData.new_department}
                         onChange={(e) => handleChange("new_department", e.target.value)}
                       />
@@ -376,7 +436,7 @@ export function EmployeeRegistrationDialog({
                     </Label>
                     <Input
                       id="designation"
-                      placeholder="e.g. Senior Frontend Engineer"
+                      placeholder="Enter job title"
                       value={formData.designation}
                       onChange={(e) => handleChange("designation", e.target.value)}
                     />
@@ -389,12 +449,15 @@ export function EmployeeRegistrationDialog({
                     <Select
                       value={formData.manager_id}
                       onValueChange={(val) => handleChange("manager_id", val)}
+                      disabled={!canGrantManager && !!session.employeeId}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Manager" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">None (Direct Report / Executive)</SelectItem>
+                        {canGrantManager && (
+                          <SelectItem value="none">None (Direct Report / Executive)</SelectItem>
+                        )}
                         {existingEmployees.map((emp) => (
                           <SelectItem key={emp.id} value={emp.id}>
                             {emp.name}
@@ -585,7 +648,7 @@ export function EmployeeRegistrationDialog({
                   </Label>
                   <Input
                     id="emergency_name"
-                    placeholder="e.g. Ramesh Sharma"
+                    placeholder="Enter contact full name"
                     value={formData.emergency_contact_name}
                     onChange={(e) => handleChange("emergency_contact_name", e.target.value)}
                   />
@@ -620,7 +683,7 @@ export function EmployeeRegistrationDialog({
                     <Input
                       id="emergency_phone"
                       type="tel"
-                      placeholder="+91 98765 00000"
+                      placeholder="Enter emergency phone number"
                       value={formData.emergency_contact_phone}
                       onChange={(e) => handleChange("emergency_contact_phone", e.target.value)}
                     />
@@ -648,7 +711,7 @@ export function EmployeeRegistrationDialog({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <UserCheck className="h-4 w-4" />
                   <span>Complete Registration</span>
                 </>
               )}

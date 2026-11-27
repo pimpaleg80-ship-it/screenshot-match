@@ -264,6 +264,9 @@ export function AttendanceCameraPunchModal({
   }, [open, activeTab]);
 
   // Main Recognition & Verification Loop
+  const executePunchRef = useRef(executePunch);
+  executePunchRef.current = executePunch;
+
   useEffect(() => {
     if (!open || !cameraActive || !modelReady || activeTab !== "camera" || scanResult) {
       return;
@@ -343,7 +346,7 @@ export function AttendanceCameraPunchModal({
 
               // Trigger punch execution
               setVerifying(true);
-              executePunch(bestPerson, confidence);
+              executePunchRef.current(bestPerson, confidence);
             }
           }
         }
@@ -842,7 +845,7 @@ export function AttendanceCameraPunchModal({
                 <Input
                   value={devTerminalId}
                   onChange={(e) => setDevTerminalId(e.target.value)}
-                  placeholder="e.g. BIO-TERMINAL-01"
+                  placeholder="Enter terminal ID"
                   className="h-9 text-xs font-mono"
                 />
               </div>

@@ -1,11 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   calculatePunctualityScore,
-  calculateTurnoverRate,
   calculateLeaveUtilizationRate,
   calculateRecruitmentConversionRate,
   calculateTicketResolutionRate,
-  calculateTrainingCompletionRate,
   getDatePresetRange,
   ReportsAnalyticsOverview,
 } from "@/lib/reports";
@@ -33,20 +31,6 @@ describe("Phase 10: Reports & Analytics Calculation Formulas", () => {
     expect(calculatePunctualityScore(25, 75)).toBe(25);
   });
 
-  it("calculates turnover rate accurately", () => {
-    // 0 headcount -> 0%
-    expect(calculateTurnoverRate(5, 0)).toBe(0);
-
-    // 5 exits out of 100 employees -> 5%
-    expect(calculateTurnoverRate(5, 100)).toBe(5);
-
-    // 2 exits out of 50 employees -> 4%
-    expect(calculateTurnoverRate(2, 50)).toBe(4);
-
-    // 0 exits -> 0%
-    expect(calculateTurnoverRate(0, 75)).toBe(0);
-  });
-
   it("calculates leave utilization rate", () => {
     expect(calculateLeaveUtilizationRate(0, 0)).toBe(0);
     expect(calculateLeaveUtilizationRate(10, 20)).toBe(50);
@@ -67,12 +51,6 @@ describe("Phase 10: Reports & Analytics Calculation Formulas", () => {
     expect(calculateTicketResolutionRate(18, 20)).toBe(90);
     expect(calculateTicketResolutionRate(50, 50)).toBe(100);
     expect(calculateTicketResolutionRate(0, 10)).toBe(0);
-  });
-
-  it("calculates training course completion rate", () => {
-    expect(calculateTrainingCompletionRate(0, 0)).toBe(100);
-    expect(calculateTrainingCompletionRate(15, 20)).toBe(75);
-    expect(calculateTrainingCompletionRate(40, 40)).toBe(100);
   });
 
   it("generates correct date preset ranges", () => {
@@ -112,7 +90,6 @@ describe("Phase 10: Notifications & Alerts Configuration", () => {
       "expense",
       "ticket",
       "document_expiry",
-      "onboarding",
       "interview",
       "performance",
       "payroll",
@@ -161,7 +138,7 @@ describe("Phase 10: Notifications & Alerts Configuration", () => {
 });
 
 describe("Phase 10: Analytics Overview Mock Dataset Integrity", () => {
-  it("validates full 17 domain metrics data structure", () => {
+  it("validates domain metrics data structure", () => {
     const mockOverview: ReportsAnalyticsOverview = {
       headcount: {
         total_employees: 50,
@@ -182,17 +159,6 @@ describe("Phase 10: Analytics Overview Mock Dataset Integrity", () => {
           employee_code: "EMP001",
           designation: "Frontend Dev",
           joining_date: "2026-01-15",
-        },
-      ],
-      exits: [
-        {
-          id: "exit-1",
-          full_name: "Jane Smith",
-          employee_code: "EMP002",
-          resignation_date: "2026-02-01",
-          agreed_last_working_day: "2026-03-01",
-          reason_category: "Better Opportunity",
-          status: "approved",
         },
       ],
       attendance: {
@@ -247,12 +213,6 @@ describe("Phase 10: Analytics Overview Mock Dataset Integrity", () => {
         leave_queries: 12,
         payroll_queries: 8,
       },
-      training: {
-        total_enrollments: 45,
-        completed: 36,
-        in_progress: 7,
-        enrolled: 2,
-      },
       performance: {
         total_reviews: 45,
         completed_reviews: 42,
@@ -262,9 +222,7 @@ describe("Phase 10: Analytics Overview Mock Dataset Integrity", () => {
 
     expect(mockOverview.headcount.total_employees).toBe(50);
     expect(calculatePunctualityScore(mockOverview.attendance.present_count, mockOverview.attendance.late_count)).toBe(95);
-    expect(calculateTurnoverRate(mockOverview.exits.length, mockOverview.headcount.total_employees)).toBe(2);
     expect(calculateTicketResolutionRate(mockOverview.tickets.resolved_tickets, mockOverview.tickets.total_tickets)).toBe(85);
-    expect(calculateTrainingCompletionRate(mockOverview.training.completed, mockOverview.training.total_enrollments)).toBe(80);
     expect(mockOverview.payroll.total_gross).toBeGreaterThan(mockOverview.payroll.total_net);
   });
 });

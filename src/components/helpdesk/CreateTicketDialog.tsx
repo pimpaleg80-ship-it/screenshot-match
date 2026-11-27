@@ -139,7 +139,7 @@ export function CreateTicketDialog({
             </Label>
             <Input
               id="ticket-subject"
-              placeholder="e.g., Punch missing for Nov 20, or salary tax deduction clarification"
+              placeholder="Enter ticket subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               className="text-sm"

@@ -112,7 +112,7 @@ function RecruitmentPage() {
       <PageHeader
         breadcrumbs={[{ label: "Recruitment Pipeline" }]}
         title="Recruitment & Talent Acquisition"
-        description="Job requisitions, candidate pipeline management, interview scoring, and candidate-to-employee onboarding."
+        description="Job requisitions, candidate pipeline management, interview scoring, and candidate-to-employee conversion."
         actions={
           <>
             <Button

@@ -8,7 +8,6 @@ import {
   Filter,
   Inbox,
   Settings2,
-  Sparkles,
   RefreshCw,
   AlertTriangle,
 } from "lucide-react";
@@ -111,7 +110,7 @@ export function NotificationDrawer({
     try {
       const res = await runDailyAutomationChecks(organizationId);
       toast.success("Daily automation completed", {
-        description: `Checked expiry, onboarding, and interview reminders.`,
+        description: `Checked document expiry and interview reminders.`,
       });
       queryClient.invalidateQueries({ queryKey: ["user-notifications", userId] });
       queryClient.invalidateQueries({ queryKey: ["unread-count", userId] });
@@ -200,7 +199,6 @@ export function NotificationDrawer({
                 <SelectItem value="expense">Expenses</SelectItem>
                 <SelectItem value="ticket">HR Tickets</SelectItem>
                 <SelectItem value="document_expiry">Doc Expiry</SelectItem>
-                <SelectItem value="onboarding">Onboarding</SelectItem>
                 <SelectItem value="interview">Recruitment</SelectItem>
                 <SelectItem value="performance">Performance</SelectItem>
                 <SelectItem value="payroll">Payroll</SelectItem>
@@ -344,7 +342,7 @@ export function NotificationDrawer({
         {(isAdmin || isManager) && (
           <div className="p-3 border-t bg-muted/20 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <Bell className="h-3.5 w-3.5 text-amber-500" />
               Automated Reminders Check
             </span>
             <Button

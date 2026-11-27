@@ -87,15 +87,12 @@ function PeoplePage() {
   // 9-Tab Profile Drawer State
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
-  // Query People / Employees
+  // Query People / Employees (RLS enforces org scope & superadmin stealth)
   const { data: people = [], isLoading: peopleLoading } = useQuery({
-    queryKey: ["people-list", session.department],
+    queryKey: ["people-list", session.organizationId, session.isManager, session.employeeId],
+    enabled: !session.loading,
     queryFn: async () => {
-      let query = supabase.from("people").select("*").order("name");
-      if (session.isManager && session.department) {
-        query = query.eq("department", session.department);
-      }
-      const { data, error } = await query;
+      const { data, error } = await supabase.from("people").select("*").order("name");
       if (error) throw error;
       return (data ?? []) as PersonRow[];
     },
@@ -174,10 +171,14 @@ function PeoplePage() {
     return { imported, errors };
   }
 
-  // Delete Person Mutation
+  // Delete Person Mutation (Admin only, base table with superadmin protection)
   const deletePersonMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("people").delete().eq("id", id);
+      const { error } = await supabase
+        .from("employees")
+        .delete()
+        .eq("id", id)
+        .neq("is_superadmin", true);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -442,18 +443,22 @@ function PeoplePage() {
                                   <Eye className="mr-2 h-4 w-4 text-primary" />
                                   View 9-Tab Profile
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to delete ${person.name} from FlowPeople?`)) {
-                                      deletePersonMutation.mutate(person.id);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete Employee
-                                </DropdownMenuItem>
+                                {session.isAdmin && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete ${person.name} from FlowPeople?`)) {
+                                          deletePersonMutation.mutate(person.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Employee
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}

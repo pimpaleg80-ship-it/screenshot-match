@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +12,6 @@ import {
   Crown,
   Lock,
   RefreshCw,
-  Sparkles,
   Terminal,
   Activity,
   Database,
@@ -31,7 +30,6 @@ import {
   EyeOff,
   Cpu,
   Fingerprint,
-  Radio,
   Send,
   Building2,
   Briefcase,
@@ -46,6 +44,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { toDateKey, formatTime, formatDate } from "@/lib/attendance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +114,8 @@ function SuperadminPage() {
 function SuperadminConsole({ session }: { session: ReturnType<typeof useSession> }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canAccessSuperadmin = !session.loading && (session.isAdmin || session.isSuperadmin);
+  // Only verified Root Superadmin accounts may access this internal console
+  const canAccessSuperadmin = !session.loading && session.isSuperadmin;
 
   // Active view tab
   const [activeTab, setActiveTab] = useState("provisioning");
@@ -134,10 +134,24 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
   const [gateLoading, setGateLoading] = useState(false);
   const [gateError, setGateError] = useState("");
 
+  useEffect(() => {
+    if (session.user?.email && !gateEmail) {
+      setGateEmail(session.user.email);
+    }
+  }, [session.user?.email, gateEmail]);
+
   async function handleUnlockGate(e: React.FormEvent) {
     e.preventDefault();
+    if (!session.isSuperadmin || !session.user) {
+      setGateError("Access Denied: Root Superadmin session required.");
+      return;
+    }
     if (!gateEmail.trim() || !gatePassword) {
       setGateError("Please enter both email and password.");
+      return;
+    }
+    if (gateEmail.trim().toLowerCase() !== (session.user.email || "").toLowerCase()) {
+      setGateError("Enter the password for your currently signed-in Root Superadmin account.");
       return;
     }
 
@@ -157,19 +171,28 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
       }
 
       const userId = data.user?.id;
-      if (!userId) {
-        setGateError("Authentication failed: No user identity found.");
+      if (!userId || userId !== session.user.id) {
+        setGateError("Authentication failed: Account identity mismatch.");
         setGateLoading(false);
         return;
       }
 
-      const { data: emp, error: empErr } = await supabase
-        .from("employees")
-        .select("is_superadmin" as any)
-        .eq("user_id", userId)
-        .maybeSingle();
+      const [{ data: emp, error: empErr }, { data: orgMem }] = await Promise.all([
+        supabase
+          .from("employees")
+          .select("is_superadmin" as any)
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("organization_members")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .maybeSingle(),
+      ]);
 
-      if (empErr || !(emp as any)?.is_superadmin) {
+      const verifiedRoot = Boolean((emp as any)?.is_superadmin) || orgMem?.role === "super_admin";
+      if ((empErr && !orgMem) || !verifiedRoot) {
         setGateError("Access Denied: The provided credentials do not have Superadmin privileges.");
         setGateLoading(false);
         return;
@@ -191,6 +214,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
   const [formRole, setFormRole] = useState<"employee" | "manager" | "admin" | "superadmin">("employee");
+  const [formOrgId, setFormOrgId] = useState<string>("");
   const [formDept, setFormDept] = useState<string>("");
   const [formDesignation, setFormDesignation] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -378,7 +402,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
   const [settingsApproval, setSettingsApproval] = useState("manager_then_admin");
 
   // Sync settings when fetched
-  useMemo(() => {
+  useEffect(() => {
     if (systemSettings) {
       setSettingsStart(systemSettings.work_start?.slice(0, 5) || "09:30");
       setSettingsEnd(systemSettings.work_end?.slice(0, 5) || "18:30");
@@ -422,26 +446,29 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
           (formRole === "superadmin"
             ? "Root Super Administrator"
             : formRole === "admin"
-              ? "System Administrator"
+              ? "HR Administrator"
               : formRole === "manager"
                 ? "Team Manager"
                 : "Staff Member"),
         p_phone: formPhone.trim() || null,
+        p_organization_id: formOrgId || null,
       });
 
       if (error) throw error;
       return data;
     },
     onSuccess: (res: any) => {
+      const roleTitle = formRole === "admin" ? "ADMIN (HR)" : formRole.toUpperCase();
       toast.success(
         res?.action === "created"
-          ? `Successfully provisioned ${formRole.toUpperCase()} account for ${formName}`
+          ? `Successfully provisioned ${roleTitle} account for ${formName}`
           : `Updated account details and role for ${formName}`,
       );
       setProvisionModalOpen(false);
       setFormName("");
       setFormEmail("");
       setFormPassword("");
+      setFormOrgId("");
       setFormDesignation("");
       setFormPhone("");
       queryClient.invalidateQueries({ queryKey: ["superadmin-all-users"] });
@@ -471,10 +498,9 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
     },
   });
 
-  // Toggle Superadmin Flag Mutation
+  // Toggle Superadmin Flag Mutation (strictly via Root RPC)
   const toggleSuperadminMutation = useMutation({
     mutationFn: async ({
-      employeeId,
       userId,
       isSuper,
     }: {
@@ -482,18 +508,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
       userId: string | null;
       isSuper: boolean;
     }) => {
-      const { error: empErr } = await supabase
-        .from("employees")
-        .update({ is_superadmin: isSuper })
-        .eq("id", employeeId);
-      if (empErr) throw empErr;
-
-      if (isSuper && userId) {
-        await supabase.rpc("superadmin_set_user_role", {
-          p_target_user_id: userId,
-          p_new_role: "admin",
-        });
-      }
+      if (!userId) throw new Error("User has no auth account yet");
+      const { error } = await supabase.rpc("superadmin_set_user_role", {
+        p_target_user_id: userId,
+        p_new_role: isSuper ? "superadmin" : "admin",
+      });
+      if (error) throw error;
     },
     onSuccess: (_, vars) => {
       toast.success(
@@ -531,27 +551,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
   const deleteUserMutation = useMutation({
     mutationFn: async ({ userId, employeeId }: { userId: string | null; employeeId: string }) => {
-      // 1. Try secure superadmin_delete_user RPC
-      try {
-        const { data, error } = await (supabase.rpc as any)("superadmin_delete_user", {
-          p_target_user_id: userId || undefined,
-          p_employee_id: employeeId || undefined,
-        });
-        if (!error && (data as any)?.success) return data;
-        if (error) console.warn("superadmin_delete_user RPC error:", error);
-      } catch (e) {
-        console.warn("superadmin_delete_user catch:", e);
-      }
-
-      // 2. Direct table fallback
-      if (employeeId) {
-        await supabase.from("employees").delete().eq("id", employeeId);
-      }
-      if (userId) {
-        await supabase.from("user_roles").delete().eq("user_id", userId);
-        await supabase.from("organization_members").delete().eq("user_id", userId);
-      }
-      return true;
+      const { data, error } = await (supabase.rpc as any)("superadmin_delete_user", {
+        p_target_user_id: userId || null,
+        p_employee_id: employeeId || null,
+      });
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       toast.success("User and employee record permanently removed");
@@ -623,8 +628,15 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
   const faceCoveragePct = totalUsers > 0 ? Math.round((enrolledFaces / totalUsers) * 100) : 0;
 
   async function handleSignOut() {
+    try {
+      sessionStorage.removeItem("superadmin_unlocked");
+    } catch {
+      // ignore storage errors
+    }
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", replace: true });
   }
 
   // Loading skeleton while session loads
@@ -636,38 +648,28 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
     );
   }
 
-  // If user is not admin, deny access with generic access restricted screen (no superadmin leaks)
-  if (!session.isAdmin && !session.isSuperadmin) {
+  // Deny non-superadmin users with generic access restricted screen (never leak Superadmin console)
+  if (!session.isSuperadmin) {
     return (
-      <div className="flex min-h-[85vh] flex-col items-center justify-center p-6 text-center bg-neutral-950 text-white">
-        <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 shadow-2xl">
-          <ShieldAlert className="h-12 w-12 animate-pulse" />
-          <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
+      <div className="flex min-h-[85vh] flex-col items-center justify-center p-6 text-center bg-background text-foreground">
+        <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400">
+          <ShieldAlert className="h-10 w-10" />
+          <div className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-[11px] font-bold text-white">
             403
           </div>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
           Access Restricted
         </h1>
-        <p className="mt-2 max-w-md text-sm text-neutral-400">
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">
           You do not have permission to access this internal console.
         </p>
         <div className="mt-6 flex gap-3">
-          <Button
-            onClick={() => navigate({ to: "/dashboard" })}
-            className="gap-2 bg-neutral-800 text-white hover:bg-neutral-700"
-          >
+          <Button onClick={() => navigate({ to: "/dashboard" })} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Return to Dashboard
           </Button>
-          <Button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate({ to: "/auth" });
-            }}
-            variant="outline"
-            className="gap-2 border-white/20 text-white hover:bg-white/10"
-          >
+          <Button onClick={handleSignOut} variant="outline" className="gap-2">
             <LogOut className="h-4 w-4" />
             Switch Account
           </Button>
@@ -678,38 +680,41 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
   if (!isUnlocked) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-3 sm:p-4 bg-neutral-950 text-neutral-100">
-        <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-5 sm:p-8 shadow-md border border-zinc-800 space-y-6">
+      <div className="flex min-h-screen flex-col items-center justify-center p-3 sm:p-4 bg-background text-foreground">
+        <div className="w-full max-w-md rounded-xl border border-border bg-card text-card-foreground p-5 sm:p-8 shadow-sm space-y-6">
+          <div className="flex items-center justify-end">
+            <ThemeToggle showLabel variant="outline" />
+          </div>
+
           <div className="text-center space-y-2">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-lg bg-zinc-800 text-zinc-100 border border-zinc-700/60 mb-2">
-              <Lock className="h-8 w-8 text-amber-300" />
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-foreground border border-border mb-2">
+              <Lock className="h-5 w-5" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">
-              Superadmin Verification
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              System Verification
             </h1>
-            <p className="text-xs text-neutral-400">
-              High-privilege console. Enter superadmin credentials to authenticate and open.
+            <p className="text-xs text-muted-foreground">
+              Enter root credentials to unlock administration tools.
             </p>
           </div>
 
           <form onSubmit={handleUnlockGate} className="space-y-4">
             <div className="space-y-1.5 text-left">
-              <Label className="text-xs text-neutral-300">Superadmin Work Email</Label>
+              <Label className="text-xs text-foreground/80">Superadmin Work Email</Label>
               <Input
                 type="email"
-                placeholder="superadmin@example.com"
+                placeholder="Enter superadmin email"
                 value={gateEmail}
                 onChange={(e) => {
                   setGateEmail(e.target.value);
                   setGateError("");
                 }}
-                className="bg-neutral-800/80 border-white/15 text-white placeholder:text-neutral-500"
                 required
               />
             </div>
 
             <div className="space-y-1.5 text-left">
-              <Label className="text-xs text-neutral-300">Superadmin Password</Label>
+              <Label className="text-xs text-foreground/80">Superadmin Password</Label>
               <Input
                 type="password"
                 placeholder="••••••••••••"
@@ -718,13 +723,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                   setGatePassword(e.target.value);
                   setGateError("");
                 }}
-                className="bg-neutral-800/80 border-white/15 text-white placeholder:text-neutral-500"
                 required
               />
             </div>
 
             {gateError && (
-              <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5 text-xs text-rose-400 font-medium">
+              <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5 text-xs text-rose-600 dark:text-rose-400 font-medium">
                 {gateError}
               </div>
             )}
@@ -748,16 +752,16 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             </Button>
           </form>
 
-          <div className="pt-2 border-t border-white/10 flex justify-between items-center text-xs text-neutral-400">
+          <div className="pt-2 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
             <button
               type="button"
               onClick={() => navigate({ to: "/dashboard" })}
-              className="hover:text-white transition-colors flex items-center gap-1"
+              className="hover:text-foreground transition-colors flex items-center gap-1"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Return to Dashboard
             </button>
-            <span className="text-[11px] text-neutral-500">Encrypted Root Gateway</span>
+            <span className="text-[11px] text-muted-foreground">Encrypted Root Gateway</span>
           </div>
         </div>
       </div>
@@ -765,42 +769,41 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 md:p-8 space-y-6 sm:space-y-8 select-none">
+    <div className="min-h-screen bg-background text-foreground p-3 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
       {/* Top Root Command Header */}
-      <header className="flex flex-col gap-4 rounded-lg border border-zinc-800 bg-zinc-900/90 p-4 sm:p-6 shadow-sm border border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-4 rounded-xl border border-border bg-card text-card-foreground p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between shadow-2xs">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-zinc-100 border border-zinc-700/60">
-            <Crown className="h-6 w-6 sm:h-7 sm:w-7 text-amber-300" />
-            <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-black" />
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+            <Shield className="h-6 w-6 text-primary" />
+            <div className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-card" />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white truncate">
-                SUPERADMIN CONSOLE
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+                System Administration
               </h1>
-              <Badge className="bg-zinc-800 text-zinc-200 border border-zinc-700 text-[10px] font-black tracking-wider uppercase px-2 py-0.5 border-0 shrink-0">
-                ROOT SYSTEM
+              <Badge variant="secondary" className="text-[10px] font-semibold tracking-wide px-2 py-0.5 shrink-0">
+                Root Console
               </Badge>
             </div>
-            <p className="text-xs text-white/60 mt-0.5 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-emerald-400 flex items-center gap-1 font-semibold">
-                <Radio className="h-3 w-3 animate-pulse" /> CONNECTED
+            <p className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1.5 font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                System Online
               </span>
               <span>•</span>
-              <span className="text-white/80 font-mono truncate max-w-[200px] sm:max-w-none">
+              <span className="font-mono truncate max-w-[200px] sm:max-w-none">
                 Operator:{" "}
-                <strong className="text-white">{session.fullName || session.user?.email}</strong>
-              </span>
-              <span className="hidden sm:inline">•</span>
-              <span className="hidden sm:inline text-white/50">
-                High-Availability Cloud Cluster
+                <strong className="text-foreground">{session.fullName || session.user?.email}</strong>
               </span>
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+          <ThemeToggle showLabel variant="outline" className="flex-1 sm:flex-none" />
+
           <Button
             variant="outline"
             size="sm"
@@ -810,7 +813,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               setGatePassword("");
               toast.info("Superadmin console locked");
             }}
-            className="flex-1 sm:flex-none border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 gap-1.5 text-xs h-9"
+            className="flex-1 sm:flex-none border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300 hover:bg-rose-500/20 gap-1.5 text-xs h-9"
           >
             <Lock className="h-3.5 w-3.5" />
             Lock Console
@@ -824,7 +827,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               refetchSettings();
               toast.info("System data synchronized");
             }}
-            className="flex-1 sm:flex-none border-white/20 bg-white/5 text-white hover:bg-white/15 gap-1.5 text-xs h-9"
+            className="flex-1 sm:flex-none gap-1.5 text-xs h-9"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Sync System
@@ -835,14 +838,14 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-xs h-9"
           >
             <UserPlus className="h-4 w-4" />
-            Add User / Admin / Manager
+            Add User / HR Admin
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate({ to: "/dashboard" })}
-            className="flex-1 sm:flex-none border-white/20 bg-white/5 text-white hover:bg-white/15 text-xs gap-1.5 h-9"
+            className="flex-1 sm:flex-none text-xs gap-1.5 h-9"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Dashboard
@@ -852,7 +855,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
-            className="text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs gap-1.5 h-9"
+            className="text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs gap-1.5 h-9"
             title="Sign out of Superadmin session"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -863,72 +866,72 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
       {/* KPI Telemetry Matrix */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Users & Admins */}
-        <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
+        {/* Total Users & HR Admins */}
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-white/60 uppercase tracking-wider">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Total Accounts
             </CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold">{totalUsers}</div>
-            <div className="text-[11px] text-white/60 mt-1 flex items-center gap-2">
-              <span className="text-rose-400 font-semibold">{adminCount} Admins</span>
+            <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2">
+              <span className="text-rose-600 dark:text-rose-400 font-semibold">{adminCount} HR Admins</span>
               <span>•</span>
-              <span className="text-amber-400 font-semibold">{managerCount} Managers</span>
+              <span className="text-amber-600 dark:text-amber-400 font-semibold">{managerCount} Managers</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Geofence Adoption */}
-        <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-white/60 uppercase tracking-wider">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Attendance System
             </CardTitle>
-            <Shield className="h-4 w-4 text-emerald-400" />
+            <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-extrabold text-emerald-400">GPS Geofence</div>
-            <Progress value={100} className="h-1.5 mt-2 bg-white/10" />
-            <p className="text-[11px] text-white/60 mt-1.5">
+            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">GPS Geofence</div>
+            <Progress value={100} className="h-1.5 mt-2" />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
               Auto-synced Main Office perimeter verification active for {totalUsers} users
             </p>
           </CardContent>
         </Card>
 
         {/* System Work Shift & Cooldown */}
-        <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-white/60 uppercase tracking-wider">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Work Shift & Buffer
             </CardTitle>
-            <Clock className="h-4 w-4 text-indigo-400" />
+            <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono tracking-tight">
               {settingsStart} — {settingsEnd}
             </div>
-            <p className="text-[11px] text-white/60 mt-1">
-              Grace: <strong className="text-white">{settingsGrace}m</strong> • Cooldown:{" "}
-              <strong className="text-emerald-400">{settingsCooldown}m</strong>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Grace: <strong className="text-foreground">{settingsGrace}m</strong> • Cooldown:{" "}
+              <strong className="text-emerald-600 dark:text-emerald-400">{settingsCooldown}m</strong>
             </p>
           </CardContent>
         </Card>
 
         {/* Access Gateway & Route */}
-        <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white shadow-lg">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-white/60 uppercase tracking-wider">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Console Security
             </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-400 font-mono">PROTECTED</div>
-            <p className="text-[11px] text-white/60 mt-1">
-              URL: <span className="text-white font-mono">/superadmin</span> (Hidden)
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">PROTECTED</div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              URL: <span className="text-foreground font-mono">/superadmin</span> (Hidden)
             </p>
           </CardContent>
         </Card>
@@ -936,7 +939,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
       {/* Main Tabs Workspace */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-neutral-900 border border-white/10 p-1 text-xs w-full justify-start overflow-x-auto h-auto flex flex-nowrap sm:flex-wrap gap-1">
+        <TabsList className="bg-muted border border-border p-1 text-xs w-full justify-start overflow-x-auto h-auto flex flex-nowrap sm:flex-wrap gap-1">
           <TabsTrigger
             value="organizations"
             className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shrink-0 py-2 px-3 text-xs"
@@ -971,14 +974,14 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             TAB: MULTI-TENANT ORGANIZATIONS & SAAS MANAGEMENT
         ========================================================================= */}
         <TabsContent value="organizations" className="space-y-4">
-          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
-            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4">
+          <Card>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
               <div>
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
                   Multi-Tenant Organizations & Subscriptions
                 </CardTitle>
-                <CardDescription className="text-xs text-white/60">
+                <CardDescription className="text-xs">
                   Provision client organizations, manage subscription tiers, employee quotas, and
                   data retention rules.
                 </CardDescription>
@@ -996,37 +999,37 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             <CardContent className="p-4 sm:p-6 space-y-5">
               {/* Quick Tenant Stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
-                  <span className="text-[11px] text-white/60">Total Tenants</span>
-                  <div className="text-xl font-bold font-mono text-white mt-1">
+                <div className="p-3.5 rounded-xl border border-border bg-muted/40">
+                  <span className="text-[11px] text-muted-foreground">Total Tenants</span>
+                  <div className="text-xl font-bold font-mono text-foreground mt-1">
                     {organizationsList.length}
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
-                  <span className="text-[11px] text-white/60">Active Status</span>
-                  <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                <div className="p-3.5 rounded-xl border border-border bg-muted/40">
+                  <span className="text-[11px] text-muted-foreground">Active Status</span>
+                  <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
                     {organizationsList.filter((o) => o.is_active).length}
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
-                  <span className="text-[11px] text-white/60">Enterprise Tier</span>
-                  <div className="text-xl font-bold font-mono text-amber-400 mt-1">
+                <div className="p-3.5 rounded-xl border border-border bg-muted/40">
+                  <span className="text-[11px] text-muted-foreground">Enterprise Tier</span>
+                  <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">
                     {organizationsList.filter((o) => o.plan_tier === "enterprise").length}
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-white/10 bg-black/40">
-                  <span className="text-[11px] text-white/60">Total Capacity</span>
-                  <div className="text-xl font-bold font-mono text-blue-400 mt-1">
+                <div className="p-3.5 rounded-xl border border-border bg-muted/40">
+                  <span className="text-[11px] text-muted-foreground">Total Capacity</span>
+                  <div className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400 mt-1">
                     {organizationsList.reduce((acc, o) => acc + (o.max_employees || 0), 0)} Seats
                   </div>
                 </div>
               </div>
 
               {/* Organizations Table */}
-              <div className="rounded-xl border border-white/10 overflow-hidden bg-black/30">
+              <div className="rounded-xl border border-border overflow-hidden bg-card">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[700px] text-left text-xs">
-                    <thead className="bg-white/5 border-b border-white/10 text-white/60 uppercase font-mono text-[10px]">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase font-mono text-[10px]">
                       <tr>
                         <th className="py-3 px-4">Organization / Legal Name</th>
                         <th className="py-3 px-4">Slug Identifier</th>
@@ -1037,26 +1040,26 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                         <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 font-mono text-xs text-white/90">
+                    <tbody className="divide-y divide-border font-mono text-xs text-foreground">
                       {orgsLoading ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-8 text-white/50">
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
                             Loading organization tenants...
                           </td>
                         </tr>
                       ) : organizationsList.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-8 text-white/50">
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
                             No organizations found. Register your first tenant above.
                           </td>
                         </tr>
                       ) : (
                         organizationsList.map((org) => (
-                          <tr key={org.id} className="hover:bg-white/[0.02]">
+                          <tr key={org.id} className="hover:bg-muted/30">
                             <td className="py-3 px-4">
-                              <div className="font-sans font-semibold text-white">{org.name}</div>
+                              <div className="font-sans font-semibold text-foreground">{org.name}</div>
                               {org.legal_name && (
-                                <div className="text-[10px] text-white/50 font-normal">
+                                <div className="text-[10px] text-muted-foreground font-normal">
                                   {org.legal_name}
                                 </div>
                               )}
@@ -1067,10 +1070,10 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                 variant="outline"
                                 className={`text-[10px] uppercase font-bold ${
                                   org.plan_tier === "enterprise"
-                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                    ? "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30"
                                     : org.plan_tier === "pro"
-                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                                      : "bg-neutral-500/20 text-neutral-300 border-neutral-500/40"
+                                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30"
+                                      : "bg-muted text-muted-foreground border-border"
                                 }`}
                               >
                                 {org.plan_tier}
@@ -1083,8 +1086,8 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                 variant="outline"
                                 className={`text-[10px] ${
                                   org.is_active
-                                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                                    : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30"
+                                    : "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30"
                                 }`}
                               >
                                 {org.is_active ? "Active" : "Suspended"}
@@ -1092,7 +1095,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                             </td>
                             <td className="py-3 px-4 text-right">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() =>
                                   toggleOrgActiveMutation.mutate({
@@ -1101,7 +1104,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                   })
                                 }
                                 disabled={toggleOrgActiveMutation.isPending}
-                                className="h-7 text-[11px] border border-white/10 hover:bg-white/10"
+                                className="h-7 text-[11px]"
                               >
                                 {org.is_active ? "Suspend" : "Activate"}
                               </Button>
@@ -1121,15 +1124,15 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             TAB 1: USER & ROLE PROVISIONING STUDIO
         ========================================================================= */}
         <TabsContent value="provisioning" className="space-y-4">
-          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
-            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4">
+          <Card>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
               <div>
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-emerald-400" />
+                  <UserCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   Personnel Roster & Role Matrix
                 </CardTitle>
-                <CardDescription className="text-xs text-white/60">
-                  Provision new employee, manager, or admin accounts with instant login credentials
+                <CardDescription className="text-xs">
+                  Provision HR Admin, Manager, or Employee accounts with instant login credentials
                   and access levels.
                 </CardDescription>
               </div>
@@ -1138,10 +1141,10 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                 <Button
                   size="sm"
                   onClick={() => setProvisionModalOpen(true)}
-                  className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs gap-1.5 shadow-xs h-9"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs gap-1.5 shadow-xs h-9"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Add Person / Admin
+                  Add Person / HR Admin
                 </Button>
               </div>
             </CardHeader>
@@ -1150,24 +1153,24 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               {/* Search & Filters */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, employee code, department, email..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 bg-neutral-800 border-white/10 text-white placeholder:text-white/40 text-xs h-9"
+                    className="pl-9 text-xs h-9"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full sm:w-[150px] bg-neutral-800 border-white/10 text-white text-xs h-9">
+                    <SelectTrigger className="w-full sm:w-[165px] text-xs h-9">
                       <SelectValue placeholder="Role" />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-white/10 text-white text-xs">
+                    <SelectContent className="text-xs">
                       <SelectItem value="all">All Roles</SelectItem>
                       <SelectItem value="superadmin">Superadmins</SelectItem>
-                      <SelectItem value="admin">Admins</SelectItem>
+                      <SelectItem value="admin">Admins (HR)</SelectItem>
                       <SelectItem value="manager">Managers</SelectItem>
                       <SelectItem value="employee">Employees</SelectItem>
                     </SelectContent>
@@ -1176,9 +1179,9 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               </div>
 
               {/* Roster Table */}
-              <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/40">
+              <div className="overflow-x-auto rounded-lg border border-border bg-card">
                 <table className="w-full min-w-[720px] text-left text-xs">
-                  <thead className="border-b border-white/10 bg-neutral-900/80 text-[11px] font-semibold text-white/60 uppercase tracking-wider">
+                  <thead className="border-b border-border bg-muted/50 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     <tr>
                       <th className="py-3 px-4">Personnel</th>
                       <th className="py-3 px-4">Code</th>
@@ -1188,16 +1191,16 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-border">
                     {usersLoading ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-white/40">
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
                           Loading personnel roster...
                         </td>
                       </tr>
                     ) : filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-white/40">
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
                           No users matching search criteria.
                         </td>
                       </tr>
@@ -1214,7 +1217,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                         return (
                           <tr
                             key={u.employee_id}
-                            className="hover:bg-white/[0.02] transition-colors"
+                            className="hover:bg-muted/30 transition-colors"
                           >
                             {/* Personnel Identity */}
                             <td className="py-3.5 px-4">
@@ -1222,12 +1225,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                 <div
                                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-bold text-xs uppercase ${
                                     u.is_superadmin
-                                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs"
+                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 shadow-xs"
                                       : isMainAdmin
-                                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                        ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                                         : isManager
-                                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                                          : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                          : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
                                   }`}
                                 >
                                   {u.full_name
@@ -1237,30 +1240,30 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                     .join("")}
                                 </div>
                                 <div>
-                                  <div className="font-semibold text-white flex items-center gap-1.5">
+                                  <div className="font-semibold text-foreground flex items-center gap-1.5">
                                     <span>{u.full_name}</span>
                                     {u.is_superadmin ? (
-                                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px] font-black uppercase px-1 py-0 gap-1">
-                                        <Crown className="h-2.5 w-2.5 text-amber-300 inline" />
+                                      <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[9px] font-black uppercase px-1 py-0 gap-1">
+                                        <Crown className="h-2.5 w-2.5 inline" />
                                         ROOT
                                       </Badge>
                                     ) : isMainAdmin ? (
-                                      <Crown className="h-3 w-3 text-rose-400 inline" />
+                                      <Crown className="h-3 w-3 text-rose-600 dark:text-rose-400 inline" />
                                     ) : null}
                                   </div>
-                                  <div className="text-[11px] text-white/50">{u.email}</div>
+                                  <div className="text-[11px] text-muted-foreground">{u.email}</div>
                                 </div>
                               </div>
                             </td>
 
                             {/* Code */}
-                            <td className="py-3.5 px-4 font-mono text-white/80 font-medium">
+                            <td className="py-3.5 px-4 font-mono text-foreground/80 font-medium">
                               {u.employee_code}
                             </td>
 
                             {/* Department & Role */}
                             <td className="py-3.5 px-4">
-                              <div className="font-medium text-white/90">{u.department_name}</div>
+                              <div className="font-medium text-foreground">{u.department_name}</div>
                               <div className="mt-1 flex items-center gap-1.5">
                                 {u.roles.map((r) => (
                                   <Badge
@@ -1268,13 +1271,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                     variant="outline"
                                     className={`text-[9px] uppercase font-bold px-1.5 py-0 ${
                                       r === "admin"
-                                        ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                                        ? "border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10"
                                         : r === "manager"
-                                          ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                                          : "border-blue-500/40 text-blue-400 bg-blue-500/10"
+                                          ? "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                                          : "border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10"
                                     }`}
                                   >
-                                    {r}
+                                    {r === "admin" ? "admin (hr)" : r}
                                   </Badge>
                                 ))}
                               </div>
@@ -1282,7 +1285,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
                             {/* Attendance Mode */}
                             <td className="py-3.5 px-4">
-                              <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] gap-1 px-2">
+                              <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] gap-1 px-2">
                                 <CheckCircle2 className="h-3 w-3" />
                                 GPS Geofence
                               </Badge>
@@ -1293,13 +1296,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                               <span
                                 className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                   u.status === "active"
-                                    ? "bg-emerald-500/10 text-emerald-400"
-                                    : "bg-rose-500/10 text-rose-400"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                    : "bg-rose-500/10 text-rose-700 dark:text-rose-400"
                                 }`}
                               >
                                 <span
                                   className={`h-1.5 w-1.5 rounded-full ${
-                                    u.status === "active" ? "bg-emerald-400" : "bg-rose-400"
+                                    u.status === "active" ? "bg-emerald-500 dark:bg-emerald-400" : "bg-rose-500 dark:bg-rose-400"
                                   }`}
                                 />
                                 {u.status.toUpperCase()}
@@ -1313,15 +1316,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-white/70 hover:bg-white/10"
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                   >
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="bg-neutral-900 border-white/10 text-white text-xs w-52"
-                                >
+                                <DropdownMenuContent align="end" className="text-xs w-52">
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setResetTargetUser(u);
@@ -1330,31 +1330,33 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                     }}
                                     className="gap-2 cursor-pointer"
                                   >
-                                    <Key className="h-3.5 w-3.5 text-amber-400" />
+                                    <Key className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                                     Reset Password
                                   </DropdownMenuItem>
 
-                                  <DropdownMenuSeparator className="bg-white/10" />
+                                  <DropdownMenuSeparator />
 
                                   {/* Change Role Options */}
-                                  <div className="px-2 py-1 text-[10px] font-semibold text-white/40 uppercase">
+                                  <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">
                                     Promote / Change Role
                                   </div>
 
-                                  {/* Toggle Root Superadmin */}
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      toggleSuperadminMutation.mutate({
-                                        employeeId: u.employee_id,
-                                        userId: u.user_id,
-                                        isSuper: !u.is_superadmin,
-                                      });
-                                    }}
-                                    className="gap-2 cursor-pointer text-amber-300"
-                                  >
-                                    <Crown className="h-3.5 w-3.5" />
-                                    {u.is_superadmin ? "Revoke Superadmin" : "Make Root Superadmin"}
-                                  </DropdownMenuItem>
+                                  {/* Toggle Root Superadmin (prevent self-downgrade) */}
+                                  {u.user_id !== session.user?.id && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        toggleSuperadminMutation.mutate({
+                                          employeeId: u.employee_id,
+                                          userId: u.user_id,
+                                          isSuper: !u.is_superadmin,
+                                        });
+                                      }}
+                                      className="gap-2 cursor-pointer text-amber-600 dark:text-amber-300"
+                                    >
+                                      <Crown className="h-3.5 w-3.5" />
+                                      {u.is_superadmin ? "Revoke Superadmin" : "Make Root Superadmin"}
+                                    </DropdownMenuItem>
+                                  )}
 
                                   {currentRoleLabel !== "admin" && (
                                     <DropdownMenuItem
@@ -1368,10 +1370,10 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                           toast.error("User has no auth account yet");
                                         }
                                       }}
-                                      className="gap-2 cursor-pointer text-rose-400"
+                                      className="gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
                                     >
                                       <Shield className="h-3.5 w-3.5" />
-                                      Promote to Admin
+                                      Promote to Admin (HR)
                                     </DropdownMenuItem>
                                   )}
 
@@ -1387,7 +1389,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                           toast.error("User has no auth account yet");
                                         }
                                       }}
-                                      className="gap-2 cursor-pointer text-amber-400"
+                                      className="gap-2 cursor-pointer text-amber-600 dark:text-amber-400"
                                     >
                                       <Briefcase className="h-3.5 w-3.5" />
                                       Make Manager
@@ -1406,14 +1408,14 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                           toast.error("User has no auth account yet");
                                         }
                                       }}
-                                      className="gap-2 cursor-pointer text-blue-400"
+                                      className="gap-2 cursor-pointer text-blue-600 dark:text-blue-400"
                                     >
                                       <UserCheck className="h-3.5 w-3.5" />
                                       Set as Employee
                                     </DropdownMenuItem>
                                   )}
 
-                                  <DropdownMenuSeparator className="bg-white/10" />
+                                  <DropdownMenuSeparator />
 
                                   {/* Deactivate / Reactivate */}
                                   <DropdownMenuItem
@@ -1426,7 +1428,9 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                       }
                                     }}
                                     className={`gap-2 cursor-pointer ${
-                                      u.status === "active" ? "text-rose-400" : "text-emerald-400"
+                                      u.status === "active"
+                                        ? "text-rose-600 dark:text-rose-400"
+                                        : "text-emerald-600 dark:text-emerald-400"
                                     }`}
                                   >
                                     <ShieldAlert className="h-3.5 w-3.5" />
@@ -1435,19 +1439,23 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                                       : "Reactivate Account"}
                                   </DropdownMenuItem>
 
-                                  <DropdownMenuSeparator className="bg-white/10" />
+                                  {u.user_id !== session.user?.id && (
+                                    <>
+                                      <DropdownMenuSeparator />
 
-                                  {/* Delete / Remove User */}
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setDeleteTargetUser(u);
-                                      setDeleteModalOpen(true);
-                                    }}
-                                    className="gap-2 cursor-pointer text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    Remove User & Employee
-                                  </DropdownMenuItem>
+                                      {/* Delete / Remove User */}
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setDeleteTargetUser(u);
+                                          setDeleteModalOpen(true);
+                                        }}
+                                        className="gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Remove User & Employee
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </td>
@@ -1466,13 +1474,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             TAB 2: GLOBAL SYSTEM PARAMETERS
         ========================================================================= */}
         <TabsContent value="settings" className="space-y-4">
-          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
-            <CardHeader className="border-b border-white/10 pb-4">
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Sliders className="h-5 w-5 text-indigo-400" />
+                <Sliders className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 Root System Parameters & Attendance Rules
               </CardTitle>
-              <CardDescription className="text-xs text-white/60">
+              <CardDescription className="text-xs">
                 Configure corporate work hours, grace periods, biometric threshold, and leave
                 approval workflows.
               </CardDescription>
@@ -1482,52 +1490,54 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Work Shift Hours */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-white/80">Shift Start Time (24h)</Label>
+                  <Label className="text-xs">Shift Start Time (24h)</Label>
                   <Input
                     type="time"
                     value={settingsStart}
                     onChange={(e) => setSettingsStart(e.target.value)}
-                    className="bg-neutral-800 border-white/10 text-white font-mono"
+                    className="font-mono"
                   />
-                  <p className="text-[11px] text-white/40">
+                  <p className="text-[11px] text-muted-foreground">
                     Scans after this time + grace are marked LATE.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-white/80">Shift End Time (24h)</Label>
+                  <Label className="text-xs">Shift End Time (24h)</Label>
                   <Input
                     type="time"
                     value={settingsEnd}
                     onChange={(e) => setSettingsEnd(e.target.value)}
-                    className="bg-neutral-800 border-white/10 text-white font-mono"
+                    className="font-mono"
                   />
-                  <p className="text-[11px] text-white/40">
+                  <p className="text-[11px] text-muted-foreground">
                     Default checkout threshold for day shift.
                   </p>
                 </div>
 
                 {/* Late Grace Period */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-white/80">Late Grace Period (Minutes)</Label>
+                  <Label className="text-xs">Late Grace Period (Minutes)</Label>
                   <Input
                     type="number"
                     value={settingsGrace}
                     onChange={(e) => setSettingsGrace(Number(e.target.value))}
                     min={0}
                     max={120}
-                    className="bg-neutral-800 border-white/10 text-white font-mono"
+                    className="font-mono"
                   />
-                  <p className="text-[11px] text-white/40">
+                  <p className="text-[11px] text-muted-foreground">
                     Employees arriving within grace period remain marked PRESENT.
                   </p>
                 </div>
 
                 {/* Anti Double-Scan Cooldown */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-white/80">
+                  <Label className="text-xs">
                     Anti-Double-Scan Cooldown (Minutes):{" "}
-                    <strong className="text-emerald-400 font-mono">{settingsCooldown}m</strong>
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-mono">
+                      {settingsCooldown}m
+                    </strong>
                   </Label>
                   <Input
                     type="number"
@@ -1535,33 +1545,33 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                     onChange={(e) => setSettingsCooldown(Number(e.target.value))}
                     min={1}
                     max={15}
-                    className="bg-neutral-800 border-white/10 text-white font-mono"
+                    className="font-mono"
                   />
-                  <p className="text-[11px] text-white/40">
+                  <p className="text-[11px] text-muted-foreground">
                     Minimum interval required before checking out after check-in.
                   </p>
                 </div>
 
                 {/* Approval Flow */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-white/80">Leave Approval Workflow</Label>
+                  <Label className="text-xs">Leave Approval Workflow</Label>
                   <Select value={settingsApproval} onValueChange={setSettingsApproval}>
-                    <SelectTrigger className="bg-neutral-800 border-white/10 text-white text-xs">
+                    <SelectTrigger className="text-xs">
                       <SelectValue placeholder="Approval Flow" />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-white/10 text-white text-xs">
+                    <SelectContent className="text-xs">
                       <SelectItem value="manager_then_admin">
-                        Two-tier: Manager Approval ? Admin Final Approval
+                        Two-tier: Manager Approval → HR Admin Final Approval
                       </SelectItem>
                       <SelectItem value="admin_only">
-                        Direct: Admin Immediate Final Approval
+                        Direct: HR Admin Immediate Final Approval
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4 border-t border-white/10">
+              <div className="flex justify-end pt-4 border-t border-border">
                 <Button
                   onClick={() => saveSettingsMutation.mutate()}
                   disabled={saveSettingsMutation.isPending}
@@ -1578,13 +1588,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             TAB 3: SECURITY AUDIT LOGS
         ========================================================================= */}
         <TabsContent value="audit" className="space-y-4">
-          <Card className="border-white/10 bg-neutral-900/70 backdrop-blur text-white">
-            <CardHeader className="border-b border-white/10 pb-4">
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Terminal className="h-5 w-5 text-rose-400" />
+                <Terminal className="h-5 w-5 text-rose-600 dark:text-rose-400" />
                 Real-Time Security & System Audit Trail
               </CardTitle>
-              <CardDescription className="text-xs text-white/60">
+              <CardDescription className="text-xs">
                 Immutable ledger of administrative actions, role assignments, user creations, and
                 authentication events.
               </CardDescription>
@@ -1593,32 +1603,32 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
             <CardContent className="pt-5">
               <div className="space-y-2">
                 {logsLoading ? (
-                  <p className="text-center py-8 text-white/40">Loading audit ledger...</p>
+                  <p className="text-center py-8 text-muted-foreground">Loading audit ledger...</p>
                 ) : auditLogs.length === 0 ? (
-                  <p className="text-center py-8 text-white/40">No audit logs recorded yet.</p>
+                  <p className="text-center py-8 text-muted-foreground">No audit logs recorded yet.</p>
                 ) : (
                   auditLogs.map((log: any) => (
                     <div
                       key={log.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-white/5 bg-black/40 text-xs"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-border bg-muted/40 text-xs"
                     >
                       <div className="flex items-center gap-2.5">
                         <Badge
                           variant="outline"
-                          className="font-mono text-[10px] uppercase border-rose-500/30 text-rose-400 bg-rose-500/10"
+                          className="font-mono text-[10px] uppercase border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10"
                         >
                           {log.action}
                         </Badge>
-                        <span className="font-mono text-white/80">
+                        <span className="font-mono text-foreground/90">
                           {log.user_email ? (
-                            <span className="text-amber-400 font-semibold mr-2">
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold mr-2">
                               {log.user_email}:
                             </span>
                           ) : null}
                           {log.details ? JSON.stringify(log.details) : "—"}
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono text-white/40">
+                      <span className="text-[11px] font-mono text-muted-foreground">
                         {new Date(log.created_at).toLocaleString()}
                       </span>
                     </div>
@@ -1631,17 +1641,17 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
       </Tabs>
 
       {/* =========================================================================
-          PROVISION USER MODAL (EMPLOYEE / MANAGER / ADMIN / SUPERADMIN)
+          PROVISION USER MODAL (EMPLOYEE / MANAGER / ADMIN (HR) / SUPERADMIN)
       ========================================================================= */}
       <Dialog open={provisionModalOpen} onOpenChange={setProvisionModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold">
-              <UserPlus className="h-5 w-5 text-emerald-400" />
+              <UserPlus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               Provision New User Account
             </DialogTitle>
-            <DialogDescription className="text-xs text-white/60">
-              Create an employee, manager, admin, or superadmin account with automatic
+            <DialogDescription className="text-xs">
+              Create an Employee, Manager, HR Admin, or Superadmin account with automatic
               authentication and role linkage.
             </DialogDescription>
           </DialogHeader>
@@ -1649,20 +1659,20 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
           <div className="space-y-4 py-2 text-xs">
             {/* Role Selection Cards */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-white/80">Account Clearance Role</Label>
+              <Label className="text-xs">Account Clearance Role</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setFormRole("employee")}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "employee"
-                      ? "border-blue-500 bg-blue-500/20 text-white shadow-sm"
-                      : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
+                      ? "border-blue-500 bg-blue-500/15 text-foreground shadow-sm"
+                      : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <UserCheck className="h-4 w-4 mb-1 text-blue-400" />
+                  <UserCheck className="h-4 w-4 mb-1 text-blue-600 dark:text-blue-400" />
                   <span className="font-bold text-[11px] sm:text-[10px]">Employee</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Staff</span>
+                  <span className="text-[9px] sm:text-[8px] text-muted-foreground mt-0.5">Staff</span>
                 </button>
 
                 <button
@@ -1670,13 +1680,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                   onClick={() => setFormRole("manager")}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "manager"
-                      ? "border-amber-500 bg-amber-500/20 text-white shadow-sm"
-                      : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
+                      ? "border-amber-500 bg-amber-500/15 text-foreground shadow-sm"
+                      : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Briefcase className="h-4 w-4 mb-1 text-amber-400" />
+                  <Briefcase className="h-4 w-4 mb-1 text-amber-600 dark:text-amber-400" />
                   <span className="font-bold text-[11px] sm:text-[10px]">Manager</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Team Lead</span>
+                  <span className="text-[9px] sm:text-[8px] text-muted-foreground mt-0.5">Team Lead</span>
                 </button>
 
                 <button
@@ -1684,13 +1694,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                   onClick={() => setFormRole("admin")}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "admin"
-                      ? "border-rose-500 bg-rose-500/20 text-white shadow-sm"
-                      : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
+                      ? "border-rose-500 bg-rose-500/15 text-foreground shadow-sm"
+                      : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Shield className="h-4 w-4 mb-1 text-rose-400" />
-                  <span className="font-bold text-[11px] sm:text-[10px]">Admin</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">Operations</span>
+                  <Shield className="h-4 w-4 mb-1 text-rose-600 dark:text-rose-400" />
+                  <span className="font-bold text-[11px] sm:text-[10px]">Admin (HR)</span>
+                  <span className="text-[9px] sm:text-[8px] text-muted-foreground mt-0.5">HR Console</span>
                 </button>
 
                 <button
@@ -1698,46 +1708,64 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                   onClick={() => setFormRole("superadmin")}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all ${
                     formRole === "superadmin"
-                      ? "border-amber-400 bg-amber-500/20 text-amber-200 shadow-xs"
-                      : "border-white/10 bg-neutral-800 text-white/60 hover:text-white"
+                      ? "border-amber-500 bg-amber-500/15 text-foreground shadow-xs"
+                      : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Crown className="h-4 w-4 mb-1 text-amber-300" />
+                  <Crown className="h-4 w-4 mb-1 text-amber-600 dark:text-amber-300" />
                   <span className="font-bold text-[11px] sm:text-[10px]">Superadmin</span>
-                  <span className="text-[9px] sm:text-[8px] text-white/40 mt-0.5">
+                  <span className="text-[9px] sm:text-[8px] text-muted-foreground mt-0.5">
                     Root Console
                   </span>
                 </button>
               </div>
             </div>
 
+            {organizationsList.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Organization Tenant</Label>
+                <Select value={formOrgId} onValueChange={setFormOrgId}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Default Primary Organization" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {organizationsList.map((org: any) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name} ({org.slug})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Name */}
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Full Name *</Label>
+              <Label className="text-xs">Full Name *</Label>
               <Input
-                placeholder="e.g. Vikram Sharma"
+                placeholder="Enter full name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs"
+                className="text-xs"
               />
             </div>
 
             {/* Email */}
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Email Address (Login ID) *</Label>
+              <Label className="text-xs">Email Address (Login ID) *</Label>
               <Input
                 type="email"
-                placeholder="e.g. vikram@company.com"
+                placeholder="Enter work email"
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs"
+                className="text-xs"
               />
             </div>
 
             {/* Password */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-white/80">Initial Password *</Label>
+                <Label className="text-xs">Initial Password *</Label>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -1751,19 +1779,19 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                 placeholder="Minimum 6 characters"
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs font-mono"
+                className="text-xs font-mono"
               />
             </div>
 
             {/* Department & Designation */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs text-white/80">Department</Label>
+                <Label className="text-xs">Department</Label>
                 <Select value={formDept} onValueChange={setFormDept}>
-                  <SelectTrigger className="bg-neutral-800 border-white/10 text-white text-xs">
+                  <SelectTrigger className="text-xs">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-900 border-white/10 text-white text-xs">
+                  <SelectContent className="text-xs">
                     {departments.map((d: any) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.name}
@@ -1774,34 +1802,34 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-white/80">Designation</Label>
+                <Label className="text-xs">Designation</Label>
                 <Input
-                  placeholder="e.g. Lead Engineer"
+                  placeholder="Enter designation"
                   value={formDesignation}
                   onChange={(e) => setFormDesignation(e.target.value)}
-                  className="bg-neutral-800 border-white/10 text-white text-xs"
+                  className="text-xs"
                 />
               </div>
             </div>
 
             {/* Phone */}
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Phone Number (Optional)</Label>
+              <Label className="text-xs">Phone Number (Optional)</Label>
               <Input
-                placeholder="e.g. +91 98765 43210"
+                placeholder="Enter phone number"
                 value={formPhone}
                 onChange={(e) => setFormPhone(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs"
+                className="text-xs"
               />
             </div>
           </div>
 
-          <DialogFooter className="border-t border-white/10 pt-3 flex-row gap-2 sm:justify-end">
+          <DialogFooter className="border-t border-border pt-3 flex-row gap-2 sm:justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setProvisionModalOpen(false)}
-              className="border-white/20 text-white hover:bg-white/10 text-xs"
+              className="text-xs"
             >
               Cancel
             </Button>
@@ -1809,11 +1837,11 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               size="sm"
               onClick={() => provisionMutation.mutate()}
               disabled={provisionMutation.isPending || !formName.trim() || !formEmail.trim()}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs shadow-xs"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs"
             >
               {provisionMutation.isPending
                 ? "Creating Account..."
-                : `Create ${formRole.toUpperCase()} Account`}
+                : `Create ${formRole === "admin" ? "ADMIN (HR)" : formRole.toUpperCase()} Account`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1823,13 +1851,13 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
           REGISTER NEW TENANT ORGANIZATION MODAL
       ========================================================================= */}
       <Dialog open={newOrgOpen} onOpenChange={setNewOrgOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Building2 className="h-5 w-5 text-primary" />
               Register New Organization Tenant
             </DialogTitle>
-            <DialogDescription className="text-xs text-white/60">
+            <DialogDescription className="text-xs">
               Provision an isolated organization with its own departments, employees, and geofence
               locations.
             </DialogDescription>
@@ -1837,49 +1865,49 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
 
           <div className="space-y-3.5 py-2 text-xs">
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Organization Slug Identifier *</Label>
+              <Label className="text-xs">Organization Slug Identifier *</Label>
               <Input
-                placeholder="e.g. acme-tech"
+                placeholder="Enter organization slug"
                 value={newOrgSlug}
                 onChange={(e) =>
                   setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
                 }
-                className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                className="font-mono text-xs"
               />
-              <p className="text-[10px] text-white/50">
+              <p className="text-[10px] text-muted-foreground">
                 Unique URL-friendly slug across the SaaS cluster.
               </p>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Display Name *</Label>
+              <Label className="text-xs">Display Name *</Label>
               <Input
-                placeholder="e.g. Acme Technologies"
+                placeholder="Enter organization display name"
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs"
+                className="text-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">Legal Entity Name</Label>
+              <Label className="text-xs">Legal Entity Name</Label>
               <Input
-                placeholder="e.g. Acme Technologies Pvt. Ltd."
+                placeholder="Enter legal entity name"
                 value={newOrgLegalName}
                 onChange={(e) => setNewOrgLegalName(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white text-xs"
+                className="text-xs"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-white/80">Subscription Tier</Label>
+                <Label className="text-xs">Subscription Tier</Label>
                 <select
                   value={newOrgTier}
                   onChange={(e) =>
                     setNewOrgTier(e.target.value as "starter" | "pro" | "enterprise")
                   }
-                  className="w-full h-9 rounded-md bg-neutral-800 border border-white/10 text-white px-2 text-xs"
+                  className="w-full h-9 rounded-md bg-background border border-input text-foreground px-2 text-xs"
                 >
                   <option value="starter">Starter (50 Seats)</option>
                   <option value="pro">Pro (200 Seats)</option>
@@ -1888,14 +1916,14 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-white/80">Max Employees Quota</Label>
+                <Label className="text-xs">Max Employees Quota</Label>
                 <Input
                   type="number"
                   min={5}
                   max={5000}
                   value={newOrgMaxEmployees}
                   onChange={(e) => setNewOrgMaxEmployees(parseInt(e.target.value) || 50)}
-                  className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                  className="font-mono text-xs"
                 />
               </div>
             </div>
@@ -1907,7 +1935,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               size="sm"
               onClick={() => setNewOrgOpen(false)}
               disabled={createOrgMutation.isPending}
-              className="border-white/20 text-white hover:bg-white/10 text-xs"
+              className="text-xs"
             >
               Cancel
             </Button>
@@ -1928,26 +1956,26 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
           PASSWORD RESET MODAL
       ========================================================================= */}
       <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-sm max-h-[90vh] overflow-y-auto bg-neutral-900 text-white border-white/10 p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-sm max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
-              <Key className="h-4 w-4 text-amber-400" />
+              <Key className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               Reset User Password
             </DialogTitle>
-            <DialogDescription className="text-xs text-white/60">
+            <DialogDescription className="text-xs">
               Set a new login password for {resetTargetUser?.full_name} ({resetTargetUser?.email}).
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
             <div className="space-y-1">
-              <Label className="text-xs text-white/80">New Password</Label>
+              <Label className="text-xs">New Password</Label>
               <Input
                 type="text"
                 placeholder="Enter at least 6 characters"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="bg-neutral-800 border-white/10 text-white font-mono text-xs"
+                className="font-mono text-xs"
               />
             </div>
           </div>
@@ -1957,7 +1985,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               variant="outline"
               size="sm"
               onClick={() => setResetModalOpen(false)}
-              className="border-white/20 text-white hover:bg-white/10 text-xs"
+              className="text-xs"
             >
               Cancel
             </Button>
@@ -1967,15 +1995,12 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
               onClick={async () => {
                 if (!resetTargetUser) return;
                 try {
-                  const { error } = await supabase.rpc("superadmin_provision_user", {
-                    p_email: resetTargetUser.email,
-                    p_password: newPassword,
-                    p_full_name: resetTargetUser.full_name,
-                    p_role: resetTargetUser.roles.includes("admin")
-                      ? "admin"
-                      : resetTargetUser.roles.includes("manager")
-                        ? "manager"
-                        : "employee",
+                  if (!resetTargetUser.user_id) {
+                    throw new Error("This employee does not have a linked login account yet.");
+                  }
+                  const { error } = await supabase.rpc("superadmin_reset_user_password", {
+                    p_target_user_id: resetTargetUser.user_id,
+                    p_new_password: newPassword,
                   });
                   if (error) throw error;
                   toast.success(`Password successfully updated for ${resetTargetUser.full_name}`);
@@ -1996,15 +2021,15 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
           DELETE USER CONFIRMATION MODAL
       ========================================================================= */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent className="bg-neutral-900 border-white/10 text-white sm:max-w-md p-5">
+        <DialogContent className="sm:max-w-md p-5">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-rose-500 text-sm font-semibold">
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400 text-sm font-semibold">
               <AlertTriangle className="h-5 w-5" />
               <span>Permanently Remove User & Employee</span>
             </DialogTitle>
-            <DialogDescription className="text-neutral-400 text-xs mt-1">
+            <DialogDescription className="text-xs mt-1">
               Are you sure you want to permanently delete{" "}
-              <strong className="text-white">{deleteTargetUser?.full_name || "this user"}</strong>{" "}
+              <strong className="text-foreground">{deleteTargetUser?.full_name || "this user"}</strong>{" "}
               ({deleteTargetUser?.email})? This action removes their authentication credentials,
               employee profile, attendance logs, and organization roles. This cannot be undone.
             </DialogDescription>
@@ -2019,7 +2044,7 @@ function SuperadminConsole({ session }: { session: ReturnType<typeof useSession>
                 setDeleteTargetUser(null);
               }}
               disabled={deleteUserMutation.isPending}
-              className="border-white/20 text-white hover:bg-white/10 text-xs"
+              className="text-xs"
             >
               Cancel
             </Button>

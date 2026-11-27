@@ -148,7 +148,7 @@ export function CreateExpenseDialog({
             </Label>
             <Input
               id="exp-title"
-              placeholder="e.g., Client dinner meeting in Mumbai, or Flight ticket to Bangalore"
+              placeholder="Enter expense claim title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="text-sm"

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireAuthorizedRequest } from "../_shared/auth.ts";
 import { decryptToken } from "../_shared/crypto.ts";
 import { refreshAccessToken } from "../_shared/google-drive.ts";
 
@@ -18,6 +19,8 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const authCheck = await requireAuthorizedRequest(req, supabase, { requireAdmin: true });
+    if (!authCheck.ok) return authCheck.response;
 
     // Parse body if action was requested (e.g. disconnect or toggle settings)
     let body: any = {};

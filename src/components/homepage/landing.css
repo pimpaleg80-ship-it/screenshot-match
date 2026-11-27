@@ -1,0 +1,48 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+
+/* Strictly scoped tokens, display typography, and motion for the public landing page only */
+.fp-landing {
+  --fp-primary: #315efb;
+  --fp-secondary: #5946f6;
+  --fp-navy: #172554;
+  --fp-bg: #f7f9fe;
+  --fp-card: #ffffff;
+  --fp-lavender: #edebff;
+  --fp-body: #64748b;
+  --fp-border: #e5eaf4;
+  --fp-success: #12a879;
+  --fp-error: #e05252;
+}
+
+.fp-landing .fp-display {
+  font-family: "Plus Jakarta Sans", var(--font-sans, "Inter", sans-serif);
+}
+
+.fp-landing .fp-panel-shadow {
+  box-shadow:
+    0 12px 32px -12px rgba(23, 37, 84, 0.09),
+    0 1px 3px rgba(23, 37, 84, 0.05);
+}
+
+.fp-landing .fp-fade-up {
+  animation: fpLandingFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fpLandingFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-landing .fp-fade-up {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

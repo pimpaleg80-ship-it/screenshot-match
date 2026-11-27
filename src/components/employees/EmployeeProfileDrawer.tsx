@@ -31,8 +31,14 @@ import {
   Eye,
 } from "lucide-react";
 import { DocumentPreviewModal } from "@/components/documents/DocumentPreviewModal";
+import { EditLeaveRequestDialog } from "@/components/leaves/EditLeaveRequestDialog";
+import {
+  EditLeaveBalanceDialog,
+  type EditLeaveBalanceTarget,
+} from "@/components/leaves/EditLeaveBalanceDialog";
 import { PerformanceGoalsManager } from "@/components/performance/PerformanceGoalsManager";
 import { PerformanceAppraisalsManager } from "@/components/performance/PerformanceAppraisalsManager";
+import type { LeaveRequest } from "@/lib/leave";
 import {
   getVerificationStatusBadge,
   getExpiryStatus,
@@ -88,6 +94,7 @@ export function EmployeeProfileDrawer({
   onProfileUpdated,
 }: EmployeeProfileDrawerProps) {
   const session = useSession();
+  const isHrOrAdmin = session.isAdmin || session.isSuperadmin;
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -113,6 +120,11 @@ export function EmployeeProfileDrawer({
   const [reviewGoals, setReviewGoals] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState("");
   const [savingReview, setSavingReview] = useState(false);
+
+  // Leave Edit & Balance Adjustment States (HR & Admin)
+  const [editLeaveOpen, setEditLeaveOpen] = useState(false);
+  const [editingLeaveReq, setEditingLeaveReq] = useState<LeaveRequest | null>(null);
+  const [editBalanceTarget, setEditBalanceTarget] = useState<EditLeaveBalanceTarget | null>(null);
 
   // 1. Fetch Employee Profile
   const { data: employee, isLoading: empLoading } = useQuery({
@@ -441,20 +453,24 @@ export function EmployeeProfileDrawer({
   // Approve / Reject Leave Request inline
   async function handleLeaveDecision(requestId: string, status: "approved" | "rejected") {
     try {
-      const { error } = await supabase
-        .from("leave_requests")
-        .update({
-          status,
-          decided_at: new Date().toISOString(),
-          admin_id: session.employeeId,
-          admin_comment: `Direct decision from Employee Profile by ${session.fullName}`,
-        } as any)
-        .eq("id", requestId);
+      const comment = `Direct decision from Employee Profile by ${session.fullName}`;
+      const { error } =
+        status === "approved"
+          ? await supabase.rpc("approve_leave_transactional", {
+              p_request_id: requestId,
+              p_comment: comment,
+            })
+          : await supabase.rpc("reject_leave_transactional", {
+              p_request_id: requestId,
+              p_comment: comment,
+            });
 
       if (error) throw error;
       toast.success(`Leave request ${status}`);
       queryClient.invalidateQueries({ queryKey: ["employee-drawer-leaves", employeeId] });
       queryClient.invalidateQueries({ queryKey: ["employee-drawer-balances", employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-manager-leave-approvals"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to update leave request");
     }
@@ -1276,20 +1292,48 @@ export function EmployeeProfileDrawer({
 
               {/* Leave Balances Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {leaveBalances.map((bal: any) => (
-                  <Card key={bal.id} className="p-3 bg-card">
-                    <p className="text-[11px] font-medium text-muted-foreground truncate">
-                      {bal.leave_types?.name}
-                    </p>
-                    <p className="text-lg font-bold mt-1">
-                      {bal.total_days - bal.used_days}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">left</span>
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Used: {bal.used_days}d / {bal.total_days}d
-                    </p>
-                  </Card>
-                ))}
+                {leaveBalances.map((bal: any) => {
+                  const remaining = bal.remaining ?? Number(bal.total ?? 0) - Number(bal.used ?? 0);
+                  return (
+                    <Card key={bal.id} className="p-3 bg-card">
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-muted-foreground truncate">
+                          {bal.leave_types?.name}
+                        </p>
+                        {isHrOrAdmin && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0"
+                            title="Edit leave balance"
+                            onClick={() => {
+                              setEditBalanceTarget({
+                                employeeId: bal.employee_id,
+                                employeeName: employee?.full_name,
+                                leaveTypeId: bal.leave_type_id,
+                                leaveTypeName: bal.leave_types?.name || "Leave",
+                                year: bal.year,
+                                total: Number(bal.total ?? 0),
+                                used: Number(bal.used ?? 0),
+                                carriedForward: Number(bal.carried_forward ?? 0),
+                              });
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-lg font-bold mt-1">
+                        {remaining}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">left</span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Used: {bal.used ?? 0}d / {bal.total ?? 0}d
+                      </p>
+                    </Card>
+                  );
+                })}
               </div>
 
               {/* Leave History Table */}
@@ -1331,26 +1375,41 @@ export function EmployeeProfileDrawer({
                           </Badge>
                         </td>
                         <td className="p-3 text-right">
-                          {req.status === "pending" && (
-                            <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1">
+                            {req.status === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-xs"
+                                  onClick={() => handleLeaveDecision(req.id, "approved")}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs"
+                                  onClick={() => handleLeaveDecision(req.id, "rejected")}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            {isHrOrAdmin && (
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-xs"
-                                onClick={() => handleLeaveDecision(req.id, "approved")}
+                                className="h-7 px-2 text-xs gap-1"
+                                onClick={() => {
+                                  setEditingLeaveReq(req as LeaveRequest);
+                                  setEditLeaveOpen(true);
+                                }}
                               >
-                                Approve
+                                <Edit2 className="h-3 w-3" /> Edit
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs"
-                                onClick={() => handleLeaveDecision(req.id, "rejected")}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1598,7 +1657,7 @@ export function EmployeeProfileDrawer({
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Document Title</Label>
                 <Input
-                  placeholder="e.g. Passport Copy, Offer Letter"
+                  placeholder="Enter document title"
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
                   required
@@ -1664,7 +1723,7 @@ export function EmployeeProfileDrawer({
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold">Review Period</Label>
                   <Input
-                    placeholder="e.g. Q1 2026, Annual 2025"
+                    placeholder="Enter review period"
                     value={reviewPeriod}
                     onChange={(e) => setReviewPeriod(e.target.value)}
                     required
@@ -1728,6 +1787,19 @@ export function EmployeeProfileDrawer({
           document={previewDoc}
           open={previewOpen}
           onOpenChange={setPreviewOpen}
+        />
+
+        {/* Edit Leave Request Modal (HR & Admin across all levels/statuses) */}
+        <EditLeaveRequestDialog
+          open={editLeaveOpen}
+          onOpenChange={setEditLeaveOpen}
+          request={editingLeaveReq}
+        />
+
+        {/* Edit Leave Balance Modal (HR & Admin) */}
+        <EditLeaveBalanceDialog
+          target={editBalanceTarget}
+          onOpenChange={(o) => !o && setEditBalanceTarget(null)}
         />
       </SheetContent>
     </Sheet>

@@ -26,7 +26,6 @@ import {
   Plus,
   Edit2,
   Clock,
-  Sparkles,
   DollarSign,
   ArrowRight,
 } from "lucide-react";
@@ -156,7 +155,7 @@ export function JobOpeningsManager({
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center justify-between text-xs font-semibold">
               <span>TOTAL CANDIDATES POOL</span>
-              <Sparkles className="w-4 h-4 text-emerald-500" />
+              <Users className="w-4 h-4 text-emerald-500" />
             </CardDescription>
             <CardTitle className="text-2xl font-bold text-foreground">
               {totalCandidates}

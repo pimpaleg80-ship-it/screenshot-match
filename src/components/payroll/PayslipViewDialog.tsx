@@ -143,7 +143,7 @@ export function PayslipViewDialog({
             </div>
             <div>
               <span className="text-muted-foreground block text-[11px]">Bank Name</span>
-              <span className="font-semibold text-foreground">{payslip.bank_name || "HDFC Bank"}</span>
+              <span className="font-semibold text-foreground">{payslip.bank_name || "N/A"}</span>
             </div>
             <div>
               <span className="text-muted-foreground block text-[11px]">Account Number</span>

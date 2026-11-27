@@ -19,13 +19,13 @@ import {
   Filter,
   Download,
   Shield,
-  Sparkles,
   Search,
   ExternalLink,
   Users,
   Settings,
   HelpCircle,
   Loader2,
+  Edit2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +67,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApplyLeaveDialog } from "@/components/leaves/ApplyLeaveDialog";
+import { EditLeaveRequestDialog } from "@/components/leaves/EditLeaveRequestDialog";
+import {
+  EditLeaveBalanceDialog,
+  type EditLeaveBalanceTarget,
+} from "@/components/leaves/EditLeaveBalanceDialog";
 import { LeaveApprovalsManager } from "@/components/leaves/LeaveApprovalsManager";
 import { TeamLeaveCalendarView } from "@/components/leaves/TeamLeaveCalendarView";
 import { LeavePolicyConfigManager } from "@/components/leaves/LeavePolicyConfigManager";
@@ -84,6 +89,7 @@ export const Route = createFileRoute("/_authenticated/leaves")({
 
 function LeavesPage() {
   const session = useSession();
+  const isHrOrAdmin = session.isAdmin || session.isSuperadmin;
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
@@ -93,6 +99,11 @@ function LeavesPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelingRequest, setCancelingRequest] = useState<LeaveRequest | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [editBalanceTarget, setEditBalanceTarget] = useState<EditLeaveBalanceTarget | null>(null);
+  const [selectedBalanceEmpId, setSelectedBalanceEmpId] = useState<string>("");
+  const [balanceYear, setBalanceYear] = useState<number>(currentYear);
 
   // Filter state for my leaves tab
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -195,17 +206,36 @@ function LeavesPage() {
     },
   });
 
-  // 7. Fetch Employees for Admin direct grant
+  // 7. Fetch Employees for HR/Admin direct grant & leave days adjustment
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-lookup-leave"],
-    enabled: session.isAdmin,
+    enabled: isHrOrAdmin,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
         .select("id, employee_code, full_name, department_id, departments(name)")
+        .neq("is_superadmin", true)
         .order("full_name");
       if (error) return [];
       return data ?? [];
+    },
+  });
+
+  const effectiveBalanceEmpId = selectedBalanceEmpId || employees[0]?.id || session.employeeId || "";
+  const selectedBalanceEmployee = employees.find((e) => e.id === effectiveBalanceEmpId);
+
+  // 8. Fetch Leave Balances for selected employee (HR/Admin Leave Days editor)
+  const { data: employeeBalances = [], isLoading: empBalancesLoading } = useQuery<LeaveBalance[]>({
+    queryKey: ["hr-employee-leave-balances", effectiveBalanceEmpId, balanceYear],
+    enabled: isHrOrAdmin && Boolean(effectiveBalanceEmpId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_balances")
+        .select("*, leave_types(*)")
+        .eq("employee_id", effectiveBalanceEmpId)
+        .eq("year", balanceYear);
+      if (error) return [];
+      return (data as unknown as LeaveBalance[]) ?? [];
     },
   });
 
@@ -230,16 +260,16 @@ function LeavesPage() {
 
   // Count pending approvals for badge
   const pendingApprovalsCount = useMemo(() => {
-    if (!session.isAdmin && !session.isManager) return 0;
+    if (!isHrOrAdmin && !session.isManager) return 0;
     return allRequests.filter((r) => {
       if (r.status !== "pending") return false;
-      if (session.isAdmin) return true;
+      if (isHrOrAdmin) return true;
       if (session.isManager && r.current_approval_level === "manager" && r.manager_id === session.employeeId) {
         return true;
       }
       return false;
     }).length;
-  }, [allRequests, session.isAdmin, session.isManager, session.employeeId]);
+  }, [allRequests, isHrOrAdmin, session.isManager, session.employeeId]);
 
   // Cancel Leave Mutation (using transactional PostgreSQL function)
   const cancelLeaveMutation = useMutation({
@@ -333,7 +363,7 @@ function LeavesPage() {
           </Badge>
         }
         description={
-          session.isAdmin
+          isHrOrAdmin
             ? "Organization-wide leave ledger, multi-tier approvals, policy controls, and team attendance synchronization."
             : session.isManager
             ? "Team leave inbox, hierarchy sign-offs, calendar tracking, and personal leave balances."
@@ -341,7 +371,7 @@ function LeavesPage() {
         }
         actions={
           <>
-            {session.isAdmin && (
+            {isHrOrAdmin && (
               <Button
                 variant="outline"
                 className="flex-1 sm:flex-none gap-2 text-xs h-9"
@@ -376,7 +406,7 @@ function LeavesPage() {
           </span>
           {sandwichRuleEnabled && (
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
-              <Sparkles className="h-3 w-3" /> Sandwich Rule Active
+              <Layers className="h-3 w-3" /> Sandwich Rule Active
             </span>
           )}
         </div>
@@ -415,14 +445,40 @@ function LeavesPage() {
                           {type?.is_paid ? "Paid" : "Unpaid"}
                         </span>
                       </div>
-                      <Badge
-                        variant="secondary"
-                        className={`text-[9px] px-1.5 py-0 ${
-                          bal.remaining > 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                        }`}
-                      >
-                        {bal.remaining > 0 ? `${bal.remaining}d Left` : "Exhausted"}
-                      </Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge
+                          variant="secondary"
+                          className={`text-[9px] px-1.5 py-0 ${
+                            bal.remaining > 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                          }`}
+                        >
+                          {bal.remaining > 0 ? `${bal.remaining}d Left` : "Exhausted"}
+                        </Badge>
+                        {isHrOrAdmin && session.employeeId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            aria-label={`Edit ${type?.name || "Leave"} days`}
+                            title="Edit leave days"
+                            onClick={() =>
+                              setEditBalanceTarget({
+                                employeeId: session.employeeId!,
+                                employeeName: session.fullName || "Me",
+                                leaveTypeId: bal.leave_type_id,
+                                leaveTypeName: type?.name || "Leave",
+                                year: currentYear,
+                                total: Number(bal.total ?? 0),
+                                used: Number(bal.used ?? 0),
+                                carriedForward: Number(bal.carried_forward ?? 0),
+                              })
+                            }
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-baseline justify-between pt-1">
@@ -468,8 +524,8 @@ function LeavesPage() {
                 <CalendarDays className="h-8 w-8 mx-auto text-muted-foreground/60" />
                 <p className="text-xs font-medium">No leave balances allocated for {currentYear}.</p>
                 <p className="text-[11px]">
-                  {session.isAdmin
-                    ? "Go to the 'Policies & Configuration' tab to allocate annual leave quotas for employees."
+                  {isHrOrAdmin
+                    ? "Go to the 'Policies & Setup' tab to allocate annual leave quotas for employees."
                     : "Your annual leave ledger has not been generated yet. Please contact your HR administrator."}
                 </p>
               </div>
@@ -480,11 +536,11 @@ function LeavesPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl">
+        <TabsList className="flex flex-wrap h-auto w-full max-w-3xl gap-1">
           <TabsTrigger value="my-leaves" className="text-xs">
             My Leaves ({myRequests.length})
           </TabsTrigger>
-          {(session.isManager || session.isAdmin) && (
+          {(session.isManager || isHrOrAdmin) && (
             <TabsTrigger value="approvals" className="text-xs relative">
               Approvals Queue
               {pendingApprovalsCount > 0 && (
@@ -497,7 +553,12 @@ function LeavesPage() {
           <TabsTrigger value="calendar" className="text-xs">
             Team Calendar
           </TabsTrigger>
-          {(session.isAdmin || session.isManager) && (
+          {isHrOrAdmin && (
+            <TabsTrigger value="balances" className="text-xs">
+              Employee Leave Days
+            </TabsTrigger>
+          )}
+          {(isHrOrAdmin || session.isManager) && (
             <TabsTrigger value="policies" className="text-xs">
               Policies & Setup
             </TabsTrigger>
@@ -678,24 +739,39 @@ function LeavesPage() {
 
                             {/* Actions */}
                             <td className="py-3.5 px-3.5 text-right">
-                              {canCancel ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40"
-                                  onClick={() => {
-                                    setCancelingRequest(req);
-                                    setCancelReason("");
-                                    setCancelModalOpen(true);
-                                  }}
-                                >
-                                  <Ban className="h-3 w-3 mr-1" /> Cancel
-                                </Button>
-                              ) : (
-                                <span className="text-[11px] text-muted-foreground italic">
-                                  {req.status === "cancelled" ? "Cancelled" : "Completed"}
-                                </span>
-                              )}
+                              <div className="inline-flex items-center justify-end gap-1">
+                                {isHrOrAdmin && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs px-2"
+                                    onClick={() => {
+                                      setEditingRequest(req);
+                                      setEditModalOpen(true);
+                                    }}
+                                  >
+                                    <Edit2 className="h-3 w-3 mr-1" /> Edit
+                                  </Button>
+                                )}
+                                {canCancel ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40"
+                                    onClick={() => {
+                                      setCancelingRequest(req);
+                                      setCancelReason("");
+                                      setCancelModalOpen(true);
+                                    }}
+                                  >
+                                    <Ban className="h-3 w-3 mr-1" /> Cancel
+                                  </Button>
+                                ) : !isHrOrAdmin ? (
+                                  <span className="text-[11px] text-muted-foreground italic">
+                                    {req.status === "cancelled" ? "Cancelled" : "Completed"}
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -709,13 +785,17 @@ function LeavesPage() {
         </TabsContent>
 
         {/* TAB 2: Approvals Queue */}
-        {(session.isManager || session.isAdmin) && (
+        {(session.isManager || isHrOrAdmin) && (
           <TabsContent value="approvals" className="space-y-4">
             <LeaveApprovalsManager
               currentEmployeeId={session.employeeId}
               isAdmin={session.isAdmin}
               isManager={session.isManager}
+              isHrOrAdmin={isHrOrAdmin}
               departmentId={session.departmentId}
+              holidays={holidays}
+              weeklyOffDays={weeklyOffDays}
+              sandwichRuleEnabled={sandwichRuleEnabled}
             />
           </TabsContent>
         )}
@@ -730,10 +810,161 @@ function LeavesPage() {
           />
         </TabsContent>
 
-        {/* TAB 4: Policies & Configuration */}
-        {(session.isAdmin || session.isManager) && (
+        {/* TAB 4: Employee Leave Days (HR Admin Only) */}
+        {isHrOrAdmin && (
+          <TabsContent value="balances" className="space-y-4">
+            <Card className="card-soft">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3">
+                <div>
+                  <CardTitle className="text-base font-semibold">
+                    Employee Leave Days &amp; Balance Control
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Adjust annual leave entitlements, used days, and carry-forward balances per employee.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={effectiveBalanceEmpId} onValueChange={setSelectedBalanceEmpId}>
+                    <SelectTrigger aria-label="Select employee for leave days" className="w-60 h-8 text-xs">
+                      <SelectValue placeholder="Choose employee..." />
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.full_name} ({emp.employee_code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={String(balanceYear)}
+                    onValueChange={(val) => setBalanceYear(Number(val))}
+                  >
+                    <SelectTrigger aria-label="Select leave year" className="w-24 h-8 text-xs font-mono">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      {[currentYear - 1, currentYear, currentYear + 1].map((yr) => (
+                        <SelectItem key={yr} value={String(yr)}>
+                          {yr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                {!effectiveBalanceEmpId ? (
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    Select an employee to manage their annual leave days.
+                  </p>
+                ) : empBalancesLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                    ))}
+                  </div>
+                ) : leaveTypes.length === 0 ? (
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    No active leave categories found. Configure leave categories in Policies &amp; Setup first.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[600px] text-left text-xs">
+                      <thead>
+                        <tr className="border-b bg-muted/40 uppercase tracking-wider text-[11px] text-muted-foreground">
+                          <th className="py-3 px-3.5 font-semibold">Leave Category</th>
+                          <th className="py-3 px-3.5 font-semibold">Total Days</th>
+                          <th className="py-3 px-3.5 font-semibold">Used Days</th>
+                          <th className="py-3 px-3.5 font-semibold">Carry Forward</th>
+                          <th className="py-3 px-3.5 font-semibold">Remaining</th>
+                          <th className="py-3 px-3.5 text-right font-semibold">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {leaveTypes.map((lt) => {
+                          const existing = employeeBalances.find((b) => b.leave_type_id === lt.id);
+                          const total = Number(existing?.total ?? lt.days_per_year ?? 0);
+                          const used = Number(existing?.used ?? 0);
+                          const carried = Number(existing?.carried_forward ?? 0);
+                          const remaining = Number(existing?.remaining ?? total - used);
+
+                          return (
+                            <tr key={lt.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="py-3 px-3.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: lt.color || "#4f46e5" }}
+                                  />
+                                  <span className="font-semibold text-foreground">{lt.name}</span>
+                                  {lt.code && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono">
+                                      {lt.code}
+                                    </Badge>
+                                  )}
+                                  {!existing && (
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                                      Default
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3.5 font-mono font-semibold">{total}d</td>
+                              <td className="py-3 px-3.5 font-mono text-muted-foreground">{used}d</td>
+                              <td className="py-3 px-3.5 font-mono text-muted-foreground">{carried}d</td>
+                              <td className="py-3 px-3.5">
+                                <span
+                                  className={`font-mono font-bold ${
+                                    remaining > 0
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {remaining}d
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() =>
+                                    setEditBalanceTarget({
+                                      employeeId: effectiveBalanceEmpId,
+                                      employeeName: selectedBalanceEmployee?.full_name,
+                                      leaveTypeId: lt.id,
+                                      leaveTypeName: lt.name,
+                                      year: balanceYear,
+                                      total,
+                                      used,
+                                      carriedForward: carried,
+                                    })
+                                  }
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                  Edit Days
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* TAB 5: Policies & Configuration */}
+        {(isHrOrAdmin || session.isManager) && (
           <TabsContent value="policies" className="space-y-4">
-            <LeavePolicyConfigManager organizationId={null} />
+            <LeavePolicyConfigManager organizationId={session.organizationId} />
           </TabsContent>
         )}
       </Tabs>
@@ -786,7 +1017,7 @@ function LeavesPage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Reason for Cancellation (Optional)</Label>
               <Input
-                placeholder="e.g. Plans changed / postponed"
+                placeholder="Enter cancellation reason"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 className="h-8 text-xs"
@@ -819,8 +1050,24 @@ function LeavesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Leave Dialog (HR & Admin across all levels/statuses) */}
+      <EditLeaveRequestDialog
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        request={editingRequest}
+        holidays={holidays}
+        weeklyOffDays={weeklyOffDays}
+        sandwichRuleEnabled={sandwichRuleEnabled}
+      />
+
+      {/* Edit Leave Balance Days Dialog (HR & Admin) */}
+      <EditLeaveBalanceDialog
+        target={editBalanceTarget}
+        onOpenChange={(o) => !o && setEditBalanceTarget(null)}
+      />
+
       {/* Admin Direct Grant Modal */}
-      {session.isAdmin && (
+      {isHrOrAdmin && (
         <Dialog open={adminAddModalOpen} onOpenChange={setAdminAddModalOpen}>
           <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
@@ -902,7 +1149,7 @@ function LeavesPage() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Administrative Grant Note</Label>
                 <Input
-                  placeholder="e.g. Bereavement / Special emergency granted by management"
+                  placeholder="Enter administrative reason"
                   value={grantReason}
                   onChange={(e) => setGrantReason(e.target.value)}
                   className="h-8 text-xs"

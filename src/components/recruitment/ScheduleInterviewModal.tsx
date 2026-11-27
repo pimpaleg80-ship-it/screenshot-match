@@ -58,6 +58,7 @@ export function ScheduleInterviewModal({
       const { data, error } = await supabase
         .from("employees")
         .select("id, full_name, employee_code, designation")
+        .neq("is_superadmin", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -67,8 +68,8 @@ export function ScheduleInterviewModal({
   useEffect(() => {
     if (open) {
       setRoundName(INTERVIEW_ROUND_TYPES[1] ?? "Technical Round 1");
-      if (employees.length > 0 && !interviewerId) {
-        setInterviewerId(employees[0]?.id ?? "");
+      if (employees.length > 0) {
+        setInterviewerId((prev) => prev || employees[0]?.id || "");
       }
       setMeetingLink("https://meet.google.com/new");
       setLocation("Online Video Call");
@@ -240,7 +241,7 @@ export function ScheduleInterviewModal({
             <Label htmlFor="sched-loc">Location / Room</Label>
             <Input
               id="sched-loc"
-              placeholder="e.g. Conference Room 3B or Remote"
+              placeholder="Enter meeting location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />

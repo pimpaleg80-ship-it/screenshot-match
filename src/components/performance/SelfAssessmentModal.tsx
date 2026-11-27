@@ -140,7 +140,7 @@ export function SelfAssessmentModal({
 
           {/* Growth Areas & Challenges */}
           <div className="space-y-1.5">
-            <Label htmlFor="self-growth">Areas for Growth, Learning & Challenges</Label>
+            <Label htmlFor="self-growth">Areas for Growth & Challenges</Label>
             <Textarea
               id="self-growth"
               placeholder="What skills would you like to develop? Any roadblocks or support needed from leadership?"

@@ -256,7 +256,7 @@ export function ManagerEvaluationModal({
             <Label htmlFor="mgr-dev-plan">Development Plan & Training Needs</Label>
             <Textarea
               id="mgr-dev-plan"
-              placeholder="Actionable steps, recommended LMS courses, mentoring, or new responsibilities..."
+              placeholder="Actionable steps, coaching, mentoring, or new responsibilities..."
               value={developmentPlan}
               onChange={(e) => setDevelopmentPlan(e.target.value)}
               rows={2}

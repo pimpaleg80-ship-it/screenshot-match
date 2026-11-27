@@ -206,8 +206,8 @@ export function GeofenceAttendanceCard({
                       isOffline || realtimeStatus === "offline"
                         ? "bg-rose-500"
                         : realtimeStatus === "connected"
-                          ? "bg-emerald-500 animate-pulse"
-                          : "bg-amber-500 animate-pulse"
+                          ? "bg-emerald-500"
+                          : "bg-amber-500"
                     }`}
                   />
                   {isOffline
@@ -308,7 +308,7 @@ export function GeofenceAttendanceCard({
                   ) : hasLocationIssue ? (
                     <AlertTriangle className="h-5 w-5" />
                   ) : (
-                    <Radio className="h-5 w-5 animate-pulse" />
+                    <Radio className="h-5 w-5" />
                   )}
                 </div>
 
@@ -618,7 +618,7 @@ export function GeofenceAttendanceCard({
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Reason for Exception</Label>
               <Textarea
-                placeholder="e.g. Client site visit, GPS malfunction, or off-site duty..."
+                placeholder="Enter exception reason"
                 value={regularizeReason}
                 onChange={(e) => setRegularizeReason(e.target.value)}
                 rows={4}

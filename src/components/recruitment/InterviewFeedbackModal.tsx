@@ -146,7 +146,7 @@ export function InterviewFeedbackModal({
             <Label htmlFor="fb-strengths">Key Strengths Demonstrated</Label>
             <Input
               id="fb-strengths"
-              placeholder="e.g. Clean code, deep DB indexing knowledge, articulate communication"
+              placeholder="Enter key strengths"
               value={strengths}
               onChange={(e) => setStrengths(e.target.value)}
             />
@@ -157,7 +157,7 @@ export function InterviewFeedbackModal({
             <Label htmlFor="fb-weaknesses">Areas of Concern / Gaps</Label>
             <Input
               id="fb-weaknesses"
-              placeholder="e.g. Limited cloud deployment experience, vague on concurrency"
+              placeholder="Enter areas of concern or gaps"
               value={weaknesses}
               onChange={(e) => setWeaknesses(e.target.value)}
             />

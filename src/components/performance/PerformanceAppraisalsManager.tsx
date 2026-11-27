@@ -96,6 +96,7 @@ export function PerformanceAppraisalsManager({
         .from("employees")
         .select("id, full_name, employee_code, designation, manager_id, department_id, departments(name)")
         .eq("status", "active")
+        .neq("is_superadmin", true)
         .order("full_name");
 
       if (session.isManager && !isHRorAdmin && session.employeeId) {
@@ -441,7 +442,7 @@ export function PerformanceAppraisalsManager({
               <Label htmlFor="rev-period">Review Period Label</Label>
               <Input
                 id="rev-period"
-                placeholder="e.g. FY 2026-27 Annual Review, Q1 2026"
+                placeholder="Enter review period"
                 value={reviewPeriod}
                 onChange={(e) => setReviewPeriod(e.target.value)}
               />

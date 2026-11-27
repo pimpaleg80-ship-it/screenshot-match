@@ -13,14 +13,12 @@ import {
   Users,
   Building2,
   UserPlus,
-  UserMinus,
   Clock,
   CalendarRange,
   Briefcase,
   Target,
   Receipt,
   Calculator,
-  GraduationCap,
   LifeBuoy,
   ShieldCheck,
   FileSpreadsheet,
@@ -63,10 +61,8 @@ import {
   DatePresetKey,
   getDatePresetRange,
   calculatePunctualityScore,
-  calculateTurnoverRate,
   calculateRecruitmentConversionRate,
   calculateTicketResolutionRate,
-  calculateTrainingCompletionRate,
   exportOverviewToCsv,
   exportExecutivePdfReport,
 } from "@/lib/reports";
@@ -155,27 +151,11 @@ export function ReportsHub() {
     );
   }, [overview]);
 
-  const turnoverRate = useMemo(() => {
-    if (!overview) return 0;
-    return calculateTurnoverRate(
-      overview.exits.length,
-      overview.headcount.total_employees
-    );
-  }, [overview]);
-
   const ticketResolutionRate = useMemo(() => {
     if (!overview) return 100;
     return calculateTicketResolutionRate(
       overview.tickets.resolved_tickets,
       overview.tickets.total_tickets
-    );
-  }, [overview]);
-
-  const trainingCompletionRate = useMemo(() => {
-    if (!overview) return 100;
-    return calculateTrainingCompletionRate(
-      overview.training.completed,
-      overview.training.total_enrollments
     );
   }, [overview]);
 
@@ -189,18 +169,6 @@ export function ReportsHub() {
         h.full_name.toLowerCase().includes(term) ||
         h.employee_code.toLowerCase().includes(term) ||
         (h.designation && h.designation.toLowerCase().includes(term))
-    );
-  }, [overview, employeeSearch]);
-
-  // Filtered exits by search
-  const filteredExits = useMemo(() => {
-    if (!overview) return [];
-    if (!employeeSearch.trim()) return overview.exits;
-    const term = employeeSearch.toLowerCase();
-    return overview.exits.filter(
-      (x) =>
-        x.full_name.toLowerCase().includes(term) ||
-        x.employee_code.toLowerCase().includes(term)
     );
   }, [overview, employeeSearch]);
 
@@ -240,7 +208,7 @@ export function ReportsHub() {
               variant="outline"
               className="border-primary/30 bg-primary/10 text-primary text-xs"
             >
-              17 Report Modules
+              15 Report Modules
             </Badge>
           </div>
           <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
@@ -578,7 +546,7 @@ export function ReportsHub() {
                             { name: "Active", value: overview?.headcount.active_count ?? 0 },
                             { name: "Probation", value: overview?.headcount.probation_count ?? 0 },
                             { name: "Notice Period", value: overview?.headcount.notice_count ?? 0 },
-                            { name: "Inactive / Exited", value: overview?.headcount.inactive_count ?? 0 },
+                            { name: "Inactive", value: overview?.headcount.inactive_count ?? 0 },
                           ].filter((d) => d.value > 0)}
                           cx="50%"
                           cy="50%"
@@ -608,8 +576,8 @@ export function ReportsHub() {
             </Card>
           </div>
 
-          {/* New Hires and Exits Tables */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          {/* New Hires Table */}
+          <div className="grid gap-4">
             {/* New Hires */}
             <Card>
               <CardHeader className="pb-2">
@@ -620,7 +588,7 @@ export function ReportsHub() {
                       New Employees Joined ({overview?.new_hires.length ?? 0})
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Talent onboarding completions during this period
+                      Employees joined during this period
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="text-xs">
@@ -657,65 +625,6 @@ export function ReportsHub() {
                             </td>
                             <td className="p-2.5 pr-4 text-right text-muted-foreground">
                               {formatDate(h.joining_date)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Exits & Attrition */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <UserMinus className="h-4 w-4 text-rose-500" />
-                      Employee Exits & Attrition ({overview?.exits.length ?? 0})
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Turnover rate: {turnoverRate}% across {periodLabel}
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline" className="text-xs text-rose-600 border-rose-300">
-                    {turnoverRate}% Turnover
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {!filteredExits.length ? (
-                  <p className="py-8 text-center text-xs text-muted-foreground">
-                    No exits recorded in this date range. Zero turnover.
-                  </p>
-                ) : (
-                  <div className="max-h-60 overflow-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead className="border-b bg-muted/30 text-muted-foreground font-medium">
-                        <tr>
-                          <th className="p-2.5 pl-4">Employee</th>
-                          <th className="p-2.5">Reason</th>
-                          <th className="p-2.5 pr-4 text-right">Last Working Day</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {filteredExits.map((x) => (
-                          <tr key={x.id} className="hover:bg-muted/10">
-                            <td className="p-2.5 pl-4 font-medium">
-                              <div>{x.full_name}</div>
-                              <span className="text-[10px] text-muted-foreground">
-                                {x.employee_code}
-                              </span>
-                            </td>
-                            <td className="p-2.5 text-muted-foreground">
-                              {x.reason_category || "Standard Exit"}
-                            </td>
-                            <td className="p-2.5 pr-4 text-right text-muted-foreground">
-                              {x.agreed_last_working_day
-                                ? formatDate(x.agreed_last_working_day)
-                                : "—"}
                             </td>
                           </tr>
                         ))}
@@ -1053,7 +962,7 @@ export function ReportsHub() {
 
         {/* TAB 6: OPERATIONS & SLA */}
         <TabsContent value="operations" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4">
             {/* HR Helpdesk Tickets */}
             <Card>
               <CardHeader className="pb-2">
@@ -1098,61 +1007,6 @@ export function ReportsHub() {
                   <div className="flex justify-between py-1.5">
                     <span className="text-muted-foreground">Payroll Queries:</span>
                     <span className="font-semibold">{overview?.tickets.payroll_queries ?? 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* LMS Training Completion */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-teal-500" />
-                    LMS Learning & Course Completion
-                  </CardTitle>
-                  <Badge variant="outline" className="text-xs text-teal-600 border-teal-300">
-                    {trainingCompletionRate}% Complete
-                  </Badge>
-                </div>
-                <CardDescription className="text-xs">
-                  Employee training participation and completion metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-2">
-                <div className="grid grid-cols-3 gap-2 text-xs text-center">
-                  <div className="p-2.5 rounded-lg border bg-card">
-                    <span className="text-muted-foreground block text-[11px]">Enrolled</span>
-                    <span className="text-base font-bold text-foreground">
-                      {overview?.training.enrolled ?? 0}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg border bg-card">
-                    <span className="text-muted-foreground block text-[11px]">In Progress</span>
-                    <span className="text-base font-bold text-blue-600">
-                      {overview?.training.in_progress ?? 0}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg border bg-card">
-                    <span className="text-muted-foreground block text-[11px]">Completed</span>
-                    <span className="text-base font-bold text-emerald-600">
-                      {overview?.training.completed ?? 0}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3 divide-y text-xs">
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-muted-foreground">Total Course Enrollments:</span>
-                    <span className="font-semibold">{overview?.training.total_enrollments ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-muted-foreground">Performance Review Cycles:</span>
-                    <span className="font-semibold">{overview?.performance.total_reviews ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-muted-foreground">Average Appraisal Rating:</span>
-                    <span className="font-semibold">{overview?.performance.avg_rating ?? 0} / 5.0</span>
                   </div>
                 </div>
               </CardContent>

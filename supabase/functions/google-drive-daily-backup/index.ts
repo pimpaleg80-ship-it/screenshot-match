@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireAuthorizedRequest } from "../_shared/auth.ts";
 import { decryptToken } from "../_shared/crypto.ts";
 import {
   refreshAccessToken,
@@ -18,19 +19,13 @@ function getTodayDateKey(d: Date = new Date()): string {
 }
 
 // Generate simple PDF bytes for daily attendance report
-function generateAttendancePdfText(dateStr: string, records: any[], orgName: string): Uint8Array {
-  // Simple PDF generator in pure TypeScript for Edge runtime without browser DOM
-  const lines: string[] = [];
-  lines.push(`%PDF-1.4`);
-  lines.push(`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`);
-  lines.push(`2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`);
-  lines.push(
-    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj`,
-  );
+function escapePdfLiteral(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
 
-  // Build stream content
-  let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${orgName} - Daily Attendance Report) Tj\n`;
-  textStream += `/F1 11 Tf\n0 -22 Td\n(Date: ${dateStr}   |   Generated: ${new Date().toLocaleTimeString()}) Tj\n`;
+function generateAttendancePdfText(dateStr: string, records: any[], orgName: string): Uint8Array {
+  let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${escapePdfLiteral(orgName)} - Daily Attendance Report) Tj\n`;
+  textStream += `/F1 11 Tf\n0 -22 Td\n(Date: ${escapePdfLiteral(dateStr)}   |   Generated: ${escapePdfLiteral(new Date().toLocaleTimeString())}) Tj\n`;
   textStream += `/F1 10 Tf\n0 -30 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
   textStream += `0 -18 Td\n(ID          NAME                           DEPARTMENT      CHECK-IN   CHECK-OUT   STATUS) Tj\n`;
   textStream += `0 -12 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
@@ -47,33 +42,49 @@ function generateAttendancePdfText(dateStr: string, records: any[], orgName: str
         ? new Date(r.check_in)
             .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             .padEnd(11)
-        : "—          ";
+        : "-          ";
       const outTime = r.check_out
         ? new Date(r.check_out)
             .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             .padEnd(12)
-        : "—           ";
+        : "-           ";
       const status = (r.status || "present").toUpperCase();
 
       const line = `${code} ${name} ${dept} ${inTime} ${outTime} ${status}`;
-      textStream += `0 ${yOffset} Td\n(${line.replace(/[()]/g, "")}) Tj\n`;
+      textStream += `0 ${yOffset} Td\n(${escapePdfLiteral(line)}) Tj\n`;
       yOffset = -16;
     }
   }
 
   textStream += `ET`;
 
-  const streamBytes = new TextEncoder().encode(textStream);
-  lines.push(
-    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj`,
-  );
-  lines.push(`5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`);
-  lines.push(
-    `xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000${244 + streamBytes.length + 50} 00000 n \n`,
-  );
-  lines.push(`trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${350 + streamBytes.length}\n%%EOF`);
+  const enc = new TextEncoder();
+  const streamBytes = enc.encode(textStream);
+  const objects = [
+    `1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n`,
+    `2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n`,
+    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n`,
+    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj\n`,
+    `5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n`,
+  ];
 
-  return new TextEncoder().encode(lines.join("\n"));
+  let body = `%PDF-1.4\n`;
+  const offsets: number[] = [0];
+  for (const obj of objects) {
+    offsets.push(enc.encode(body).length);
+    body += obj;
+  }
+
+  const xrefStart = enc.encode(body).length;
+  const xrefRows = offsets.map((off, idx) =>
+    idx === 0 ? `0000000000 65535 f ` : `${String(off).padStart(10, "0")} 00000 n `,
+  );
+  const pdfText =
+    body +
+    `xref\n0 ${offsets.length}\n${xrefRows.join("\n")}\n` +
+    `trailer << /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return enc.encode(pdfText);
 }
 
 serve(async (req) => {
@@ -92,6 +103,8 @@ serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const authCheck = await requireAuthorizedRequest(req, supabase, { allowCron: true, requireAdmin: true });
+  if (!authCheck.ok) return authCheck.response;
 
   try {
     // 1. Check drive connection
@@ -112,8 +125,13 @@ serve(async (req) => {
     const fileName = `attendance_${todayStr}.pdf`;
 
     // 2. Fetch org name & today's attendance
-    const [{ data: settings }, { data: records }] = await Promise.all([
-      supabase.from("settings").select("org_name").eq("id", 1).single(),
+    const [{ data: org }, { data: records }] = await Promise.all([
+      supabase
+        .from("organizations")
+        .select("name")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("attendance")
         .select("*, people!inner(*)")
@@ -121,7 +139,7 @@ serve(async (req) => {
         .order("check_in", { ascending: true }),
     ]);
 
-    const orgName = settings?.org_name || "FaceTime Attendance";
+    const orgName = org?.name || "Flowpeople Organization";
     const pdfBytes = generateAttendancePdfText(todayStr, records ?? [], orgName);
 
     // 3. Register pending backup record

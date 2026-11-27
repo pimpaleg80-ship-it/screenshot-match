@@ -6,10 +6,6 @@ import {
   getFileExtension,
   isPreviewableFile,
 } from "../lib/documents";
-import {
-  getOnboardingStatusBadge,
-  getTaskCategoryBadge,
-} from "../lib/onboarding";
 
 describe("Document Management Logic & Helpers", () => {
   it("correctly identifies documents with no expiration", () => {
@@ -100,65 +96,5 @@ describe("Document Management Logic & Helpers", () => {
 
     const fallback = getVerificationStatusBadge(null);
     expect(fallback.variant).toBe("pending");
-  });
-});
-
-describe("Employee Onboarding Logic & Helpers", () => {
-  it("returns proper badge metadata for onboarding pipeline stages", () => {
-    expect(getOnboardingStatusBadge("in_progress").variant).toBe("in_progress");
-    expect(getOnboardingStatusBadge("pending_hr_review").variant).toBe("pending_review");
-    expect(getOnboardingStatusBadge("completed").variant).toBe("completed");
-    expect(getOnboardingStatusBadge("draft").variant).toBe("draft");
-    expect(getOnboardingStatusBadge("cancelled").variant).toBe("cancelled");
-  });
-
-  it("returns proper category labels for onboarding checklist items", () => {
-    expect(getTaskCategoryBadge("document").label).toBe("Document Submission");
-    expect(getTaskCategoryBadge("bank_details").label).toBe("Bank & Tax Info");
-    expect(getTaskCategoryBadge("personal_info").label).toBe("Personal Details");
-    expect(getTaskCategoryBadge("it_setup").label).toBe("IT & System Access");
-    expect(getTaskCategoryBadge("policy_sign").label).toBe("Policy Sign-off");
-    expect(getTaskCategoryBadge("hr_verification").label).toBe("HR Verification");
-  });
-
-  it("accurately calculates onboarding progress completion percentage", () => {
-    const computeProgress = (tasks: { status: string; required?: boolean }[]) => {
-      if (tasks.length === 0) return 0;
-      const completed = tasks.filter(
-        (t) => t.status === "verified" || t.status === "completed"
-      ).length;
-      return Math.round((completed / tasks.length) * 100);
-    };
-
-    expect(computeProgress([])).toBe(0);
-
-    const halfDone = [
-      { status: "verified" },
-      { status: "completed" },
-      { status: "pending" },
-      { status: "pending" },
-    ];
-    expect(computeProgress(halfDone)).toBe(50);
-
-    const allDone = [
-      { status: "verified" },
-      { status: "completed" },
-      { status: "completed" },
-    ];
-    expect(computeProgress(allDone)).toBe(100);
-
-    const sevenOfTen = [
-      { status: "verified" },
-      { status: "verified" },
-      { status: "completed" },
-      { status: "completed" },
-      { status: "verified" },
-      { status: "completed" },
-      { status: "verified" },
-      { status: "pending" },
-      { status: "submitted" },
-      { status: "pending" },
-    ];
-    expect(computeProgress(sevenOfTen)).toBe(70);
   });
 });

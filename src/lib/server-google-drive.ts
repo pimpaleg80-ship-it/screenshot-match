@@ -74,8 +74,11 @@ async function getCredentials(env?: unknown, request?: Request) {
 }
 
 async function getEncryptionKey(secret: string): Promise<CryptoKey> {
+  if (!secret) {
+    throw new Error("Missing server encryption secret for Google Drive tokens");
+  }
   const enc = new TextEncoder();
-  const rawKey = enc.encode(secret || "face-attendance-drive-secret-fallback-key-32b");
+  const rawKey = enc.encode(secret);
   const hash = await crypto.subtle.digest("SHA-256", rawKey);
 
   return await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, [
@@ -111,13 +114,20 @@ export async function decryptToken(
   const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
   const ct = Uint8Array.from(atob(ctB64), (c) => c.charCodeAt(0));
 
-  const candidates = [
-    secret,
-    "face-attendance-drive-secret-fallback-key-32b",
-    getEnv("DRIVE_ENCRYPTION_KEY", env),
-    getEnv("SUPABASE_SERVICE_ROLE_KEY", env),
-    getEnv("SUPABASE_SECRET_KEY", env),
-  ].filter(Boolean);
+  const candidates = Array.from(
+    new Set(
+      [
+        getEnv("DRIVE_ENCRYPTION_KEY", env),
+        secret,
+        getEnv("SUPABASE_SERVICE_ROLE_KEY", env),
+        getEnv("SUPABASE_SECRET_KEY", env),
+      ].filter(Boolean),
+    ),
+  );
+
+  if (candidates.length === 0) {
+    throw new Error("Missing server encryption secret for Google Drive tokens");
+  }
 
   let lastError: unknown;
   for (const cand of candidates) {
@@ -130,7 +140,70 @@ export async function decryptToken(
     }
   }
 
-  throw lastError || new Error("Failed to decrypt token with secret key");
+  throw lastError || new Error("Failed to decrypt token with configured secret key");
+}
+
+async function authorizeDriveApiCaller(
+  request: Request,
+  env: unknown,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  options: { allowCron: boolean; requireAdmin: boolean },
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const cronSecret = getEnv("LOVABLE_CRON_SECRET", env, request);
+  const authHeader = request.headers.get("authorization") || "";
+  const headerCronSecret = request.headers.get("x-cron-secret") || "";
+
+  if (
+    options.allowCron &&
+    cronSecret &&
+    (authHeader === `Bearer ${cronSecret}` || headerCronSecret === cronSecret)
+  ) {
+    return { ok: true };
+  }
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return { ok: false, status: 401, error: "Unauthorized: Bearer token required" };
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return { ok: false, status: 401, error: "Unauthorized: Missing bearer token" };
+  }
+
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+  const userId = userData?.user?.id;
+  if (userErr || !userId) {
+    return { ok: false, status: 401, error: "Unauthorized: Invalid or expired session" };
+  }
+
+  if (!options.requireAdmin) {
+    return { ok: true };
+  }
+
+  const [{ data: emp }, { data: roleRow }, { data: memberRow }] = await Promise.all([
+    adminClient.from("employees").select("is_superadmin").eq("user_id", userId).maybeSingle(),
+    adminClient.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    adminClient
+      .from("organization_members")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
+
+  const isPrivileged =
+    Boolean(emp?.is_superadmin) ||
+    roleRow?.role === "admin" ||
+    memberRow?.role === "super_admin" ||
+    memberRow?.role === "org_admin";
+
+  if (!isPrivileged) {
+    return { ok: false, status: 403, error: "Forbidden: Administrator access required" };
+  }
+
+  return { ok: true };
 }
 
 export async function refreshAccessToken(
@@ -423,6 +496,10 @@ function getTodayDateKey(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+function escapePdfLiteral(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
 export function generateAttendancePdfText(
   dateStr: string,
   records: Array<{
@@ -433,16 +510,8 @@ export function generateAttendancePdfText(
   }>,
   orgName: string,
 ): Uint8Array {
-  const lines: string[] = [];
-  lines.push(`%PDF-1.4`);
-  lines.push(`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`);
-  lines.push(`2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`);
-  lines.push(
-    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj`,
-  );
-
-  let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${orgName} - Daily Attendance Report) Tj\n`;
-  textStream += `/F1 11 Tf\n0 -22 Td\n(Date: ${dateStr}   |   Generated: ${new Date().toLocaleTimeString()}) Tj\n`;
+  let textStream = `BT\n/F1 16 Tf\n50 740 Td\n(${escapePdfLiteral(orgName)} - Daily Attendance Report) Tj\n`;
+  textStream += `/F1 11 Tf\n0 -22 Td\n(Date: ${escapePdfLiteral(dateStr)}   |   Generated: ${escapePdfLiteral(new Date().toLocaleTimeString())}) Tj\n`;
   textStream += `/F1 10 Tf\n0 -30 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
   textStream += `0 -18 Td\n(ID          NAME                           DEPARTMENT      CHECK-IN   CHECK-OUT   STATUS) Tj\n`;
   textStream += `0 -12 Td\n(---------------------------------------------------------------------------------------) Tj\n`;
@@ -459,33 +528,49 @@ export function generateAttendancePdfText(
         ? new Date(r.check_in)
             .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             .padEnd(11)
-        : "—          ";
+        : "-          ";
       const outTime = r.check_out
         ? new Date(r.check_out)
             .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             .padEnd(12)
-        : "—           ";
+        : "-           ";
       const status = (r.status || "present").toUpperCase();
 
       const line = `${code} ${name} ${dept} ${inTime} ${outTime} ${status}`;
-      textStream += `0 ${yOffset} Td\n(${line.replace(/[()]/g, "")}) Tj\n`;
+      textStream += `0 ${yOffset} Td\n(${escapePdfLiteral(line)}) Tj\n`;
       yOffset = -16;
     }
   }
 
   textStream += `ET`;
 
-  const streamBytes = new TextEncoder().encode(textStream);
-  lines.push(
-    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj`,
-  );
-  lines.push(`5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`);
-  lines.push(
-    `xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000${244 + streamBytes.length + 50} 00000 n \n`,
-  );
-  lines.push(`trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${350 + streamBytes.length}\n%%EOF`);
+  const enc = new TextEncoder();
+  const streamBytes = enc.encode(textStream);
+  const objects = [
+    `1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n`,
+    `2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n`,
+    `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n`,
+    `4 0 obj << /Length ${streamBytes.length} >> stream\n${textStream}\nendstream\nendobj\n`,
+    `5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n`,
+  ];
 
-  return new TextEncoder().encode(lines.join("\n"));
+  let body = `%PDF-1.4\n`;
+  const offsets: number[] = [0];
+  for (const obj of objects) {
+    offsets.push(enc.encode(body).length);
+    body += obj;
+  }
+
+  const xrefStart = enc.encode(body).length;
+  const xrefRows = offsets.map((off, idx) =>
+    idx === 0 ? `0000000000 65535 f ` : `${String(off).padStart(10, "0")} 00000 n `,
+  );
+  const pdfText =
+    body +
+    `xref\n0 ${offsets.length}\n${xrefRows.join("\n")}\n` +
+    `trailer << /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return enc.encode(pdfText);
 }
 
 export async function handleGoogleDriveDailyBackup(
@@ -513,13 +598,37 @@ export async function handleGoogleDriveDailyBackup(
     }
   }
 
-  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env, request);
+  const supabaseUrl =
+    getEnv("SUPABASE_URL", env, request) ||
+    getEnv("VITE_SUPABASE_URL", env, request) ||
+    "https://mnnecoyqofhrivxufhqm.supabase.co";
+  const serviceRoleKey =
+    getEnv("SUPABASE_SERVICE_ROLE_KEY", env, request) ||
+    getEnv("SUPABASE_SECRET_KEY", env, request) ||
+    "";
+
   if (!serviceRoleKey) {
     return new Response(
       JSON.stringify({ success: false, error: "Missing server database credentials" }),
       { status: 500, headers: jsonHeaders },
     );
   }
+
+  const authCheck = await authorizeDriveApiCaller(
+    request,
+    env,
+    supabaseUrl,
+    serviceRoleKey,
+    { allowCron: true, requireAdmin: true },
+  );
+  if (!authCheck.ok) {
+    return new Response(JSON.stringify({ success: false, error: authCheck.error }), {
+      status: authCheck.status,
+      headers: jsonHeaders,
+    });
+  }
+
+  const { clientId, clientSecret } = await getCredentials(env, request);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -544,9 +653,14 @@ export async function handleGoogleDriveDailyBackup(
     const todayStr = getTodayDateKey();
     const fileName = `attendance_${todayStr}.pdf`;
 
-    // 2. Fetch org settings & today's attendance
-    const [{ data: settings }, { data: records }] = await Promise.all([
-      supabase.from("settings").select("org_name").eq("id", 1).maybeSingle(),
+    // 2. Fetch org name & today's attendance
+    const [{ data: org }, { data: records }] = await Promise.all([
+      supabase
+        .from("organizations")
+        .select("name")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("attendance")
         .select("*, people!inner(*)")
@@ -554,7 +668,7 @@ export async function handleGoogleDriveDailyBackup(
         .order("check_in", { ascending: true }),
     ]);
 
-    const orgName = settings?.org_name || "FaceTime Attendance";
+    const orgName = org?.name || "Flowpeople Organization";
     const pdfBytes = generateAttendancePdfText(todayStr, (records as any[]) ?? [], orgName);
 
     // 3. Register or reuse pending backup record
@@ -717,13 +831,37 @@ export async function handleGoogleDriveUpload(
     );
   }
 
-  const { clientId, clientSecret, supabaseUrl, serviceRoleKey } = await getCredentials(env, request);
+  const supabaseUrl =
+    getEnv("SUPABASE_URL", env, request) ||
+    getEnv("VITE_SUPABASE_URL", env, request) ||
+    "https://mnnecoyqofhrivxufhqm.supabase.co";
+  const serviceRoleKey =
+    getEnv("SUPABASE_SERVICE_ROLE_KEY", env, request) ||
+    getEnv("SUPABASE_SECRET_KEY", env, request) ||
+    "";
+
   if (!serviceRoleKey) {
     return new Response(
       JSON.stringify({ success: false, error: "Missing server database credentials" }),
       { status: 500, headers: jsonHeaders },
     );
   }
+
+  const authCheck = await authorizeDriveApiCaller(
+    request,
+    env,
+    supabaseUrl,
+    serviceRoleKey,
+    { allowCron: false, requireAdmin: false },
+  );
+  if (!authCheck.ok) {
+    return new Response(JSON.stringify({ success: false, error: authCheck.error }), {
+      status: authCheck.status,
+      headers: jsonHeaders,
+    });
+  }
+
+  const { clientId, clientSecret } = await getCredentials(env, request);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -915,9 +1053,13 @@ export async function handleGoogleDriveOAuthCallback(
   }
 
   const getRedirectUrl = (baseReturnTo: string) => {
-    return baseReturnTo.startsWith("http://") || baseReturnTo.startsWith("https://")
-      ? new URL(baseReturnTo)
-      : new URL(baseReturnTo, url.origin);
+    try {
+      const candidate = new URL(baseReturnTo, url.origin);
+      if (candidate.origin === url.origin) return candidate;
+    } catch {
+      // fall through to safe same-origin settings route
+    }
+    return new URL("/settings", url.origin);
   };
 
   if (errorParam) {

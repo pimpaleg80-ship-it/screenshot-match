@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireAuthorizedRequest } from "../_shared/auth.ts";
 
 interface NotificationPayload {
   notification_id?: string;
@@ -32,6 +33,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const authCheck = await requireAuthorizedRequest(req, supabase, { allowCron: true, requireAdmin: true });
+    if (!authCheck.ok) return authCheck.response;
 
     const body: NotificationPayload = await req.json();
     const {

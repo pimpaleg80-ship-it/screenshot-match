@@ -161,7 +161,7 @@ export function CandidateRegistrationModal({
               <Label htmlFor="cand-name">Full Name *</Label>
               <Input
                 id="cand-name"
-                placeholder="e.g. John Doe"
+                placeholder="Enter full name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -173,7 +173,7 @@ export function CandidateRegistrationModal({
               <Input
                 id="cand-email"
                 type="email"
-                placeholder="e.g. john.doe@example.com"
+                placeholder="Enter email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -187,7 +187,7 @@ export function CandidateRegistrationModal({
               <Label htmlFor="cand-phone">Phone Number</Label>
               <Input
                 id="cand-phone"
-                placeholder="+91 98765 43210"
+                placeholder="Enter phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -217,7 +217,7 @@ export function CandidateRegistrationModal({
               <Label htmlFor="cand-comp">Current Company</Label>
               <Input
                 id="cand-comp"
-                placeholder="e.g. Acme Corp"
+                placeholder="Enter current company"
                 value={currentCompany}
                 onChange={(e) => setCurrentCompany(e.target.value)}
               />
@@ -227,7 +227,7 @@ export function CandidateRegistrationModal({
               <Label htmlFor="cand-desig">Current Designation</Label>
               <Input
                 id="cand-desig"
-                placeholder="e.g. Senior Software Engineer"
+                placeholder="Enter current designation"
                 value={currentDesignation}
                 onChange={(e) => setCurrentDesignation(e.target.value)}
               />
@@ -242,7 +242,7 @@ export function CandidateRegistrationModal({
                 id="cand-exp"
                 type="number"
                 step="0.5"
-                placeholder="e.g. 4.5"
+                placeholder="Enter years of experience"
                 value={yearsOfExperience}
                 onChange={(e) => setYearsOfExperience(e.target.value)}
               />
@@ -253,7 +253,7 @@ export function CandidateRegistrationModal({
               <Input
                 id="cand-ectc"
                 type="number"
-                placeholder="e.g. 2200000"
+                placeholder="Enter expected annual CTC"
                 value={expectedSalary}
                 onChange={(e) => setExpectedSalary(e.target.value)}
               />

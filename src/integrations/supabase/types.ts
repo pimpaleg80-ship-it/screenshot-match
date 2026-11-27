@@ -65,7 +65,6 @@ export type Database = {
           bank_branch: string | null;
           bank_account_holder: string | null;
           pan_number: string | null;
-          onboarding_status: string | null;
           created_at: string;
           updated_at: string;
           work_location_id?: string | null;
@@ -108,7 +107,6 @@ export type Database = {
           bank_branch?: string | null;
           bank_account_holder?: string | null;
           pan_number?: string | null;
-          onboarding_status?: string | null;
           created_at?: string;
           updated_at?: string;
           work_location_id?: string | null;
@@ -151,7 +149,6 @@ export type Database = {
           bank_branch?: string | null;
           bank_account_holder?: string | null;
           pan_number?: string | null;
-          onboarding_status?: string | null;
           created_at?: string;
           updated_at?: string;
           work_location_id?: string | null;
@@ -822,7 +819,6 @@ export type Database = {
           notify_expense: boolean;
           notify_ticket: boolean;
           notify_document_expiry: boolean;
-          notify_onboarding: boolean;
           notify_interview: boolean;
           notify_performance: boolean;
           notify_payroll: boolean;
@@ -845,7 +841,6 @@ export type Database = {
           notify_expense?: boolean;
           notify_ticket?: boolean;
           notify_document_expiry?: boolean;
-          notify_onboarding?: boolean;
           notify_interview?: boolean;
           notify_performance?: boolean;
           notify_payroll?: boolean;
@@ -868,7 +863,6 @@ export type Database = {
           notify_expense?: boolean;
           notify_ticket?: boolean;
           notify_document_expiry?: boolean;
-          notify_onboarding?: boolean;
           notify_interview?: boolean;
           notify_performance?: boolean;
           notify_payroll?: boolean;
@@ -2269,321 +2263,6 @@ export type Database = {
           }
         ];
       };
-      lms_courses: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          title: string;
-          description: string | null;
-          category: string;
-          level: string;
-          estimated_duration_minutes: number;
-          thumbnail_url: string | null;
-          status: string;
-          passing_score_percent: number;
-          created_by: string | null;
-          created_at: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          title: string;
-          description?: string | null;
-          category?: string;
-          level?: string;
-          estimated_duration_minutes?: number;
-          thumbnail_url?: string | null;
-          status?: string;
-          passing_score_percent?: number;
-          created_by?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          title?: string;
-          description?: string | null;
-          category?: string;
-          level?: string;
-          estimated_duration_minutes?: number;
-          thumbnail_url?: string | null;
-          status?: string;
-          passing_score_percent?: number;
-          created_by?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-        Relationships: [];
-      };
-      lms_modules: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          course_id: string;
-          title: string;
-          description: string | null;
-          sequence_order: number;
-          content_type: string;
-          content_url: string | null;
-          file_path: string | null;
-          text_content: string | null;
-          duration_minutes: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          course_id: string;
-          title: string;
-          description?: string | null;
-          sequence_order?: number;
-          content_type?: string;
-          content_url?: string | null;
-          file_path?: string | null;
-          text_content?: string | null;
-          duration_minutes?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          course_id?: string;
-          title?: string;
-          description?: string | null;
-          sequence_order?: number;
-          content_type?: string;
-          content_url?: string | null;
-          file_path?: string | null;
-          text_content?: string | null;
-          duration_minutes?: number;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      lms_course_enrollments: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          course_id: string;
-          employee_id: string;
-          assigned_by: string | null;
-          due_date: string | null;
-          progress_percent: number;
-          status: string;
-          enrolled_at: string;
-          completed_at: string | null;
-          certificate_id: string | null;
-          created_at: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          course_id: string;
-          employee_id: string;
-          assigned_by?: string | null;
-          due_date?: string | null;
-          progress_percent?: number;
-          status?: string;
-          enrolled_at?: string;
-          completed_at?: string | null;
-          certificate_id?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          course_id?: string;
-          employee_id?: string;
-          assigned_by?: string | null;
-          due_date?: string | null;
-          progress_percent?: number;
-          status?: string;
-          enrolled_at?: string;
-          completed_at?: string | null;
-          certificate_id?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-        Relationships: [];
-      };
-      lms_lesson_progress: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          enrollment_id: string;
-          module_id: string;
-          employee_id: string;
-          is_completed: boolean;
-          completed_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          enrollment_id: string;
-          module_id: string;
-          employee_id: string;
-          is_completed?: boolean;
-          completed_at?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          enrollment_id?: string;
-          module_id?: string;
-          employee_id?: string;
-          is_completed?: boolean;
-          completed_at?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      lms_quizzes: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          course_id: string;
-          title: string;
-          description: string | null;
-          passing_score_percent: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          course_id: string;
-          title: string;
-          description?: string | null;
-          passing_score_percent?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          course_id?: string;
-          title?: string;
-          description?: string | null;
-          passing_score_percent?: number;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      lms_quiz_questions: {
-        Row: {
-          id: string;
-          quiz_id: string;
-          question: string;
-          options: Json;
-          correct_option_index: number;
-          explanation: string | null;
-          order_index: number;
-        };
-        Insert: {
-          id?: string;
-          quiz_id: string;
-          question: string;
-          options: Json;
-          correct_option_index: number;
-          explanation?: string | null;
-          order_index?: number;
-        };
-        Update: {
-          id?: string;
-          quiz_id?: string;
-          question?: string;
-          options?: Json;
-          correct_option_index?: number;
-          explanation?: string | null;
-          order_index?: number;
-        };
-        Relationships: [];
-      };
-      lms_quiz_attempts: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          quiz_id: string;
-          course_id: string;
-          employee_id: string;
-          enrollment_id: string | null;
-          score_percent: number;
-          passed: boolean;
-          total_questions: number;
-          correct_answers: number;
-          answers: Json | null;
-          submitted_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          quiz_id: string;
-          course_id: string;
-          employee_id: string;
-          enrollment_id?: string | null;
-          score_percent: number;
-          passed: boolean;
-          total_questions: number;
-          correct_answers: number;
-          answers?: Json | null;
-          submitted_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          quiz_id?: string;
-          course_id?: string;
-          employee_id?: string;
-          enrollment_id?: string | null;
-          score_percent?: number;
-          passed?: boolean;
-          total_questions?: number;
-          correct_answers?: number;
-          answers?: Json | null;
-          submitted_at?: string;
-        };
-        Relationships: [];
-      };
-      lms_certificates: {
-        Row: {
-          id: string;
-          organization_id: string | null;
-          certificate_code: string;
-          course_id: string;
-          employee_id: string;
-          enrollment_id: string | null;
-          issue_date: string;
-          final_score_percent: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id?: string | null;
-          certificate_code: string;
-          course_id: string;
-          employee_id: string;
-          enrollment_id?: string | null;
-          issue_date?: string;
-          final_score_percent?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string | null;
-          certificate_code?: string;
-          course_id?: string;
-          employee_id?: string;
-          enrollment_id?: string | null;
-          issue_date?: string;
-          final_score_percent?: number | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
       work_locations: {
         Row: {
           id: string;
@@ -2808,7 +2487,6 @@ export type Database = {
           name: string;
           description: string | null;
           is_system: boolean;
-          is_required_onboarding: boolean;
           created_at: string;
         };
         Insert: {
@@ -2818,7 +2496,6 @@ export type Database = {
           name: string;
           description?: string | null;
           is_system?: boolean;
-          is_required_onboarding?: boolean;
           created_at?: string;
         };
         Update: {
@@ -2828,267 +2505,9 @@ export type Database = {
           name?: string;
           description?: string | null;
           is_system?: boolean;
-          is_required_onboarding?: boolean;
           created_at?: string;
         };
         Relationships: [];
-      };
-      onboarding_templates: {
-        Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          department_id: string | null;
-          is_default: boolean;
-          is_active: boolean | null;
-          organization_id: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          department_id?: string | null;
-          is_default?: boolean;
-          is_active?: boolean | null;
-          organization_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          description?: string | null;
-          department_id?: string | null;
-          is_default?: boolean;
-          is_active?: boolean | null;
-          organization_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "onboarding_templates_department_id_fkey";
-            columns: ["department_id"];
-            isOneToOne: false;
-            referencedRelation: "departments";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
-      onboarding_checklist_items: {
-        Row: {
-          id: string;
-          template_id: string;
-          title: string;
-          description: string | null;
-          category: string;
-          required: boolean;
-          order_index: number;
-          document_category: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          template_id: string;
-          title: string;
-          description?: string | null;
-          category?: string;
-          required?: boolean;
-          order_index?: number;
-          document_category?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          template_id?: string;
-          title?: string;
-          description?: string | null;
-          category?: string;
-          required?: boolean;
-          order_index?: number;
-          document_category?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "onboarding_checklist_items_template_id_fkey";
-            columns: ["template_id"];
-            isOneToOne: false;
-            referencedRelation: "onboarding_templates";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
-      onboarding_template_tasks: {
-        Row: {
-          id: string;
-          template_id: string;
-          title: string;
-          description: string | null;
-          category: string;
-          is_required: boolean;
-          requires_document: boolean;
-          document_category_code: string | null;
-          assignee_role: string;
-          relative_due_days: number;
-          order_index: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          template_id: string;
-          title: string;
-          description?: string | null;
-          category?: string;
-          is_required?: boolean;
-          requires_document?: boolean;
-          document_category_code?: string | null;
-          assignee_role?: string;
-          relative_due_days?: number;
-          order_index?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          template_id?: string;
-          title?: string;
-          description?: string | null;
-          category?: string;
-          is_required?: boolean;
-          requires_document?: boolean;
-          document_category_code?: string | null;
-          assignee_role?: string;
-          relative_due_days?: number;
-          order_index?: number;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      employee_onboarding: {
-        Row: {
-          id: string;
-          organization_id: string;
-          employee_id: string;
-          template_id: string | null;
-          status: string;
-          progress_percentage: number;
-          target_completion_date: string | null;
-          completed_at: string | null;
-          initiated_by: string | null;
-          hr_reviewed_by: string | null;
-          hr_reviewed_at: string | null;
-          hr_notes: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          organization_id: string;
-          employee_id: string;
-          template_id?: string | null;
-          status?: string;
-          progress_percentage?: number;
-          target_completion_date?: string | null;
-          completed_at?: string | null;
-          initiated_by?: string | null;
-          hr_reviewed_by?: string | null;
-          hr_reviewed_at?: string | null;
-          hr_notes?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          organization_id?: string;
-          employee_id?: string;
-          template_id?: string | null;
-          status?: string;
-          progress_percentage?: number;
-          target_completion_date?: string | null;
-          completed_at?: string | null;
-          initiated_by?: string | null;
-          hr_reviewed_by?: string | null;
-          hr_reviewed_at?: string | null;
-          hr_notes?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      employee_onboarding_tasks: {
-        Row: {
-          id: string;
-          onboarding_id: string;
-          employee_id: string;
-          title: string;
-          description: string | null;
-          category: string;
-          required: boolean;
-          status: string;
-          document_id: string | null;
-          completed_by: string | null;
-          completed_at: string | null;
-          rejection_notes: string | null;
-          order_index: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          onboarding_id: string;
-          employee_id: string;
-          title: string;
-          description?: string | null;
-          category?: string;
-          required?: boolean;
-          status?: string;
-          document_id?: string | null;
-          completed_by?: string | null;
-          completed_at?: string | null;
-          rejection_notes?: string | null;
-          order_index?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          onboarding_id?: string;
-          employee_id?: string;
-          title?: string;
-          description?: string | null;
-          category?: string;
-          required?: boolean;
-          status?: string;
-          document_id?: string | null;
-          completed_by?: string | null;
-          completed_at?: string | null;
-          rejection_notes?: string | null;
-          order_index?: number;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "employee_onboarding_tasks_document_id_fkey";
-            columns: ["document_id"];
-            isOneToOne: false;
-            referencedRelation: "documents";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "employee_onboarding_tasks_employee_id_fkey";
-            columns: ["employee_id"];
-            isOneToOne: false;
-            referencedRelation: "employees";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "employee_onboarding_tasks_onboarding_id_fkey";
-            columns: ["onboarding_id"];
-            isOneToOne: false;
-            referencedRelation: "employee_onboarding";
-            referencedColumns: ["id"];
-          }
-        ];
       };
       face_descriptors: {
         Row: {
@@ -3395,417 +2814,6 @@ export type Database = {
         Update: {
           id?: string;
           payroll_run_id?: string;
-          organization_id?: string | null;
-          changed_by_user_id?: string | null;
-          action?: string;
-          from_status?: string | null;
-          to_status?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      employee_exits: {
-        Row: {
-          id: string;
-          employee_id: string;
-          organization_id: string | null;
-          exit_type: string;
-          resignation_date: string;
-          requested_last_working_day: string;
-          agreed_last_working_day: string;
-          notice_period_days: number;
-          notice_waiver_days: number;
-          reason_category: string;
-          employee_reason: string;
-          status: string;
-          manager_approval_status: string;
-          manager_approved_by: string | null;
-          manager_approved_at: string | null;
-          manager_notes: string | null;
-          hr_approval_status: string;
-          hr_approved_by: string | null;
-          hr_approved_at: string | null;
-          hr_notes: string | null;
-          exit_interview_status: string;
-          clearance_status: string;
-          fnf_status: string;
-          relieving_letter_issued: boolean;
-          relieving_letter_issued_at: string | null;
-          experience_letter_issued: boolean;
-          experience_letter_issued_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          employee_id: string;
-          organization_id?: string | null;
-          exit_type?: string;
-          resignation_date?: string;
-          requested_last_working_day: string;
-          agreed_last_working_day: string;
-          notice_period_days?: number;
-          notice_waiver_days?: number;
-          reason_category: string;
-          employee_reason: string;
-          status?: string;
-          manager_approval_status?: string;
-          manager_approved_by?: string | null;
-          manager_approved_at?: string | null;
-          manager_notes?: string | null;
-          hr_approval_status?: string;
-          hr_approved_by?: string | null;
-          hr_approved_at?: string | null;
-          hr_notes?: string | null;
-          exit_interview_status?: string;
-          clearance_status?: string;
-          fnf_status?: string;
-          relieving_letter_issued?: boolean;
-          relieving_letter_issued_at?: string | null;
-          experience_letter_issued?: boolean;
-          experience_letter_issued_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          employee_id?: string;
-          organization_id?: string | null;
-          exit_type?: string;
-          resignation_date?: string;
-          requested_last_working_day?: string;
-          agreed_last_working_day?: string;
-          notice_period_days?: number;
-          notice_waiver_days?: number;
-          reason_category?: string;
-          employee_reason?: string;
-          status?: string;
-          manager_approval_status?: string;
-          manager_approved_by?: string | null;
-          manager_approved_at?: string | null;
-          manager_notes?: string | null;
-          hr_approval_status?: string;
-          hr_approved_by?: string | null;
-          hr_approved_at?: string | null;
-          hr_notes?: string | null;
-          exit_interview_status?: string;
-          clearance_status?: string;
-          fnf_status?: string;
-          relieving_letter_issued?: boolean;
-          relieving_letter_issued_at?: string | null;
-          experience_letter_issued?: boolean;
-          experience_letter_issued_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_kt_tasks: {
-        Row: {
-          id: string;
-          exit_id: string;
-          organization_id: string | null;
-          title: string;
-          description: string | null;
-          assigned_to_employee_id: string | null;
-          status: string;
-          due_date: string | null;
-          completed_at: string | null;
-          sign_off_by_employee_id: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          organization_id?: string | null;
-          title: string;
-          description?: string | null;
-          assigned_to_employee_id?: string | null;
-          status?: string;
-          due_date?: string | null;
-          completed_at?: string | null;
-          sign_off_by_employee_id?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
-          organization_id?: string | null;
-          title?: string;
-          description?: string | null;
-          assigned_to_employee_id?: string | null;
-          status?: string;
-          due_date?: string | null;
-          completed_at?: string | null;
-          sign_off_by_employee_id?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_asset_returns: {
-        Row: {
-          id: string;
-          exit_id: string;
-          organization_id: string | null;
-          asset_name: string;
-          asset_type: string;
-          serial_number: string | null;
-          status: string;
-          returned_date: string | null;
-          verified_by: string | null;
-          replacement_cost: number | null;
-          condition_notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          organization_id?: string | null;
-          asset_name: string;
-          asset_type?: string;
-          serial_number?: string | null;
-          status?: string;
-          returned_date?: string | null;
-          verified_by?: string | null;
-          replacement_cost?: number | null;
-          condition_notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
-          organization_id?: string | null;
-          asset_name?: string;
-          asset_type?: string;
-          serial_number?: string | null;
-          status?: string;
-          returned_date?: string | null;
-          verified_by?: string | null;
-          replacement_cost?: number | null;
-          condition_notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_clearances: {
-        Row: {
-          id: string;
-          exit_id: string;
-          organization_id: string | null;
-          department_type: string;
-          status: string;
-          cleared_by: string | null;
-          cleared_at: string | null;
-          remarks: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          organization_id?: string | null;
-          department_type: string;
-          status?: string;
-          cleared_by?: string | null;
-          cleared_at?: string | null;
-          remarks?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
-          organization_id?: string | null;
-          department_type?: string;
-          status?: string;
-          cleared_by?: string | null;
-          cleared_at?: string | null;
-          remarks?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_interviews: {
-        Row: {
-          id: string;
-          exit_id: string;
-          organization_id: string | null;
-          conducted_by: string | null;
-          conducted_at: string;
-          culture_rating: number | null;
-          management_rating: number | null;
-          growth_rating: number | null;
-          compensation_rating: number | null;
-          work_life_rating: number | null;
-          would_recommend: boolean;
-          positive_feedback: string | null;
-          improvement_areas: string | null;
-          reason_for_leaving: string | null;
-          confidential_notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          organization_id?: string | null;
-          conducted_by?: string | null;
-          conducted_at?: string;
-          culture_rating?: number | null;
-          management_rating?: number | null;
-          growth_rating?: number | null;
-          compensation_rating?: number | null;
-          work_life_rating?: number | null;
-          would_recommend?: boolean;
-          positive_feedback?: string | null;
-          improvement_areas?: string | null;
-          reason_for_leaving?: string | null;
-          confidential_notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
-          organization_id?: string | null;
-          conducted_by?: string | null;
-          conducted_at?: string;
-          culture_rating?: number | null;
-          management_rating?: number | null;
-          growth_rating?: number | null;
-          compensation_rating?: number | null;
-          work_life_rating?: number | null;
-          would_recommend?: boolean;
-          positive_feedback?: string | null;
-          improvement_areas?: string | null;
-          reason_for_leaving?: string | null;
-          confidential_notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_fnf_settlements: {
-        Row: {
-          id: string;
-          exit_id: string;
-          employee_id: string;
-          organization_id: string | null;
-          settlement_date: string;
-          working_days_in_final_month: number;
-          payable_days_in_final_month: number;
-          basic_salary_rate: number;
-          unpaid_salary_amount: number;
-          leave_encashment_days: number;
-          leave_encashment_amount: number;
-          gratuity_amount: number;
-          bonus_incentives: number;
-          pending_expense_claims: number;
-          notice_shortfall_days: number;
-          notice_recovery_amount: number;
-          asset_deductions: number;
-          statutory_deductions: number;
-          other_deductions: number;
-          total_earnings: number;
-          total_deductions: number;
-          net_payable: number;
-          status: string;
-          approved_by: string | null;
-          approved_at: string | null;
-          settled_at: string | null;
-          payment_method: string | null;
-          payment_reference: string | null;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          employee_id: string;
-          organization_id?: string | null;
-          settlement_date?: string;
-          working_days_in_final_month?: number;
-          payable_days_in_final_month?: number;
-          basic_salary_rate?: number;
-          unpaid_salary_amount?: number;
-          leave_encashment_days?: number;
-          leave_encashment_amount?: number;
-          gratuity_amount?: number;
-          bonus_incentives?: number;
-          pending_expense_claims?: number;
-          notice_shortfall_days?: number;
-          notice_recovery_amount?: number;
-          asset_deductions?: number;
-          statutory_deductions?: number;
-          other_deductions?: number;
-          total_earnings?: number;
-          total_deductions?: number;
-          net_payable?: number;
-          status?: string;
-          approved_by?: string | null;
-          approved_at?: string | null;
-          settled_at?: string | null;
-          payment_method?: string | null;
-          payment_reference?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
-          employee_id?: string;
-          organization_id?: string | null;
-          settlement_date?: string;
-          working_days_in_final_month?: number;
-          payable_days_in_final_month?: number;
-          basic_salary_rate?: number;
-          unpaid_salary_amount?: number;
-          leave_encashment_days?: number;
-          leave_encashment_amount?: number;
-          gratuity_amount?: number;
-          bonus_incentives?: number;
-          pending_expense_claims?: number;
-          notice_shortfall_days?: number;
-          notice_recovery_amount?: number;
-          asset_deductions?: number;
-          statutory_deductions?: number;
-          other_deductions?: number;
-          total_earnings?: number;
-          total_deductions?: number;
-          net_payable?: number;
-          status?: string;
-          approved_by?: string | null;
-          approved_at?: string | null;
-          settled_at?: string | null;
-          payment_method?: string | null;
-          payment_reference?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      exit_history: {
-        Row: {
-          id: string;
-          exit_id: string;
-          organization_id: string | null;
-          changed_by_user_id: string | null;
-          action: string;
-          from_status: string | null;
-          to_status: string | null;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          exit_id: string;
-          organization_id?: string | null;
-          changed_by_user_id?: string | null;
-          action: string;
-          from_status?: string | null;
-          to_status?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          exit_id?: string;
           organization_id?: string | null;
           changed_by_user_id?: string | null;
           action?: string;
@@ -4643,34 +3651,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      submit_employee_resignation: {
-        Args: {
-          _employee_id: string;
-          _requested_lwd: string;
-          _reason_category: string;
-          _employee_reason: string;
-        };
-        Returns: Json;
-      };
-      review_employee_resignation: {
-        Args: {
-          _exit_id: string;
-          _reviewer_id: string;
-          _action: string;
-          _agreed_lwd?: string | null;
-          _notice_waiver?: number | null;
-          _notes?: string | null;
-        };
-        Returns: Json;
-      };
-      finalize_employee_exit: {
-        Args: {
-          _exit_id: string;
-          _user_id: string;
-          _notes?: string | null;
-        };
-        Returns: Json;
-      };
       create_hr_ticket: {
         Args: {
           p_subject: string;
@@ -4754,8 +3734,16 @@ export type Database = {
           p_department_id?: string | null;
           p_designation?: string | null;
           p_phone?: string | null;
+          p_organization_id?: string | null;
         };
-        Returns: string;
+        Returns: Json;
+      };
+      manage_org_user_role: {
+        Args: {
+          p_target_user_id: string;
+          p_new_role: string;
+        };
+        Returns: Json;
       };
       superadmin_set_user_role: {
         Args: {
@@ -4810,6 +3798,40 @@ export type Database = {
         Args: {
           p_request_id: string;
           p_reason?: string | null;
+        };
+        Returns: boolean;
+      };
+      edit_leave_request_transactional: {
+        Args: {
+          p_request_id: string;
+          p_leave_type_id: string;
+          p_from_date: string;
+          p_to_date: string;
+          p_days: number;
+          p_half_day?: boolean;
+          p_half_day_period?: string | null;
+          p_reason?: string | null;
+          p_status?: Database["public"]["Enums"]["leave_status"] | null;
+          p_current_approval_level?: string | null;
+          p_manager_comment?: string | null;
+          p_admin_comment?: string | null;
+        };
+        Returns: Json;
+      };
+      admin_adjust_leave_balance: {
+        Args: {
+          p_employee_id: string;
+          p_leave_type_id: string;
+          p_year: number;
+          p_total: number;
+          p_used?: number;
+          p_carried_forward?: number;
+        };
+        Returns: Json;
+      };
+      is_hr_or_admin: {
+        Args: {
+          p_org_id?: string | null;
         };
         Returns: boolean;
       };
@@ -4874,8 +3896,9 @@ export type Database = {
           p_emergency_contact_name?: string | null;
           p_emergency_contact_phone?: string | null;
           p_emergency_contact_relation?: string | null;
+          p_role?: string | null;
         };
-        Returns: string;
+        Returns: Json;
       };
       approve_attendance_correction: {
         Args: {
@@ -4919,40 +3942,11 @@ export type Database = {
         };
         Returns: boolean;
       };
-      recalculate_onboarding_progress: {
-        Args: {
-          p_onboarding_id: string;
-        };
-        Returns: number;
-      };
-      start_employee_onboarding: {
-        Args: {
-          p_employee_id: string;
-          p_template_id?: string | null;
-          p_target_date?: string | null;
-        };
-        Returns: string;
-      };
-      submit_onboarding_task: {
-        Args: {
-          p_task_id: string;
-          p_document_id?: string | null;
-          p_notes?: string | null;
-        };
-        Returns: boolean;
-      };
       verify_employee_document: {
         Args: {
           p_document_id: string;
           p_status: string;
           p_rejection_reason?: string | null;
-        };
-        Returns: boolean;
-      };
-      complete_employee_onboarding: {
-        Args: {
-          p_onboarding_id: string;
-          p_hr_notes?: string | null;
         };
         Returns: boolean;
       };
@@ -4986,7 +3980,6 @@ export type Database = {
           p_manager_id?: string | null;
           p_employment_type?: string | null;
           p_shift_id?: string | null;
-          p_start_onboarding?: boolean | null;
         };
         Returns: string;
       };
@@ -5020,29 +4013,6 @@ export type Database = {
           p_status?: string | null;
         };
         Returns: boolean;
-      };
-      complete_lesson_module: {
-        Args: {
-          p_enrollment_id: string;
-          p_module_id: string;
-        };
-        Returns: Json;
-      };
-      submit_quiz_assessment: {
-        Args: {
-          p_enrollment_id: string;
-          p_quiz_id: string;
-          p_answers: Json;
-        };
-        Returns: Json;
-      };
-      assign_course_to_employees: {
-        Args: {
-          p_course_id: string;
-          p_employee_ids: string[];
-          p_due_date?: string | null;
-        };
-        Returns: number;
       };
       has_role: {
         Args: {
