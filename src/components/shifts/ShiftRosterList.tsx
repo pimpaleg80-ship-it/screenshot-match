@@ -65,6 +65,7 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<ShiftItem | null>(null);
+  const [deletingShift, setDeletingShift] = useState<ShiftItem | null>(null);
 
   // Form fields
   const [name, setName] = useState("");
@@ -105,7 +106,8 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
       const { data } = await supabase
         .from("employees")
         .select("shift_id")
-        .eq("status", "active");
+        .eq("status", "active")
+        .neq("is_superadmin", true);
 
       const counts: Record<string, number> = {};
       (data || []).forEach((row) => {
@@ -114,6 +116,23 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
         }
       });
       return counts;
+    },
+  });
+
+  // Delete shift mutation
+  const deleteShiftMutation = useMutation({
+    mutationFn: async (shiftId: string) => {
+      const { error } = await supabase.from("shifts").delete().eq("id", shiftId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Shift deleted successfully");
+      setDeletingShift(null);
+      queryClient.invalidateQueries({ queryKey: ["shifts-list-all"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-shift-counts"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete shift");
     },
   });
 
@@ -334,6 +353,15 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeletingShift(shift)}
+                      title="Delete shift"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                     {onAssignShift && (
                       <Button
                         size="sm"
@@ -370,7 +398,7 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
               <div className="space-y-1">
                 <Label className="text-xs">Shift Name</Label>
                 <Input
-                  placeholder="e.g. Afternoon Support Shift"
+                  placeholder="Enter shift name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-8 text-xs"
@@ -380,7 +408,7 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
               <div className="space-y-1">
                 <Label className="text-xs">Shift Code</Label>
                 <Input
-                  placeholder="e.g. SH-AFT"
+                  placeholder="Enter shift code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className="h-8 text-xs font-mono"
@@ -531,6 +559,47 @@ export function ShiftRosterList({ onAssignShift }: ShiftRosterListProps) {
             >
               {saveShiftMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
               {editingShift ? "Update Shift" : "Save Shift"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingShift} onOpenChange={(open) => !open && setDeletingShift(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" />
+              Delete Shift
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Are you sure you want to delete{" "}
+              <strong>{deletingShift?.name}</strong>?{" "}
+              {(employeeShiftCounts[deletingShift?.id ?? ""] || 0) > 0 && (
+                <span className="text-destructive font-medium">
+                  {employeeShiftCounts[deletingShift?.id ?? ""]} employee(s) are currently assigned to this shift and will be unlinked.{" "}
+                </span>
+              )}
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeletingShift(null)}
+              className="text-xs h-8"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => deletingShift && deleteShiftMutation.mutate(deletingShift.id)}
+              disabled={deleteShiftMutation.isPending}
+              className="gap-1.5 text-xs h-8"
+            >
+              {deleteShiftMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+              Delete Shift
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -49,27 +49,36 @@ function AuthPage() {
 
     const redirectParam = new URLSearchParams(window.location.search).get("redirect");
 
-    // Check clearance tier
+    // Check clearance tier — wrapped defensively so a schema-cache hiccup
+    // never blocks the user from accessing their workspace.
     const userId = data.user?.id;
-    let isAdmin = false;
     let isSuper = false;
     if (userId) {
-      const [{ data: roles }, { data: emp }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase
-          .from("employees")
-          .select("is_superadmin" as any)
-          .eq("user_id", userId)
-          .maybeSingle(),
-      ]);
-      isAdmin = roles?.some((r) => r.role === "admin") ?? false;
-      isSuper = !!(emp as any)?.is_superadmin;
+      try {
+        const [{ data: emp }, { data: orgMem }] = await Promise.all([
+          supabase
+            .from("employees")
+            .select("is_superadmin" as any)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase
+            .from("organization_members")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .maybeSingle(),
+        ]);
+        isSuper = !!(emp as any)?.is_superadmin || orgMem?.role === "super_admin";
+      } catch {
+        // Schema cache may be temporarily stale — default to normal dashboard.
+        isSuper = false;
+      }
     }
 
     toast.success("Signed in successfully");
 
     if (redirectParam) {
-      if (redirectParam === "/superadmin" && !isSuper && !isAdmin) {
+      if (redirectParam === "/superadmin" && !isSuper) {
         navigate({ to: "/dashboard" });
       } else {
         navigate({ to: redirectParam as any });

@@ -38,8 +38,9 @@ export function PageHeader({
         className
       )}
     >
-      {/* Optional Breadcrumbs */}
-      {breadcrumbs && breadcrumbs.length > 0 && (
+      {/* Breadcrumbs: only shown for deep sub-pages (3+ levels).
+          Single-level page titles are always shown in AppLayout's header bar. */}
+      {breadcrumbs && breadcrumbs.length > 2 && (
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
           <Link
             to="/dashboard"
